@@ -1,8 +1,6 @@
-use crate::block::Block;
+use crate::block::{BlockRegistry, Block};
+use crate::biome::{BiomeRegistry, Biome};
 use crate::res::Registrable;
-use crate::block::registry::BlockRegistry;
-use crate::biome::registry::BiomeRegistry;
-use crate::biome::Biome;
 
 
 /// The number of blocks for each direction in sub chunks.

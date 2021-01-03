@@ -1,5 +1,5 @@
-use crate::block::registry::BlockRegistry;
-use crate::biome::registry::BiomeRegistry;
+use crate::block::BlockRegistry;
+use crate::biome::BiomeRegistry;
 use crate::version::Version;
 use crate::rand::jrand;
 use std::rc::Rc;

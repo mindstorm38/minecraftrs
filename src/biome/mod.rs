@@ -49,4 +49,5 @@ impl Biome {
 
 }
 
-pub mod registry;
+mod registry;
+pub use registry::*;

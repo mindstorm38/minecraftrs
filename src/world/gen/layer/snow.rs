@@ -1,5 +1,5 @@
 use super::{LayerData, LayerInternal, State};
-use crate::biome::registry::def::{OCEAN, PLAINS, ICE_PLAINS};
+use crate::biome::def::{OCEAN, PLAINS, ICE_PLAINS};
 
 fn add_snow(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 

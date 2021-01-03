@@ -1,5 +1,5 @@
 use super::{Layer, LayerData, LayerInternal, State};
-use crate::biome::registry::def::*;
+use crate::biome::def::*;
 
 fn biome(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal, allowed_biomes: &[u8]) {
 
@@ -10,15 +10,14 @@ fn biome(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal, a
 
             internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
 
-            let to_set = match output.get(dx, dz) {
-                State::Ocean(false) => State::Biome(OCEAN::ID),
-                State::Land(false) => State::Biome(internal.rand.choose_copy(allowed_biomes)),
-                State::Land(true) => State::Biome(ICE_PLAINS::ID),
-                State::MushroomIsland => State::Biome(MUSHROOM_ISLAND::ID),
-                state => panic!("Unexpected state for biome layer {:?}", state)
+            let to_set = match output.get(dx, dz).expect_biome() {
+                OCEAN::ID => OCEAN::ID,
+                MUSHROOM_ISLAND::ID => MUSHROOM_ISLAND::ID,
+                PLAINS::ID => internal.rand.choose_copy(allowed_biomes),
+                _ => ICE_PLAINS::ID
             };
 
-            output.set(dx, dz, to_set);
+            output.set(dx, dz, State::Biome(to_set));
 
         }
     }

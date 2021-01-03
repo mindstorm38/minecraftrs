@@ -1,5 +1,5 @@
 use super::{LayerData, LayerInternal, State};
-use crate::biome::registry::def::OCEAN;
+use crate::biome::def::OCEAN;
 
 fn river_init(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 

@@ -1,5 +1,5 @@
 use super::{LayerData, LayerInternal, State};
-use crate::biome::registry::def::{OCEAN, PLAINS, FROZEN_OCEAN, ICE_PLAINS, MUSHROOM_ISLAND};
+use crate::biome::def::{OCEAN, PLAINS, FROZEN_OCEAN, ICE_PLAINS, MUSHROOM_ISLAND};
 
 /// This layer initiate the output with State::Land or State::Ocean,
 /// real biomes are only decided on "biome layer".

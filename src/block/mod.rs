@@ -36,4 +36,5 @@ impl Block {
 
 }
 
-pub mod registry;
+mod registry;
+pub use registry::*;
