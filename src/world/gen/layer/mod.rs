@@ -9,14 +9,13 @@
 //!
 
 use std::num::Wrapping;
-use std::mem;
 
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum State {
     /// Special state for initial vec. Must not be set by any layer.
     Uninit,
-    /// Temporary biome state, used to avoid string comparison, may be replaced
+    /*/// Temporary biome state, used to avoid string comparison, may be replaced
     /// by "ocean" biome in biomes layer. The bool is used to specify frozen ones.
     ///
     /// Values in MC: `Ocean(false) = ocean(0)`, `Ocean(true) = frozen_ocean(10)`
@@ -30,7 +29,7 @@ pub enum State {
     Land(bool),
     /// Temporary biome state, must be replaced by real mushroom biome in biomes layer.
     #[deprecated]
-    MushroomIsland,
+    MushroomIsland,*/
     /// For river layers if no river.
     NoRiver,
     /// For river layers, a random value in `[2;4[` is used for final river layer.
@@ -43,11 +42,11 @@ pub enum State {
 
 impl State {
 
-    /// Return true if this is a raw ocean (not frozen), id 0 in Minecraft.
+    /*/// Return true if this is a raw ocean (not frozen), id 0 in Minecraft.
     #[deprecated]
     pub fn is_ocean(self) -> bool {
         matches!(self, State::Ocean(false))
-    }
+    }*/
 
     pub fn expect_biome(self) -> u8 {
         match self {
@@ -94,7 +93,7 @@ impl LayerData {
 
 
 /// Layer LCG pRNG
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LayerRand {
     base_seed: i64,
     world_seed: Wrapping<i64>,
@@ -168,11 +167,12 @@ impl LayerRand {
 
 
 /// Internal mutable data for layers, to be passed to the handler of `Layer`.
+#[derive(Clone)]
 pub struct LayerInternal {
     pub rand: LayerRand,
     pub parent: Option<Box<Layer>>,
     // Used for river mix with biomes, not using vec for parents, because its sizeof will
-    // be 24, but these two options are 16 byte.
+    // be 24, but these two options are 16 bytes wide.
     pub parent_aux: Option<Box<Layer>>
 }
 
@@ -180,6 +180,7 @@ pub struct LayerInternal {
 pub type LayerHandlerFn = fn(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal);
 
 /// An effective layer composed of an internal mutable data and a handler.
+#[derive(Clone)]
 pub struct Layer {
     internal: LayerInternal,
     handler: LayerHandlerFn
@@ -229,6 +230,10 @@ impl Layer {
         data
     }
 
+    pub fn expect_parent(&mut self) -> &mut Layer {
+        self.internal.expect_parent()
+    }
+
 }
 
 impl LayerInternal {
@@ -273,7 +278,7 @@ pub mod smooth;
 pub mod biome;
 
 
-fn common_layer() -> Layer {
+/*fn common_layer() -> Layer {
     let layer = Layer::new_island(1);
     let layer = Layer::new_fuzzy_zoom(2000, layer);
     let layer = Layer::new_add_island(1, layer);
@@ -286,16 +291,29 @@ fn common_layer() -> Layer {
     let layer = Layer::new_add_island(4, layer);
     let layer = Layer::new_add_mushroom_island(5, layer);
     layer
-}
+}*/
 
-pub fn test() {
+/*pub fn test() {
 
-    let mut river = Layer::new_river_init(100, common_layer());
+    let mut common = Layer::new_island(1);
+    common = Layer::new_fuzzy_zoom(2000, common);
+    common = Layer::new_add_island(1, common);
+    common = Layer::new_zoom(2001, common);
+    common = Layer::new_add_island(2, common);
+    common = Layer::new_add_snow(2, common);
+    common = Layer::new_zoom(2002, common);
+    common = Layer::new_add_island(3, common);
+    common = Layer::new_zoom(2003, common);
+    common = Layer::new_add_island(4, common);
+    common = Layer::new_add_mushroom_island(5, common);
+    let common = Rc::new(common);
+
+    let mut river = Layer::new_river_init(100, Rc::clone(&common));
     river = Layer::new_zoom_multiple(1000, river, 6);
     river = Layer::new_river(1, river);
     river = Layer::new_smooth(1000, river);
 
-    let mut biome = Layer::new_biome_1_2(200, common_layer());
+    let mut biome = Layer::new_biome_1_2(200, common);
     biome = Layer::new_zoom_multiple(1000, biome, 2);
     biome = Layer::new_hills(1000, biome);
     for i in 0..4 {
@@ -313,10 +331,8 @@ pub fn test() {
 
     let all = Layer::new_mix_biome_river(100, biome, river);
 
-    // TODO: Voronoi Zoom
-
     //let layer = Layer::new(1, island);
     //let layer = Layer::with_parent(layer);
     //let layer = Layer::with_parent(layer);
 
-}
+}*/

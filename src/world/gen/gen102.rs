@@ -7,6 +7,7 @@ use crate::rand::noise::{NoiseCube, FixedOctavesPerlinNoise};
 use crate::world::provider::{ChunkLoader, ChunkError};
 use crate::world::chunk::Chunk;
 use crate::world::WorldInfo;
+use super::layer::Layer;
 use std::cell::RefCell;
 use std::num::Wrapping;
 use std::rc::Rc;
@@ -16,6 +17,8 @@ struct ChunkGeneratorInternal {
 
     world_info: Rc<WorldInfo>,
     rand: JavaRandom,
+
+    voronoi_layer: Layer,
 
     noise_main1: FixedOctavesPerlinNoise,
     noise_main2: FixedOctavesPerlinNoise,
@@ -38,7 +41,7 @@ impl ChunkGeneratorInternal {
         let mut rand = JavaRandom::new(world_info.seed);
 
         ChunkGeneratorInternal {
-            world_info,
+            voronoi_layer: Self::new_layers(world_info.seed),
             noise_main1: FixedOctavesPerlinNoise::new(&mut rand, 16, WIDTH, HEIGHT, WIDTH),
             noise_main2: FixedOctavesPerlinNoise::new(&mut rand, 16, WIDTH, HEIGHT, WIDTH),
             noise_main3: FixedOctavesPerlinNoise::new(&mut rand, 8, WIDTH, HEIGHT, WIDTH),
@@ -46,8 +49,56 @@ impl ChunkGeneratorInternal {
             noise_main4: FixedOctavesPerlinNoise::new(&mut rand, 10, WIDTH, 1, WIDTH),
             noise_main5: FixedOctavesPerlinNoise::new(&mut rand, 16, WIDTH, 1, WIDTH),
             noise_field: NoiseCube::new(WIDTH, HEIGHT, WIDTH),
-            rand
+            rand,
+            world_info
         }
+
+    }
+
+    fn new_layers(seed: i64) -> Layer {
+
+        // Common layers
+        let mut common = Layer::new_island(1);
+        common = Layer::new_fuzzy_zoom(2000, common);
+        common = Layer::new_add_island(1, common);
+        common = Layer::new_zoom(2001, common);
+        common = Layer::new_add_island(2, common);
+        common = Layer::new_add_snow(2, common);
+        common = Layer::new_zoom(2002, common);
+        common = Layer::new_add_island(3, common);
+        common = Layer::new_zoom(2003, common);
+        common = Layer::new_add_island(4, common);
+        common = Layer::new_add_mushroom_island(5, common);
+
+        // River layers
+        let mut river = Layer::new_river_init(100, common.clone()); // Cloning all the common hierarchy
+        river = Layer::new_zoom_multiple(1000, river, 6);
+        river = Layer::new_river(1, river);
+        river = Layer::new_smooth(1000, river);
+
+        // Definitive biomes layers
+        let mut biome = Layer::new_biome_1_2(200, common);
+        biome = Layer::new_zoom_multiple(1000, biome, 2);
+        biome = Layer::new_hills(1000, biome);
+        for i in 0..4 {
+            biome = Layer::new_zoom(1000 + i, biome);
+            match i {
+                0 => biome = Layer::new_add_island(3, biome),
+                1 => {
+                    biome = Layer::new_shore(1000, biome);
+                    biome = Layer::new_biome_rivers(1000, biome);
+                },
+                _ => {}
+            }
+        }
+        biome = Layer::new_smooth(1000, biome);
+
+        let mut mixed = Layer::new_mix_biome_river(100, biome, river);
+        mixed.init_world_seed(seed);
+
+        // TODO: Missing Voronoi Zoom
+
+        mixed
 
     }
 

@@ -1,5 +1,4 @@
 use super::{LayerData, LayerInternal, State, LayerRand, Layer};
-use std::mem;
 
 fn choose_weird(rand: &mut LayerRand, states: [State; 4]) -> State {
 

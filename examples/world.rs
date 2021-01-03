@@ -2,6 +2,8 @@ use minecraftrs::version::Version;
 use minecraftrs::world::World;
 use minecraftrs::world::gen::layer::{State, Layer};
 use std::mem::size_of;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 fn main() {
 
@@ -12,7 +14,9 @@ fn main() {
     println!("Layer sizeof: {}", size_of::<Layer>());
     println!("World seed: {}", world.get_info().seed);
 
-    println!("Vec size: {}", size_of::<Vec<Box<Layer>>>());
-    println!("Two options size: {}", size_of::<Option<Box<Layer>>>() << 1);
+    println!("Vec of box size: {}", size_of::<Vec<Box<Layer>>>());
+    println!("Two options of box size: {}", size_of::<Option<Box<Layer>>>() << 1);
+    println!("Two options of rc size: {}", size_of::<Option<Rc<Layer>>>() << 1);
+    println!("Two options of rc+refcell size: {}", size_of::<Option<Rc<RefCell<Layer>>>>() << 1);
 
 }
