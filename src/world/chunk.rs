@@ -34,6 +34,10 @@ impl Chunk {
         }
     }
 
+    pub fn get_position(&self) -> (i32, i32) {
+        (self.cx, self.cz)
+    }
+
     pub fn get_sub_chunk(&self, cy: usize) -> &SubChunk {
         &self.sub_chunks[cy]
     }
@@ -42,13 +46,17 @@ impl Chunk {
         &mut self.sub_chunks[cy]
     }
 
+    pub fn get_sub_chunks(&self) -> &Vec<SubChunk> {
+        &self.sub_chunks
+    }
+
 }
 
 
 /// A sub chunk, 16x16x16
 pub struct SubChunk {
-    blocks: Vec<u16>,
-    biomes: Vec<u8>
+    pub blocks: Vec<u16>,
+    pub biomes: Vec<u8>
 }
 
 impl SubChunk {
@@ -60,8 +68,12 @@ impl SubChunk {
         }
     }
 
+    pub fn get_block_raw(&self, x: usize, y: usize, z: usize) -> u16 {
+        self.blocks[calc_data_index(x, y, z)]
+    }
+
     pub fn get_block<'a>(&self, x: usize, y: usize, z: usize, reg: &'a BlockRegistry) -> Option<&'a Block> {
-        reg.get_from_id(self.blocks[calc_data_index(x, y, z)])
+        reg.get_from_id(self.get_block_raw(x, y, z))
     }
 
     pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: Option<&Block>) {

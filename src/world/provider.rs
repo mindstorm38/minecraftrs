@@ -50,4 +50,8 @@ impl ChunkCacher {
         }
     }
 
+    pub fn get_chunks(&self) -> &HashMap<u64, Chunk> {
+        &self.chunks
+    }
+
 }

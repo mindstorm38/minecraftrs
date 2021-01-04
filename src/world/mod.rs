@@ -10,6 +10,7 @@ pub mod gen;
 
 use provider::{ChunkCacher, ChunkError};
 use chunk::Chunk;
+use std::collections::HashMap;
 
 
 /// World info are used to be shared with the chunk loader.
@@ -57,6 +58,10 @@ impl World {
         &self.info
     }
 
+    pub fn get_chunks(&self) -> &HashMap<u64, Chunk> {
+        self.chunk_cacher.get_chunks()
+    }
+
     #[inline]
     pub fn get_chunk_at(&mut self, cx: i32, cz: i32) -> Result<&mut Chunk, ChunkError> {
         self.chunk_cacher.provide_chunk(cx, cz)
@@ -65,6 +70,12 @@ impl World {
     #[inline]
     pub fn get_chunk_at_block(&mut self, x: i32, z: i32) -> Result<&mut Chunk, ChunkError> {
         self.get_chunk_at(x >> 4, z >> 4)
+    }
+
+    pub fn get_block_raw_at(&mut self, x: i32, y: i32, z: i32) -> u16 {
+        self.get_chunk_at_block(x, z).unwrap()
+            .get_sub_chunk((y >> 4) as usize)
+            .get_block_raw((x & 15) as usize, (y & 15) as usize, (z & 15) as usize)
     }
 
 }
