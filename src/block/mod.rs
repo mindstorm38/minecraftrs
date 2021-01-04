@@ -1,6 +1,9 @@
 use crate::res::Registrable;
+use std::fmt::{Display, Formatter, Result as FmtResult, Debug};
+
 
 /// A basic block.
+#[derive(Debug)]
 pub struct Block {
     name: &'static str,
     id: u16,
@@ -11,6 +14,12 @@ pub struct Block {
 impl Registrable<u16> for Block {
     fn get_name(&self) -> &'static str { self.name }
     fn get_id(&self) -> u16 { self.id }
+}
+
+impl Display for Block {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_fmt(format_args!("{}/{}", self.id, self.name))
+    }
 }
 
 impl Block {

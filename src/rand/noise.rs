@@ -102,7 +102,7 @@ impl PerlinNoise {
         let scale_inverted = 1.0 / scale;
         let mut last_y_permutation = -1;
 
-        let mut cube_index = 0;
+        //let mut cube_index = 0;
         let (mut p1, mut p2, mut p3, mut p4) = (0.0, 0.0, 0.0, 0.0);
 
         for cx in 0..cube.x_size {
@@ -147,8 +147,9 @@ impl PerlinNoise {
                     let p6 = lerp(y_lerpf, p3, p4);
                     let p7 = lerp(z_lerpf, p5, p6);
 
-                    cube.data[cube_index] += p7 * scale_inverted;
-                    cube_index += 1;
+                    //cube.data[cube_index] += p7 * scale_inverted;
+                    cube.add(cx, cy, cz, p7 * scale_inverted);
+                    //cube_index += 1;
 
                 }
             }
@@ -163,8 +164,7 @@ impl PerlinNoise {
 ///
 /// Valid for: 1.2.5
 pub struct OctavesPerlinNoise {
-    generators: Vec<PerlinNoise>,
-    octaves: usize
+    generators: Vec<PerlinNoise>
 }
 
 impl OctavesPerlinNoise {
@@ -172,16 +172,16 @@ impl OctavesPerlinNoise {
     pub fn new(rand: &mut JavaRandom, octaves: usize) -> Self {
         assert!(octaves > 0);
         OctavesPerlinNoise {
-            generators: (0..octaves).map(|_| PerlinNoise::new(rand)).collect(),
-            octaves
+            generators: (0..octaves).map(|_| PerlinNoise::new(rand)).collect()
         }
     }
 
     pub fn generate(&self, cube: &mut NoiseCube, x: i32, y: i32, z: i32, x_scale: f64, y_scale: f64, z_scale: f64) {
 
+        // println!("Generating octaves perlin noise at {}/{}/{} scales: {}/{}/{}", x, y, z, x_scale, y_scale, z_scale);
         cube.reset(0.0);
 
-        let mut scale = 0.0;
+        let mut scale = 1.0;
 
         for generator in &self.generators {
 
@@ -194,8 +194,8 @@ impl OctavesPerlinNoise {
 
             rx -= rx_floor as f64;
             rz -= rz_floor as f64;
-            rx += rx_floor.rem_euclid(0x1000000) as f64;
-            rz += rz_floor.rem_euclid(0x1000000) as f64;
+            rx += (rx_floor % 0x1000000) as f64;
+            rz += (rz_floor % 0x1000000) as f64;
 
             generator.generate(cube, rx, ry, rz, x_scale * scale, y_scale * scale, z_scale * scale, scale);
             scale /= 2.0;

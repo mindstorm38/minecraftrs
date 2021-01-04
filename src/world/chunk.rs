@@ -26,10 +26,10 @@ pub struct Chunk {
 
 impl Chunk {
 
-    pub fn new(sub_chunks_count: u8) -> Self {
+    pub fn new(cx: i32, cz: i32, sub_chunks_count: u8) -> Self {
         Chunk {
-            cx: 0,
-            cz: 0,
+            cx,
+            cz,
             sub_chunks: (0..sub_chunks_count).map(|_| SubChunk::new()).collect()
         }
     }

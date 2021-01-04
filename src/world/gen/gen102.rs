@@ -105,8 +105,8 @@ impl ChunkGeneratorInternal {
     /// Entry point.
     fn generate_chunk(&mut self, cx: i32, cz: i32) -> Result<Chunk, ChunkError> {
 
-        const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);
-        const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
+        //const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);
+        //const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
 
         let chunk = self.generate_terrain(cx, cz);
 
@@ -133,7 +133,7 @@ impl ChunkGeneratorInternal {
         self.initialize_noise_field(cx, cz);
 
         // Initializing the chunk with 8 sub-chunks.
-        let mut chunk = Chunk::new(8);
+        let mut chunk = Chunk::new(cx, cz, 8);
 
         let stone_block = self.world_info.block_registry.0.get_from_name("stone")
             .expect("Block 'stone' must be available in blocks registry for terrain generation.");
@@ -157,6 +157,8 @@ impl ChunkGeneratorInternal {
                     let mut n_1y0 = self.noise_field.get(dx + 1, dy + 0, dz + 0);
                     let mut n_1y1 = self.noise_field.get(dx + 1, dy + 0, dz + 1);
 
+                    // println!("[{}/{}/{}] n_0y0={}, n_0y1={}, n_1y0={}, n_1y1={}", dx, dy, dz, n_0y0, n_0y1, n_1y0, n_1y1);
+
                     // Mul by 0.125 because it equals 1/8, 8 is the number of blocks in the half sub chunk.
                     let ns_010 = (self.noise_field.get(dx + 0, dy + 1, dz + 0) - n_0y0) * 0.125;
                     let ns_011 = (self.noise_field.get(dx + 0, dy + 1, dz + 1) - n_0y1) * 0.125;
@@ -164,7 +166,7 @@ impl ChunkGeneratorInternal {
                     let ns_111 = (self.noise_field.get(dx + 1, dy + 1, dz + 1) - n_1y1) * 0.125;
 
                     // Get the current sub-chunk.
-                    let mut sub_chunk = chunk.get_sub_chunk_mut(dy >> 1);
+                    let sub_chunk = chunk.get_sub_chunk_mut(dy >> 1);
 
                     // Iterating over the 8 blocks in the half sub-chunk.
                     for half_sub_chunk_dy in 0..8 {
@@ -201,6 +203,8 @@ impl ChunkGeneratorInternal {
                                     None
                                 };
 
+                                // println!("[{:02}/{:02}/{:02}] noise: {}, block: {:?}", block_x, block_real_y, block_z, n_xyz, block_to_set);
+
                                 n_xyz += ns_xy1;
                                 sub_chunk.set_block(block_x, block_y, block_z, block_to_set);
 
@@ -235,10 +239,7 @@ impl ChunkGeneratorInternal {
         // Terrain biomes don't expect to be "voronoi-ed"
         let biome_layer = self.voronoi_layer.expect_parent();
         let biome_layer_data = biome_layer.generate(cx * 4 - 2, cz * 4 - 2, 10, 10);
-        biome_layer_data.debug();
         let biome_rect = build_biome_rect(biome_layer_data, &self.world_info.biome_registry);
-
-
 
         const WIDTH_SCALE: f64 = 684.41200000000003;
         const HEIGHT_SCALE: f64 = 684.41200000000003;
@@ -329,9 +330,10 @@ impl ChunkGeneratorInternal {
 
                     if dy > self.noise_field.y_size - 4 {
                         let e = (dy - (self.noise_field.y_size - 4)) as f64 / 3.0;
-                        c *= (1.0 - e) + (e * -10.0);
+                        c = c * (1.0 - e) + (e * -10.0);
                     }
 
+                    // println!("Noise field {}/{}/{} = {}", dx, dy, dz, c);
                     self.noise_field.set(dx, dy, dz, c);
 
                 }

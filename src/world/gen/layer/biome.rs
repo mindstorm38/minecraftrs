@@ -135,7 +135,7 @@ fn biome_rivers(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInte
             if biome == SWAMPLAND::ID && internal.rand.next_int(6) == 0 {
                 biome = RIVER::ID;
             } else if (biome == JUNGLE::ID || biome == JUNGLE_HILLS::ID) && internal.rand.next_int(8) == 0 {
-                biome == RIVER::ID;
+                biome = RIVER::ID;
             }
 
             output.set(dx, dz, State::Biome(biome));

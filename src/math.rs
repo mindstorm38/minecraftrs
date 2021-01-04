@@ -1,3 +1,4 @@
+use std::ops::{Add, AddAssign};
 
 #[inline]
 pub fn lerp(factor: f64, from: f64, to: f64) -> f64 {
@@ -104,6 +105,14 @@ impl<T> Cube<T> {
     pub fn set(&mut self, x: usize, y: usize, z: usize, value: T) {
         let idx = self.get_index(x, y, z);
         self.data[idx] = value;
+    }
+
+    #[inline]
+    pub fn add(&mut self, x: usize, y: usize, z: usize, value: T)
+        where T: AddAssign
+    {
+        let idx = self.get_index(x, y, z);
+        self.data[idx] += value;
     }
 
     #[inline]

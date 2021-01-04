@@ -20,7 +20,8 @@ fn main() {
 
     println!("World seed: {}", world.get_info().seed);
 
-    world.get_chunk_at(0, 0).unwrap(); //.get_sub_chunk_mut(4).blocks[0] = 1;
+    world.get_chunk_at(0, 0).unwrap();
+    world.get_chunk_at(1, 0).unwrap();
 
     let file = File::create("world.obj").unwrap();
     render_world_to_obj(file, &world).unwrap();
@@ -37,6 +38,7 @@ fn render_world_to_obj(mut file: File, world: &World) -> IoResult<()> {
 
     for chunk in world.get_chunks().values() {
         let (cx, cz) = chunk.get_position();
+        println!("Rendering chunk at {}/{}", cx, cz);
         for (cy, sub_chunk) in chunk.get_sub_chunks().iter().enumerate() {
 
             for x in 0..16 {
@@ -52,20 +54,20 @@ fn render_world_to_obj(mut file: File, world: &World) -> IoResult<()> {
                             let bz = cz * 16 + z as i32;
 
                             if x == 0 || sub_chunk.get_block_raw(x - 1, y, z) != block {
-                                file.write_fmt(format_args!("v {} {} {}\n", bx, by + 0, bz + 0));
-                                file.write_fmt(format_args!("v {} {} {}\n", bx, by + 0, bz + 1));
-                                file.write_fmt(format_args!("v {} {} {}\n", bx, by + 1, bz + 1));
-                                file.write_fmt(format_args!("v {} {} {}\n", bx, by + 1, bz + 0));
+                                file.write_fmt(format_args!("v {} {} {}\n", bx, by + 0, bz + 0))?;
+                                file.write_fmt(format_args!("v {} {} {}\n", bx, by + 0, bz + 1))?;
+                                file.write_fmt(format_args!("v {} {} {}\n", bx, by + 1, bz + 1))?;
+                                file.write_fmt(format_args!("v {} {} {}\n", bx, by + 1, bz + 0))?;
                                 faces.push((index + 0, index + 1, index + 2));
                                 faces.push((index + 0, index + 2, index + 3));
                                 index += 4;
                             }
 
                             if y + 1 == 16 || sub_chunk.get_block_raw(x, y + 1, z) != block {
-                                file.write_fmt(format_args!("v {} {} {}\n", bx + 0, by + 1, bz + 0));
-                                file.write_fmt(format_args!("v {} {} {}\n", bx + 0, by + 1, bz + 1));
-                                file.write_fmt(format_args!("v {} {} {}\n", bx + 1, by + 1, bz + 1));
-                                file.write_fmt(format_args!("v {} {} {}\n", bx + 1, by + 1, bz + 0));
+                                file.write_fmt(format_args!("v {} {} {}\n", bx + 0, by + 1, bz + 0))?;
+                                file.write_fmt(format_args!("v {} {} {}\n", bx + 0, by + 1, bz + 1))?;
+                                file.write_fmt(format_args!("v {} {} {}\n", bx + 1, by + 1, bz + 1))?;
+                                file.write_fmt(format_args!("v {} {} {}\n", bx + 1, by + 1, bz + 0))?;
                                 faces.push((index + 0, index + 1, index + 2));
                                 faces.push((index + 0, index + 2, index + 3));
                                 index += 4;
@@ -80,10 +82,10 @@ fn render_world_to_obj(mut file: File, world: &World) -> IoResult<()> {
         }
     }
 
-    file.write_all(b"\n");
+    file.write_all(b"\n")?;
 
     for face in faces {
-        file.write_fmt(format_args!("f {} {} {}\n", face.0, face.1, face.2));
+        file.write_fmt(format_args!("f {} {} {}\n", face.0, face.1, face.2))?;
     }
 
     Ok(())
