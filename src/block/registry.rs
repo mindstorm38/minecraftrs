@@ -16,6 +16,7 @@ impl From<Version> for BlockRegistry {
 
         let mut reg = Registry::new();
 
+        reg.register(Block::new("air", 0));
         reg.register(Block::new("stone", 1).set_hardness(1.5).set_resistance(10.0));
         reg.register(Block::new("grass", 2).set_hardness(0.6));
         reg.register(Block::new("dirt", 3).set_hardness(0.5));

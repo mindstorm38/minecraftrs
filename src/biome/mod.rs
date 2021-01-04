@@ -31,6 +31,14 @@ impl Biome {
         self
     }
 
+    pub fn get_min_height(&self) -> f32 {
+        self.height_range.0
+    }
+
+    pub fn get_max_height(&self) -> f32 {
+        self.height_range.1
+    }
+
     pub fn set_temp(mut self, temp: f32) -> Self {
         self.temperature = temp;
         self

@@ -8,6 +8,8 @@
 //! [`LayerSummary.pdf`]: https://github.com/Cubitect/cubiomes/blob/master/LayerSummary.pdf
 //!
 
+use crate::math::Rect;
+use crate::biome::{Biome, BiomeRegistry};
 use std::num::Wrapping;
 
 
@@ -15,21 +17,6 @@ use std::num::Wrapping;
 pub enum State {
     /// Special state for initial vec. Must not be set by any layer.
     Uninit,
-    /*/// Temporary biome state, used to avoid string comparison, may be replaced
-    /// by "ocean" biome in biomes layer. The bool is used to specify frozen ones.
-    ///
-    /// Values in MC: `Ocean(false) = ocean(0)`, `Ocean(true) = frozen_ocean(10)`
-    #[deprecated]
-    Ocean(bool),
-    /// Temporary biome state, must be replaced by real biomes in biomes layer,
-    /// The bool is used to specify frozen ones.
-    ///
-    /// Values in MC: `Land(false) = plains(1)`, `Land(true) = ice_plains(12)`
-    #[deprecated]
-    Land(bool),
-    /// Temporary biome state, must be replaced by real mushroom biome in biomes layer.
-    #[deprecated]
-    MushroomIsland,*/
     /// For river layers if no river.
     NoRiver,
     /// For river layers, a random value in `[2;4[` is used for final river layer.
@@ -41,53 +28,36 @@ pub enum State {
 }
 
 impl State {
-
-    /*/// Return true if this is a raw ocean (not frozen), id 0 in Minecraft.
-    #[deprecated]
-    pub fn is_ocean(self) -> bool {
-        matches!(self, State::Ocean(false))
-    }*/
-
     pub fn expect_biome(self) -> u8 {
         match self {
             State::Biome(biome) => biome,
             _ => panic!("State {:?} must be a biome.", self)
         }
     }
-
 }
 
 
-pub struct LayerData {
-    pub data: Vec<State>,
-    pub x_size: usize,
-    pub z_size: usize
-}
+pub type LayerData = Rect<State>;
+pub type BiomeRect<'a> = Rect<&'a Biome>;
 
-impl LayerData {
 
-    pub fn new(x_size: usize, z_size: usize) -> LayerData {
-        LayerData {
-            data: vec![State::Uninit; x_size * z_size],
-            x_size,
-            z_size
+pub fn build_biome_rect(input: LayerData, registry: &BiomeRegistry) -> BiomeRect {
+
+    let mut output = BiomeRect::new_empty();
+
+    output.x_size = input.x_size;
+    output.z_size = input.z_size;
+
+    for state in input.data {
+        let biome = state.expect_biome();
+        if let Some(t) = registry.get_from_id(biome) {
+            output.data.push(t);
+        } else {
+            panic!("Failed to find a biome for the id {} in the registry.", biome);
         }
     }
 
-    #[inline]
-    pub fn set(&mut self, x: usize, z: usize, value: State) {
-        self.data.insert(x + z * self.x_size, value);
-    }
-
-    #[inline]
-    pub fn get(&self, x: usize, z: usize) -> State {
-        self.data[x + z * self.x_size]
-    }
-
-    #[inline]
-    pub fn get_mut(&mut self, x: usize, z: usize) -> &mut State {
-        &mut self.data[x + z * self.x_size]
-    }
+    output
 
 }
 
@@ -107,7 +77,6 @@ impl LayerRand {
         *seed += Wrapping(to_add);
     }
 
-    #[inline]
     pub fn new(base_seed: i64) -> LayerRand {
         LayerRand {
             base_seed: {
@@ -225,7 +194,7 @@ impl Layer {
     }
 
     pub fn generate(&mut self, x: i32, z: i32, x_size: usize, z_size: usize) -> LayerData {
-        let mut data = LayerData::new(x_size, z_size);
+        let mut data = LayerData::new(x_size, z_size, State::Uninit);
         self.inner_generate(x, z, &mut data);
         data
     }
@@ -276,63 +245,4 @@ pub mod snow;
 pub mod river;
 pub mod smooth;
 pub mod biome;
-
-
-/*fn common_layer() -> Layer {
-    let layer = Layer::new_island(1);
-    let layer = Layer::new_fuzzy_zoom(2000, layer);
-    let layer = Layer::new_add_island(1, layer);
-    let layer = Layer::new_zoom(2001, layer);
-    let layer = Layer::new_add_island(2, layer);
-    let layer = Layer::new_add_snow(2, layer);
-    let layer = Layer::new_zoom(2002, layer);
-    let layer = Layer::new_add_island(3, layer);
-    let layer = Layer::new_zoom(2003, layer);
-    let layer = Layer::new_add_island(4, layer);
-    let layer = Layer::new_add_mushroom_island(5, layer);
-    layer
-}*/
-
-/*pub fn test() {
-
-    let mut common = Layer::new_island(1);
-    common = Layer::new_fuzzy_zoom(2000, common);
-    common = Layer::new_add_island(1, common);
-    common = Layer::new_zoom(2001, common);
-    common = Layer::new_add_island(2, common);
-    common = Layer::new_add_snow(2, common);
-    common = Layer::new_zoom(2002, common);
-    common = Layer::new_add_island(3, common);
-    common = Layer::new_zoom(2003, common);
-    common = Layer::new_add_island(4, common);
-    common = Layer::new_add_mushroom_island(5, common);
-    let common = Rc::new(common);
-
-    let mut river = Layer::new_river_init(100, Rc::clone(&common));
-    river = Layer::new_zoom_multiple(1000, river, 6);
-    river = Layer::new_river(1, river);
-    river = Layer::new_smooth(1000, river);
-
-    let mut biome = Layer::new_biome_1_2(200, common);
-    biome = Layer::new_zoom_multiple(1000, biome, 2);
-    biome = Layer::new_hills(1000, biome);
-    for i in 0..4 {
-        biome = Layer::new_zoom(1000 + i, biome);
-        match i {
-            0 => biome = Layer::new_add_island(3, biome),
-            1 => {
-                biome = Layer::new_shore(1000, biome);
-                biome = Layer::new_biome_rivers(1000, biome);
-            },
-            _ => {}
-        }
-    }
-    biome = Layer::new_smooth(1000, biome);
-
-    let all = Layer::new_mix_biome_river(100, biome, river);
-
-    //let layer = Layer::new(1, island);
-    //let layer = Layer::with_parent(layer);
-    //let layer = Layer::with_parent(layer);
-
-}*/
+pub mod voronoi;

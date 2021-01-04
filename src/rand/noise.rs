@@ -1,9 +1,9 @@
 use crate::rand::jrand::JavaRandom;
-use crate::math::lerp;
+use crate::math::{lerp, Cube};
 use std::cell::RefCell;
 
 
-/// A noise cube (3D) represented in a flat vector, the vector length
+/*/// A noise cube (3D) represented in a flat vector, the vector length
 /// is the product of all coordinates sizes.
 pub struct NoiseCube {
     pub data: Vec<f64>,
@@ -29,7 +29,10 @@ impl NoiseCube {
         }
     }
 
-}
+}*/
+
+
+pub type NoiseCube = Cube<f64>;
 
 
 fn grad(value: u16, x: f64, y: f64, z: f64) -> f64 {
@@ -168,10 +171,6 @@ impl OctavesPerlinNoise {
 
     pub fn new(rand: &mut JavaRandom, octaves: usize) -> Self {
         assert!(octaves > 0);
-        /*let mut generators = Vec::new();
-        for _ in 0..octaves {
-            generators.push(PerlinNoise::new(rand));
-        }*/
         OctavesPerlinNoise {
             generators: (0..octaves).map(|_| PerlinNoise::new(rand)).collect(),
             octaves
@@ -180,7 +179,7 @@ impl OctavesPerlinNoise {
 
     pub fn generate(&self, cube: &mut NoiseCube, x: i32, y: i32, z: i32, x_scale: f64, y_scale: f64, z_scale: f64) {
 
-        cube.reset();
+        cube.reset(0.0);
 
         let mut scale = 0.0;
 
@@ -215,13 +214,18 @@ impl FixedOctavesPerlinNoise {
     pub fn new(rand: &mut JavaRandom, octaves: usize, x_size: usize, y_size: usize, z_size: usize) -> Self {
         FixedOctavesPerlinNoise(
             OctavesPerlinNoise::new(rand, octaves),
-            RefCell::new(NoiseCube::new(x_size, y_size, z_size))
+            RefCell::new(NoiseCube::new_default(x_size, y_size, z_size))
         )
     }
 
     // &mut self just to known that mutations happens, but it's not mandatory
     pub fn generate(&mut self, x: i32, y: i32, z: i32, x_scale: f64, y_scale: f64, z_scale: f64) {
         self.0.generate(&mut self.1.borrow_mut(), x, y, z, x_scale, y_scale, z_scale);
+    }
+
+    #[inline]
+    pub fn get_noise(&self, x: usize, y: usize, z: usize) -> f64 {
+        self.1.borrow().get(x, y, z)
     }
 
 }

@@ -19,4 +19,6 @@ fn main() {
     println!("Two options of rc size: {}", size_of::<Option<Rc<Layer>>>() << 1);
     println!("Two options of rc+refcell size: {}", size_of::<Option<Rc<RefCell<Layer>>>>() << 1);
 
+    let chunk = world.get_chunk_at(0, 0).unwrap();
+
 }
