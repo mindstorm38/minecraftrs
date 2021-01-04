@@ -32,20 +32,28 @@ impl<T> Rect<T> {
     }
 
     #[inline]
+    fn get_index(&self, x: usize, z: usize) -> usize {
+        debug_assert!(x < self.x_size && z < self.z_size);
+        x + (z * self.x_size)
+    }
+
+    #[inline]
     pub fn set(&mut self, x: usize, z: usize, value: T) {
-        self.data.insert(x + z * self.x_size, value);
+        let idx = self.get_index(x, z);
+        self.data[idx] = value;
     }
 
     #[inline]
     pub fn get(&self, x: usize, z: usize) -> T
         where T: Copy
     {
-        self.data[x + z * self.x_size]
+        self.data[self.get_index(x, z)]
     }
 
     #[inline]
     pub fn get_mut(&mut self, x: usize, z: usize) -> &mut T {
-        &mut self.data[x + z * self.x_size]
+        let idx = self.get_index(x, z);
+        &mut self.data[idx]
     }
 
 }
@@ -88,13 +96,14 @@ impl<T> Cube<T> {
 
     #[inline]
     fn get_index(&self, x: usize, y: usize, z: usize) -> usize {
+        debug_assert!(x < self.x_size && y < self.y_size && z < self.z_size);
         (x * self.z_size + z) * self.y_size + y
-        // (x * self.z_size * self.y_size) + (z * self.y_size) + y
     }
 
     #[inline]
     pub fn set(&mut self, x: usize, y: usize, z: usize, value: T) {
-        self.data.insert(self.get_index(x, y, z), value);
+        let idx = self.get_index(x, y, z);
+        self.data[idx] = value;
     }
 
     #[inline]

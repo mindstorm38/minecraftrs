@@ -4,6 +4,7 @@ use crate::biome::def::*;
 fn biome(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal, allowed_biomes: &[u8]) {
 
     internal.expect_parent().inner_generate(x, z, output);
+    println!("biome at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     for dz in 0..output.z_size {
         for dx in 0..output.x_size {
@@ -39,6 +40,7 @@ fn biome_1_2(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInterna
 fn hills(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
     let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+    println!("hills at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     for dz in 0..output.z_size {
         for dx in 0..output.x_size {
@@ -84,6 +86,7 @@ fn hills(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 fn shore(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
     let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+    println!("shore at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     for dz in 0..output.z_size {
         for dx in 0..output.x_size {
@@ -120,6 +123,7 @@ fn shore(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 fn biome_rivers(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
     let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+    println!("biome_rivers at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     for dz in 0..output.z_size {
         for dx in 0..output.x_size {
@@ -144,8 +148,10 @@ fn biome_rivers(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInte
 fn mix_biome_river(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
     internal.expect_parent().inner_generate(x, z, output);
-
+    println!("----------------------------");
     let mut rivers_it = internal.expect_parent_aux().generate(x, z, output.x_size, output.z_size).data.into_iter();
+    println!("----------------------------");
+    println!("mix_biome_river at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     for current in &mut output.data {
 

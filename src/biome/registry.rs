@@ -9,6 +9,7 @@ use derive_more::{Deref, DerefMut};
 pub struct BiomeRegistry(pub Registry<u8, Biome>);
 
 
+#[allow(non_snake_case)]
 pub mod def {
 
     /// Define Biome.

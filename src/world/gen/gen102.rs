@@ -7,10 +7,7 @@ use crate::rand::noise::{NoiseCube, FixedOctavesPerlinNoise};
 use crate::world::provider::{ChunkLoader, ChunkError};
 use crate::world::chunk::Chunk;
 use crate::world::WorldInfo;
-use crate::world::gen::layer::BiomeRect;
 use super::layer::{Layer, build_biome_rect};
-use crate::biome::Biome;
-use crate::math::Rect;
 use std::cell::RefCell;
 use std::num::Wrapping;
 use std::rc::Rc;
@@ -133,8 +130,6 @@ impl ChunkGeneratorInternal {
         // This function just apply linear interpolation between
         // noise points.
 
-        // TODO: Fix the borrowing issue by computing the biome_rect into "initialize_noise_field"
-        // self.initialize_noise_field(cx * 4, 0, cz * 4, &biome_rect);
         self.initialize_noise_field(cx, cz);
 
         // Initializing the chunk with 8 sub-chunks.
@@ -233,9 +228,6 @@ impl ChunkGeneratorInternal {
 
     fn initialize_noise_field(&mut self, cx: i32, cz: i32) {
 
-        const WIDTH_SCALE: f64 = 684.41200000000003;
-        const HEIGHT_SCALE: f64 = 684.41200000000003;
-
         let x = cx * 4;
         let y = 0;
         let z = cz * 4;
@@ -243,7 +235,13 @@ impl ChunkGeneratorInternal {
         // Terrain biomes don't expect to be "voronoi-ed"
         let biome_layer = self.voronoi_layer.expect_parent();
         let biome_layer_data = biome_layer.generate(cx * 4 - 2, cz * 4 - 2, 10, 10);
+        biome_layer_data.debug();
         let biome_rect = build_biome_rect(biome_layer_data, &self.world_info.biome_registry);
+
+
+
+        const WIDTH_SCALE: f64 = 684.41200000000003;
+        const HEIGHT_SCALE: f64 = 684.41200000000003;
 
         self.noise_main4.generate(x, 10, z, 1.121, 1.0, 1.121);
         self.noise_main5.generate(x, 10, z, 200.0, 1.0, 200.0);
@@ -308,7 +306,7 @@ impl ChunkGeneratorInternal {
 
                     let a = (average_min_height as f64 + val * 0.20000000000000001) * y_size / 16.0;
                     let b = y_size / 2.0 + a * 4.0;
-                    let mut c = 0.0;
+                    let mut c;
                     let mut d = ((dy as f64 - b) * 12.0 * 128.0) / 128.0 / average_max_height as f64;
 
                     if d < 0.0 {

@@ -13,6 +13,7 @@ fn voronoi(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal)
     let z_size_rounded = z_size_new << 2;
 
     let input = internal.expect_parent().generate(x_new, z_new, x_size_new, z_size_new);
+    println!("voronoi at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     // Try to replace this with LayerData
     let mut temp: Vec<State> = vec![State::Uninit; x_size_rounded * z_size_rounded];

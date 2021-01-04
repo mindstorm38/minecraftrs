@@ -41,6 +41,27 @@ pub type LayerData = Rect<State>;
 pub type BiomeRect<'a> = Rect<&'a Biome>;
 
 
+impl LayerData {
+    pub fn debug(&self) {
+        println!(" -----------------------");
+        for z in 0..self.z_size {
+            print!("| ");
+            for x in 0..self.x_size {
+                print!("{} ", match self.get(x, z) {
+                    State::Uninit => ' ',
+                    State::NoRiver => 'N',
+                    State::PotentialRiver(_) => 'P',
+                    State::River => 'R',
+                    State::Biome(b) => b.to_string().chars().next().unwrap()
+                });
+            }
+            println!("|");
+        }
+        println!(" -----------------------");
+    }
+}
+
+
 pub fn build_biome_rect(input: LayerData, registry: &BiomeRegistry) -> BiomeRect {
 
     let mut output = BiomeRect::new_empty();
