@@ -2,7 +2,6 @@ use super::{LayerData, LayerInternal, State};
 use crate::biome::def::OCEAN;
 
 fn river_init(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
-    println!("river_init at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     internal.expect_parent().inner_generate(x, z, output);
 
@@ -18,6 +17,8 @@ fn river_init(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerIntern
         }
     }
 
+    output.debug("river_init");
+
 }
 
 impl State {
@@ -27,7 +28,6 @@ impl State {
 }
 
 fn river(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
-    println!("river at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
 
@@ -51,6 +51,7 @@ fn river(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
         }
     }
 
+    output.debug("river");
 
 }
 

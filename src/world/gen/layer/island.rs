@@ -4,7 +4,6 @@ use crate::biome::def::{OCEAN, PLAINS, FROZEN_OCEAN, ICE_PLAINS, MUSHROOM_ISLAND
 /// This layer initiate the output with State::Land or State::Ocean,
 /// real biomes are only decided on "biome layer".
 fn island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
-    println!("island at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     for dz in 0..output.x_size {
         for dx in 0..output.z_size {
@@ -20,6 +19,8 @@ fn island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) 
         output.set((-x) as usize, (-z) as usize, State::Biome(PLAINS::ID));
     }
 
+    output.debug("island");
+
 }
 
 #[inline]
@@ -31,7 +32,6 @@ const fn is_ocean(biome: u8) -> bool {
 fn add_island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
     let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
-    println!("add_island at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     for dz in 0..output.z_size {
         for dx in 0..output.x_size {
@@ -92,12 +92,13 @@ fn add_island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerIntern
         }
     }
 
+    output.debug("add_island");
+
 }
 
 fn add_mushroom_island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
     let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
-    println!("add_mushroom_island at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
 
     for dz in 0..output.z_size {
         for dx in 0..output.x_size {
@@ -118,6 +119,8 @@ fn add_mushroom_island(x: i32, z: i32, output: &mut LayerData, internal: &mut La
 
         }
     }
+
+    output.debug("add_mushroom_island");
 
 }
 

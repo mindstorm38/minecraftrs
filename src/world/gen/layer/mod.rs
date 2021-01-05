@@ -42,10 +42,10 @@ pub type BiomeRect<'a> = Rect<&'a Biome>;
 
 
 impl LayerData {
-    pub fn debug(&self) {
+    pub fn debug(&self, title: &'static str) {
         println!(" -----------------------");
+        println!("{} ({}x{})", title, self.x_size, self.z_size);
         for z in 0..self.z_size {
-            print!("| ");
             for x in 0..self.x_size {
                 print!("{} ", match self.get(x, z) {
                     State::Uninit => ' ',
@@ -55,7 +55,7 @@ impl LayerData {
                     State::Biome(b) => b.to_string().chars().next().unwrap()
                 });
             }
-            println!("|");
+            println!();
         }
         println!(" -----------------------");
     }

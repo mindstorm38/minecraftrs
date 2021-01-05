@@ -239,6 +239,8 @@ impl ChunkGeneratorInternal {
         // Terrain biomes don't expect to be "voronoi-ed"
         let biome_layer = self.voronoi_layer.expect_parent();
         let biome_layer_data = biome_layer.generate(cx * 4 - 2, cz * 4 - 2, 10, 10);
+        println!();
+        biome_layer_data.debug("Final result");
         let biome_rect = build_biome_rect(biome_layer_data, &self.world_info.biome_registry);
 
         const WIDTH_SCALE: f64 = 684.41200000000003;
@@ -282,6 +284,8 @@ impl ChunkGeneratorInternal {
 
                 let mut val = self.noise_main5.get_noise(dx, 0, dz) / 8000.0;
 
+                // println!("[{}/{}] Noise: {}", dx, dz, self.noise_main5.get_noise(dx, 0, dz));
+
                 if val < 0.0 {
                     val = -val * 0.29999999999999999;
                 }
@@ -313,6 +317,8 @@ impl ChunkGeneratorInternal {
                     if d < 0.0 {
                         d *= 4.0;
                     }
+
+                    // println!("  y: {}, noise1: {}", dy, self.noise_main1.get_noise(dx, dy, dz));
 
                     let val1 = self.noise_main1.get_noise(dx, dy, dz) / 512.0;
                     let val2 = self.noise_main2.get_noise(dx, dy, dz) / 512.0;

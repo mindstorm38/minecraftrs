@@ -1,8 +1,6 @@
 use super::{LayerData, LayerInternal, State, LayerRand, Layer};
 
-fn choose_weird(rand: &mut LayerRand, states: [State; 4]) -> State {
-
-    let (v1, v2, v3, v4) = (states[0], states[1], states[2], states[3]);
+fn choose_weird(rand: &mut LayerRand, v1: State, v2: State, v3: State, v4: State) -> State {
 
     if v2 == v3 && v3 == v4 {
         v2
@@ -34,10 +32,10 @@ fn choose_weird(rand: &mut LayerRand, states: [State; 4]) -> State {
         v3 // As in MCP 1.2.5, but weird
     } else if v4 == v2 && v1 != v3 {
         v3 // As in MCP 1.2.5, but weird
-    } else if v4 != v3 && v1 != v2 {
+    } else if v4 == v3 && v1 != v2 {
         v3 // As in MCP 1.2.5, but weird
     } else {
-        rand.choose_copy(&states)
+        rand.choose_copy(&[v1, v2, v3, v4])
     }
 
 }
@@ -52,7 +50,7 @@ fn common_zoom(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInter
     let z_size_rounded = z_size_half << 1;
 
     let input = internal.expect_parent().generate(x_half, z_half, x_size_half, z_size_half);
-    println!("zoom at {}/{} size: {}x{} (fuzzy: {})", x, z, output.x_size, output.z_size, fuzzy);
+    //println!("zoom at {}/{} size: {}x{} (fuzzy: {})", x, z, output.x_size, output.z_size, fuzzy);
 
     let mut tmp = LayerData::new(x_size_rounded, z_size_rounded, State::Uninit);
 
@@ -77,7 +75,7 @@ fn common_zoom(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInter
             tmp.set(dx * 2 + 1, dz * 2 + 1, if fuzzy {
                 internal.rand.choose_copy(&[v1, v3, v2, v4])
             } else {
-                choose_weird(&mut internal.rand, [v1, v3, v2, v4])
+                choose_weird(&mut internal.rand, v1, v3, v2, v4)
             });
 
             v1 = v3;
@@ -104,11 +102,13 @@ fn common_zoom(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInter
 }
 
 fn fuzzy_zoom(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
-    common_zoom(x, z, output, internal, true)
+    common_zoom(x, z, output, internal, true);
+    output.debug("fuzzy_zoom");
 }
 
 fn zoom(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
-    common_zoom(x, z, output, internal, false)
+    common_zoom(x, z, output, internal, false);
+    output.debug("zoom");
 }
 
 impl_layer!(fuzzy_zoom, new_fuzzy_zoom);

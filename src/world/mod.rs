@@ -54,10 +54,12 @@ impl World {
         Self::new(jrand::gen_seed(), version)
     }
 
+    #[inline]
     pub fn get_info(&self) -> &WorldInfo {
         &self.info
     }
 
+    #[inline]
     pub fn get_chunks(&self) -> &HashMap<u64, Chunk> {
         self.chunk_cacher.get_chunks()
     }

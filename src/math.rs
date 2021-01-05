@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign};
+use std::ops::AddAssign;
 
 #[inline]
 pub fn lerp(factor: f64, from: f64, to: f64) -> f64 {

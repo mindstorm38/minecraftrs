@@ -49,6 +49,20 @@ fn grad(value: u16, x: f64, y: f64, z: f64) -> f64 {
 
 }
 
+fn grad2(value: u16, x: f64, z: f64) -> f64 {
+
+    let i = value & 0xf;
+
+    let a = (1.0 - ((i & 8) >> 3) as f64) * x;
+    let b = if i >= 4 {
+        if i != 12 && i != 14 { z } else { x }
+    } else { 0.0 };
+
+    (if (i & 1) != 0 { -a } else { a }) +
+    (if (i & 2) != 0 { -b } else { b })
+
+}
+
 
 /// Perlin noise generator.
 ///
@@ -99,58 +113,75 @@ impl PerlinNoise {
 
     pub fn generate(&self, cube: &mut NoiseCube, x: f64, y: f64, z: f64, x_scale: f64, y_scale: f64, z_scale: f64, scale: f64) {
 
+        let only_2d = cube.y_size == 1;
         let scale_inverted = 1.0 / scale;
-        let mut last_y_permutation = -1;
 
-        //let mut cube_index = 0;
+        let mut last_y_permutation = -1;
         let (mut p1, mut p2, mut p3, mut p4) = (0.0, 0.0, 0.0, 0.0);
 
         for cx in 0..cube.x_size {
             let (rx, x_lerpf, x_permutation) = Self::calc_coord_data(x + cx as f64 * x_scale + self.x);
             for cz in 0..cube.z_size {
                 let (rz, z_lerpf, z_permutation) = Self::calc_coord_data(z + cz as f64 * z_scale + self.z);
-                for cy in 0..cube.y_size {
+                if only_2d {
 
-                    let (ry, y_lerpf, y_permutation) = Self::calc_coord_data(y + cy as f64 * y_scale + self.y);
+                    let a = self.permutations[x_permutation] as usize;
+                    let b = self.permutations[a] as usize + z_permutation;
+                    let c = self.permutations[x_permutation + 1] as usize;
+                    let d = self.permutations[c] as usize + z_permutation;
 
-                    if cy == 0 || y_permutation as isize != last_y_permutation {
+                    p1 = lerp(x_lerpf,
+                              grad2(self.permutations[b], rx, rz),
+                              grad(self.permutations[d], rx - 1.0, 0.0, rz));
 
-                        last_y_permutation = y_permutation as isize;
+                    p2 = lerp(x_lerpf,
+                              grad(self.permutations[b + 1], rx, 0.0, rz - 1.0),
+                              grad(self.permutations[d + 1], rx - 1.0, 0.0, rz - 1.0));
 
-                        let a = self.permutations[x_permutation] as usize + y_permutation;
-                        let b = self.permutations[a] as usize + z_permutation;
-                        let c = self.permutations[a + 1] as usize + z_permutation;
+                    p3 = lerp(z_lerpf, p1, p2);
 
-                        let d = self.permutations[x_permutation + 1] as usize + y_permutation;
-                        let e = self.permutations[d] as usize + z_permutation;
-                        let f = self.permutations[d + 1] as usize + z_permutation;
+                    cube.add(cx, 0, cz, p3 * scale_inverted);
 
-                        p1 = lerp(x_lerpf,
-                                  grad(self.permutations[b], rx, ry, rz),
-                                  grad(self.permutations[e], rx - 1.0, ry, rz));
+                } else {
+                    for cy in 0..cube.y_size {
 
-                        p2 = lerp(x_lerpf,
-                                  grad(self.permutations[c], rx, ry - 1.0, rz),
-                                  grad(self.permutations[f], rx - 1.0, ry - 1.0, rz));
+                        let (ry, y_lerpf, y_permutation) = Self::calc_coord_data(y + cy as f64 * y_scale + self.y);
 
-                        p3 = lerp(x_lerpf,
-                                  grad(self.permutations[b + 1], rx, ry, rz - 1.0),
-                                  grad(self.permutations[e + 1], rx - 1.0, ry, rz - 1.0));
+                        if cy == 0 || y_permutation as isize != last_y_permutation {
+                            last_y_permutation = y_permutation as isize;
 
-                        p4 = lerp(x_lerpf,
-                                  grad(self.permutations[c + 1], rx, ry - 1.0, rz - 1.0),
-                                  grad(self.permutations[f + 1], rx - 1.0, ry - 1.0, rz - 1.0));
+                            let a = self.permutations[x_permutation] as usize + y_permutation;
+                            let b = self.permutations[a] as usize + z_permutation;
+                            let c = self.permutations[a + 1] as usize + z_permutation;
+
+                            let d = self.permutations[x_permutation + 1] as usize + y_permutation;
+                            let e = self.permutations[d] as usize + z_permutation;
+                            let f = self.permutations[d + 1] as usize + z_permutation;
+
+                            p1 = lerp(x_lerpf,
+                                      grad(self.permutations[b], rx, ry, rz),
+                                      grad(self.permutations[e], rx - 1.0, ry, rz));
+
+                            p2 = lerp(x_lerpf,
+                                      grad(self.permutations[c], rx, ry - 1.0, rz),
+                                      grad(self.permutations[f], rx - 1.0, ry - 1.0, rz));
+
+                            p3 = lerp(x_lerpf,
+                                      grad(self.permutations[b + 1], rx, ry, rz - 1.0),
+                                      grad(self.permutations[e + 1], rx - 1.0, ry, rz - 1.0));
+
+                            p4 = lerp(x_lerpf,
+                                      grad(self.permutations[c + 1], rx, ry - 1.0, rz - 1.0),
+                                      grad(self.permutations[f + 1], rx - 1.0, ry - 1.0, rz - 1.0));
+                        }
+
+                        let p5 = lerp(y_lerpf, p1, p2);
+                        let p6 = lerp(y_lerpf, p3, p4);
+                        let p7 = lerp(z_lerpf, p5, p6);
+
+                        cube.add(cx, cy, cz, p7 * scale_inverted);
 
                     }
-
-                    let p5 = lerp(y_lerpf, p1, p2);
-                    let p6 = lerp(y_lerpf, p3, p4);
-                    let p7 = lerp(z_lerpf, p5, p6);
-
-                    //cube.data[cube_index] += p7 * scale_inverted;
-                    cube.add(cx, cy, cz, p7 * scale_inverted);
-                    //cube_index += 1;
-
                 }
             }
         }
