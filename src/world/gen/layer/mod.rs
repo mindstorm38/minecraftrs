@@ -43,21 +43,24 @@ pub type BiomeRect<'a> = Rect<&'a Biome>;
 
 impl LayerData {
     pub fn debug(&self, title: &'static str) {
-        println!(" -----------------------");
-        println!("{} ({}x{})", title, self.x_size, self.z_size);
-        for z in 0..self.z_size {
-            for x in 0..self.x_size {
-                print!("{} ", match self.get(x, z) {
-                    State::Uninit => ' ',
-                    State::NoRiver => 'N',
-                    State::PotentialRiver(_) => 'P',
-                    State::River => 'R',
-                    State::Biome(b) => b.to_string().chars().next().unwrap()
-                });
+        #[cfg(debug_assertions)]
+        {
+            println!(" -----------------------");
+            println!("{} ({}x{})", title, self.x_size, self.z_size);
+            for z in 0..self.z_size {
+                for x in 0..self.x_size {
+                    print!("{} ", match self.get(x, z) {
+                        State::Uninit => " ".to_string(),
+                        State::NoRiver => "N".to_string(),
+                        State::PotentialRiver(p) => format!("P{}", p),
+                        State::River => "R".to_string(),
+                        State::Biome(b) => b.to_string()
+                    });
+                }
+                println!();
             }
-            println!();
+            println!(" -----------------------");
         }
-        println!(" -----------------------");
     }
 }
 
@@ -112,6 +115,10 @@ impl LayerRand {
         }
     }
 
+    pub fn get_chunk_seed(&self) -> i64 {
+        self.chunk_seed.0
+    }
+
     pub fn init_world_seed(&mut self, world_seed: i64) {
         self.world_seed = Wrapping(world_seed);
         Self::hash_seed(&mut self.world_seed, self.base_seed);
@@ -130,8 +137,9 @@ impl LayerRand {
     pub fn next_int(&mut self, bound: u32) -> u32 {
         let bound = bound as i64;
         let mut i = (self.chunk_seed.0 >> 24) % bound;
+        // println!("val: {}, bound: {}, i: {}", self.chunk_seed.0, bound, i);
         if i < 0 {
-            i += bound;
+            i += bound; // Can be replace by rem_euclid
         }
         Self::hash_seed(&mut self.chunk_seed, self.world_seed.0);
         i as u32
@@ -178,17 +186,14 @@ pub struct Layer {
 
 impl Layer {
 
-    #[inline]
     pub fn new_child(base_seed: i64, handler: LayerHandlerFn, parent: Layer) -> Layer {
         Self::new(base_seed, handler, Some(Box::new(parent)), None)
     }
 
-    #[inline]
     pub fn new_orphan(base_seed: i64, handler: LayerHandlerFn) -> Layer {
         Self::new(base_seed, handler, None, None)
     }
 
-    #[inline]
     fn new(base_seed: i64, handler: LayerHandlerFn, parent: Option<Box<Layer>>, parent_aux: Option<Box<Layer>>) -> Layer {
         Layer {
             internal: LayerInternal {

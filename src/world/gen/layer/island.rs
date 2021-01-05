@@ -1,6 +1,7 @@
 use super::{LayerData, LayerInternal, State};
 use crate::biome::def::{OCEAN, PLAINS, FROZEN_OCEAN, ICE_PLAINS, MUSHROOM_ISLAND};
 
+
 /// This layer initiate the output with State::Land or State::Ocean,
 /// real biomes are only decided on "biome layer".
 fn island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
@@ -23,10 +24,17 @@ fn island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) 
 
 }
 
+
 #[inline]
 const fn is_ocean(biome: u8) -> bool {
     biome == OCEAN::ID
 }
+
+
+macro_rules! post_inc {
+    ($v:ident) => (($v, $v += 1).0);
+}
+
 
 /// This layer adds islands or ocean.
 fn add_island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
@@ -49,22 +57,19 @@ fn add_island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerIntern
                 let mut bound = 1;
                 let mut to_set = PLAINS::ID;
 
-                if !is_ocean(sw) && internal.rand.next_int(bound) == 0 {
+                if !is_ocean(sw) && internal.rand.next_int(post_inc!(bound)) == 0 {
                     to_set = sw;
                 }
 
-                bound += 1;
-                if !is_ocean(nw) && internal.rand.next_int(bound) == 0 {
+                if !is_ocean(nw) && internal.rand.next_int(post_inc!(bound)) == 0 {
                     to_set = nw;
                 }
 
-                bound += 1;
-                if !is_ocean(se) && internal.rand.next_int(bound) == 0 {
+                if !is_ocean(se) && internal.rand.next_int(post_inc!(bound)) == 0 {
                     to_set = se;
                 }
 
-                bound += 1;
-                if !is_ocean(ne) && internal.rand.next_int(bound) == 0 {
+                if !is_ocean(ne) && internal.rand.next_int(bound/*post_inc!(bound)*/) == 0 {
                     to_set = ne;
                 }
 

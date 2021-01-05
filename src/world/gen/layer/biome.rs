@@ -104,7 +104,7 @@ fn shore(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
                 if let (OCEAN::ID, OCEAN::ID, OCEAN::ID, OCEAN::ID) = (south, north, west, east) {
                     center = MUSHROOM_ISLAND_SHORE::ID;
                 }
-            } else if center != OCEAN::ID || center != RIVER::ID || center != SWAMPLAND::ID || center != EXTREME_HILLS::ID {
+            } else if center != OCEAN::ID && center != RIVER::ID && center != SWAMPLAND::ID && center != EXTREME_HILLS::ID {
                 if let (OCEAN::ID, OCEAN::ID, OCEAN::ID, OCEAN::ID) = (south, north, west, east) {
                     center = BEACH::ID;
                 }
@@ -133,7 +133,7 @@ fn biome_rivers(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInte
 
             internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
 
-            let mut biome = input.get(dx, dz).expect_biome();
+            let mut biome = input.get(dx + 1, dz + 1).expect_biome();
 
             if biome == SWAMPLAND::ID && internal.rand.next_int(6) == 0 {
                 biome = RIVER::ID;
