@@ -131,10 +131,11 @@ impl World {
         where F: FnOnce(&mut Chunk, usize, usize, usize)
     {
         if y >= 0 {
-            let chunk = self.get_chunk_mut_at(x, z)?;
-            let y = y as usize;
-            if y < chunk.get_max_height() {
-                func(chunk, (x & 15) as usize, y, (z & 15) as usize)
+            if let Some(chunk) = self.get_chunk_mut_at(x, z) {
+                let y = y as usize;
+                if y < chunk.get_max_height() {
+                    func(chunk, (x & 15) as usize, y, (z & 15) as usize)
+                }
             }
         }
     }
