@@ -112,7 +112,7 @@ impl ChunkGeneratorInternal {
         self.rand.set_seed((Wrapping(cx as i64) * X_MUL + Wrapping(cz as i64) * Z_MUL).0);
 
         let mut chunk = self.generate_terrain(cx, cz);
-        self.replace_biomes_blocks(&mut chunk);
+        self.generate_surface(&mut chunk);
 
         Ok(chunk)
 
@@ -354,7 +354,7 @@ impl ChunkGeneratorInternal {
 
     }
 
-    fn replace_biomes_blocks(&mut self, chunk: &mut Chunk) {
+    fn generate_surface(&mut self, chunk: &mut Chunk) {
 
         let (cx, cz) = chunk.get_position();
 
