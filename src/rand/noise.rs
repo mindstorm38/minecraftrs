@@ -212,6 +212,8 @@ impl OctavesPerlinNoise {
         // println!("Generating octaves perlin noise at {}/{}/{} scales: {}/{}/{}", x, y, z, x_scale, y_scale, z_scale);
         cube.reset(0.0);
 
+        //println!("Generate noise octaves, x: {}, y: {}, z: {}, xSize: {}, ySize: {}, zSize: {}, xScale: {}, yScale: {}, zScale: {}", x, y, z, cube.x_size, cube.y_size, cube.z_size, x_scale, y_scale, z_scale);
+
         let mut scale = 1.0;
 
         for generator in &self.generators {
@@ -227,6 +229,8 @@ impl OctavesPerlinNoise {
             rz -= rz_floor as f64;
             rx += (rx_floor % 0x1000000) as f64;
             rz += (rz_floor % 0x1000000) as f64;
+
+            //println!(" => rx: {}, ry: {}, rz: {}, xScale: {}, yScale: {}, zScale: {}, scale: {}", rx, ry, rz, x_scale, y_scale, z_scale, scale);
 
             generator.generate(cube, rx, ry, rz, x_scale * scale, y_scale * scale, z_scale * scale, scale);
             scale /= 2.0;

@@ -1,6 +1,4 @@
 use crate::world::chunk::Chunk;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
 
 
 /// Common chunk error enum

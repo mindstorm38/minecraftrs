@@ -139,8 +139,8 @@ impl ChunkGeneratorInternal {
         // Initializing the chunk with 8 sub-chunks.
         let mut chunk = Chunk::new(cx, cz, 8);
 
-        let stone_block = self.world_info.block_registry.0.expect_from_name("stone");
-        let water_block = self.world_info.block_registry.0.expect_from_name("water");
+        let stone_block = self.world_info.block_registry.0.expect_from_name("stone").get_id();
+        let water_block = self.world_info.block_registry.0.expect_from_name("water").get_id();
 
         // dx/dz/dy are the noise field coordinates
         for dx in 0..4 {
@@ -198,17 +198,17 @@ impl ChunkGeneratorInternal {
                                 let block_z = dz * 4 + sub_block_dz;
 
                                 let block_to_set = if n_xyz > 0.0 {
-                                    Some(stone_block)
+                                    stone_block
                                 } else if block_real_y < 63 {
-                                    Some(water_block)
+                                    water_block
                                 } else {
-                                    None
+                                    0
                                 };
 
                                 // println!("[{:02}/{:02}/{:02}] noise: {}, block: {:?}", block_x, block_real_y, block_z, n_xyz, block_to_set);
 
                                 n_xyz += ns_xy1;
-                                sub_chunk.set_block(block_x, block_y, block_z, block_to_set);
+                                sub_chunk.set_block_id(block_x, block_y, block_z, block_to_set);
 
                             }
 
@@ -260,33 +260,32 @@ impl ChunkGeneratorInternal {
             for dz in 0..self.noise_field.z_size {
 
                 let biome = biome_rect.get(dx + 2, dz + 2);
-                let mut average_min_height = 0.0;
                 let mut average_max_height = 0.0;
+                let mut average_min_height = 0.0;
                 let mut total_weight = 0.0;
 
                 for neighbour_dx in -2..=2 {
                     for neighbour_dz in -2..=2 {
 
-                        let mut weight = 10.0 / ((neighbour_dx * neighbour_dx + neighbour_dz * neighbour_dz) as f32 + 0.2).sqrt();
                         let neighbour_biome = biome_rect.get(dx + (neighbour_dx + 2) as usize, dz + (neighbour_dz + 2) as usize);
+                        let mut weight = 10.0 / ((neighbour_dx * neighbour_dx + neighbour_dz * neighbour_dz) as f32 + 0.2).sqrt();
+                        weight /= neighbour_biome.get_min_height() + 2.0;
 
                         if neighbour_biome.get_min_height() > biome.get_min_height() {
                             weight /= 2.0;
                         }
 
-                        average_min_height += neighbour_biome.get_min_height() * weight;
                         average_max_height += neighbour_biome.get_max_height() * weight;
+                        average_min_height += neighbour_biome.get_min_height() * weight;
                         total_weight += weight;
 
                     }
                 }
 
-                average_min_height = (average_min_height / total_weight) * 0.9 + 0.1;
-                average_max_height = ((average_max_height / total_weight) * 4.0 - 1.0) / 8.0;
+                average_max_height = (average_max_height / total_weight) * 0.9 + 0.1;
+                average_min_height = ((average_min_height / total_weight) * 4.0 - 1.0) / 8.0;
 
                 let mut val = self.noise_main5.get_noise(dx, 0, dz) / 8000.0;
-
-                // println!("[{}/{}] Noise: {}", dx, dz, self.noise_main5.get_noise(dx, 0, dz));
 
                 if val < 0.0 {
                     val = -val * 0.29999999999999999;
@@ -308,6 +307,8 @@ impl ChunkGeneratorInternal {
                     val /= 8.0;
                 }
 
+                //println!("Main Noise 5 {}/{} = {} (averageMaxHeight: {}, averageMinHeight: {})", dx, dz, val, average_max_height, average_min_height);
+
                 let y_size = self.noise_field.y_size as f64;
                 for dy in 0..self.noise_field.y_size {
 
@@ -315,6 +316,8 @@ impl ChunkGeneratorInternal {
                     let b = y_size / 2.0 + a * 4.0;
                     let mut c;
                     let mut d = ((dy as f64 - b) * 12.0 * 128.0) / 128.0 / average_max_height as f64;
+
+                    //println!(" => [{}] a: {}, b: {}, d: {}", dy, a, b, d);
 
                     if d < 0.0 {
                         d *= 4.0;
@@ -337,11 +340,11 @@ impl ChunkGeneratorInternal {
                     c -= d;
 
                     if dy > self.noise_field.y_size - 4 {
-                        let e = (dy - (self.noise_field.y_size - 4)) as f64 / 3.0;
+                        let e = ((dy - (self.noise_field.y_size - 4)) as f32 / 3.0) as f64;
                         c = c * (1.0 - e) + (e * -10.0);
                     }
 
-                    // println!("Noise field {}/{}/{} = {}", dx, dy, dz, c);
+                    //println!("Noise field {}/{}/{} = {} ({}/{}/{})", dx, dy, dz, c, val1, val2, val3);
                     self.noise_field.set(dx, dy, dz, c);
 
                 }

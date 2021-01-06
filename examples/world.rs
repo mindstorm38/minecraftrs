@@ -9,16 +9,14 @@ use std::time::Instant;
 
 fn main() {
 
+    // 3048926232851431861
     let mut world: World = World::new(3048926232851431861, Version::RELEASE_1_2_5);
 
     println!("World seed: {}", world.get_info().seed);
 
-    /*world.provide_chunk(0, 10).unwrap();
-    world.provide_chunk(1, 10).unwrap();
-    world.provide_chunk(2, 10).unwrap();
-    world.provide_chunk(3, 10).unwrap();*/
+    world.provide_chunk(0, 0).unwrap();
 
-    let start = Instant::now();
+    /*let start = Instant::now();
 
     for x in 5..10 {
         for z in -10..-5 {
@@ -26,7 +24,7 @@ fn main() {
         }
     }
 
-    println!("Generated {} chunks in {}s", world.get_chunks().len(), start.elapsed().as_secs_f32());
+    println!("Generated {} chunks in {}s", world.get_chunks().len(), start.elapsed().as_secs_f32());*/
 
     let file = File::create("world.obj").unwrap();
     render_world_to_obj(file, &world).unwrap();
