@@ -81,7 +81,7 @@ fn voronoi(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal)
     }
 
     for dz in 0..output.z_size {
-        let src_offset = (dz + (z & 7) as usize) * x_size_rounded + (x & 7) as usize;
+        let src_offset = (dz + (z & 3) as usize) * x_size_rounded + (x & 3) as usize;
         let dst_offset = dz * output.x_size;
         for dx in 0..output.x_size {
             output.data[dst_offset + dx] = temp[src_offset + dx];

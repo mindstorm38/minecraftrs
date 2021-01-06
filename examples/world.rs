@@ -14,7 +14,7 @@ fn main() {
 
     println!("World seed: {}", world.get_info().seed);
 
-    //world.provide_chunk(9, -9).unwrap();
+    //world.provide_chunk(500, 562).unwrap();
 
     let start = Instant::now();
 
