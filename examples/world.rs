@@ -4,6 +4,7 @@ use minecraftrs::world::chunk::Chunk;
 
 use std::fs::File;
 use std::io::{Result as IoResult, prelude::*};
+use std::time::Instant;
 
 
 fn main() {
@@ -17,11 +18,15 @@ fn main() {
     world.provide_chunk(2, 10).unwrap();
     world.provide_chunk(3, 10).unwrap();*/
 
-    for x in 0..6 {
-        for z in 0..6 {
+    let start = Instant::now();
+
+    for x in 5..10 {
+        for z in -10..-5 {
             world.provide_chunk(x, z).unwrap();
         }
     }
+
+    println!("Generated {} chunks in {}s", world.get_chunks().len(), start.elapsed().as_secs_f32());
 
     let file = File::create("world.obj").unwrap();
     render_world_to_obj(file, &world).unwrap();
@@ -141,6 +146,10 @@ fn get_block_render(world: &World, chunk: &Chunk, x: usize, y: usize, z: usize) 
     let (cbx, cbz) = (cx << 4, cz << 4);
 
     let mut faces = 0;
+
+    /*if block == 7 {
+        println!("Bedrock at {}/{}/{}", x, y, z);
+    }*/
 
     if block != 0 {
 

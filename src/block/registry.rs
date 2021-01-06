@@ -21,7 +21,11 @@ impl From<Version> for BlockRegistry {
         reg.register(Block::new("grass", 2).set_hardness(0.6));
         reg.register(Block::new("dirt", 3).set_hardness(0.5));
         reg.register(Block::new("cobblestone", 4).set_hardness(2.0).set_resistance(10.0));
+        reg.register(Block::new("bedrock", 7).set_hardness(-1.0).set_resistance(6000000.0));
         reg.register(Block::new("water", 9).set_hardness(100.0));
+        reg.register(Block::new("sand", 12).set_hardness(0.5));
+        reg.register(Block::new("sand_stone", 24).set_hardness(0.8));
+        reg.register(Block::new("ice", 79).set_hardness(0.5));
 
         BlockRegistry(reg)
 

@@ -5,8 +5,10 @@ pub struct Biome {
     name: &'static str,
     id: u8,
     height_range: (f32, f32),
-    temperature: f32,
-    rainfall: f32
+    pub temperature: f32,
+    pub rainfall: f32,
+    pub top_block: &'static str,
+    pub filler_block: &'static str
 }
 
 impl Registrable<u8> for Biome {
@@ -22,7 +24,9 @@ impl Biome {
             id,
             height_range: (0.1, 0.3),
             temperature: 0.5,
-            rainfall: 0.5
+            rainfall: 0.5,
+            top_block: "grass",
+            filler_block: "dirt"
         }
     }
 

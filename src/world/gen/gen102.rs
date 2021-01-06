@@ -11,6 +11,7 @@ use super::layer::{Layer, build_biome_rect};
 use std::cell::RefCell;
 use std::num::Wrapping;
 use std::rc::Rc;
+use crate::res::Registrable;
 
 
 struct ChunkGeneratorInternal {
@@ -105,10 +106,13 @@ impl ChunkGeneratorInternal {
     /// Entry point.
     fn generate_chunk(&mut self, cx: i32, cz: i32) -> Result<Chunk, ChunkError> {
 
-        //const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);
-        //const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
+        const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);
+        const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
 
-        let chunk = self.generate_terrain(cx, cz);
+        self.rand.set_seed((Wrapping(cx as i64) * X_MUL + Wrapping(cz as i64) * Z_MUL).0);
+
+        let mut chunk = self.generate_terrain(cx, cz);
+        self.replace_biomes_blocks(&mut chunk);
 
         Ok(chunk)
 
@@ -135,10 +139,8 @@ impl ChunkGeneratorInternal {
         // Initializing the chunk with 8 sub-chunks.
         let mut chunk = Chunk::new(cx, cz, 8);
 
-        let stone_block = self.world_info.block_registry.0.get_from_name("stone")
-            .expect("Block 'stone' must be available in blocks registry for terrain generation.");
-        let water_block = self.world_info.block_registry.0.get_from_name("water")
-            .expect("Block 'water' must be available in blocks registry for terrain generation.");
+        let stone_block = self.world_info.block_registry.0.expect_from_name("stone");
+        let water_block = self.world_info.block_registry.0.expect_from_name("water");
 
         // dx/dz/dy are the noise field coordinates
         for dx in 0..4 {
@@ -239,8 +241,8 @@ impl ChunkGeneratorInternal {
         // Terrain biomes don't expect to be "voronoi-ed"
         let biome_layer = self.voronoi_layer.expect_parent();
         let biome_layer_data = biome_layer.generate(cx * 4 - 2, cz * 4 - 2, 10, 10);
-        println!();
-        biome_layer_data.debug("Final result");
+        /*println!();
+        biome_layer_data.debug("Final result");*/
         let biome_rect = build_biome_rect(biome_layer_data, &self.world_info.biome_registry);
 
         const WIDTH_SCALE: f64 = 684.41200000000003;
@@ -341,6 +343,107 @@ impl ChunkGeneratorInternal {
 
                     // println!("Noise field {}/{}/{} = {}", dx, dy, dz, c);
                     self.noise_field.set(dx, dy, dz, c);
+
+                }
+
+            }
+        }
+
+    }
+
+    fn replace_biomes_blocks(&mut self, chunk: &mut Chunk) {
+
+        let (cx, cz) = chunk.get_position();
+
+        let biome_layer_data = self.voronoi_layer.generate(cx * 16, cz * 16, 16, 16);
+        let biome_rect = build_biome_rect(biome_layer_data, &self.world_info.biome_registry);
+
+        let stone_block = self.world_info.block_registry.0.expect_from_name("stone").get_id();
+        let bedrock_block = self.world_info.block_registry.0.expect_from_name("bedrock").get_id();
+        let water_block = self.world_info.block_registry.0.expect_from_name("water").get_id();
+        let ice_block = self.world_info.block_registry.0.expect_from_name("ice").get_id();
+        let sand_block = self.world_info.block_registry.0.expect_from_name("sand").get_id();
+        let sand_stone_block = self.world_info.block_registry.0.expect_from_name("sand_stone").get_id();
+
+        const SCALE: f64 = 0.03125 * 2.0;
+        self.noise_surface.generate(cx * 16, cz * 16, 0, SCALE, SCALE, SCALE);
+
+        for z in 0..16 {
+            for x in 0..16 {
+
+                let biome = biome_rect.get(x, z);
+                let temp = biome.temperature;
+
+                // x/z are inverted
+                let noise_val = (self.noise_surface.get_noise(z, x, 0) / 3.0 + 3.0 + self.rand.next_double() * 0.25) as i32;
+
+                let biome_top_block = self.world_info.block_registry.0.expect_from_name(biome.top_block).get_id();
+                let biome_filler_block = self.world_info.block_registry.0.expect_from_name(biome.filler_block).get_id();
+
+                let mut top_block = biome_top_block;
+                let mut filler_block = biome_filler_block;
+
+                let mut depth = -1;
+
+                for y in (0..128).rev() {
+
+                    if y <= self.rand.next_int_bounded(5) as usize {
+                        chunk.set_block_id(x, y, z, bedrock_block);
+                    } else {
+
+                        let block = chunk.get_block_id(x, y, z);
+
+                        if block == 0 {
+                            depth = -1;
+                        } else if block == stone_block {
+
+                            if depth == -1 {
+
+                                if noise_val <= 0 {
+                                    // This block is used to generate places where there is no grass but
+                                    // stone at the layer behind de surface.
+                                    top_block = 0;
+                                    filler_block = stone_block;
+                                } else if y >= 59 && y <= 64 {
+                                    top_block = biome_top_block;
+                                    filler_block = biome_filler_block;
+                                }
+
+                                if y < 63 && top_block == 0 {
+                                    if temp < 0.15 {
+                                        top_block = ice_block;
+                                    } else {
+                                        top_block = water_block;
+                                    }
+                                }
+
+                                depth = noise_val;
+
+                                chunk.set_block_id(x, y, z, if y >= 62 {
+                                    top_block
+                                } else {
+                                    filler_block
+                                });
+
+                            }
+
+                            if depth > 0 {
+
+                                depth -= 1;
+                                chunk.set_block_id(x, y, z, filler_block);
+
+                                if depth == 0 && filler_block == sand_block {
+                                    // This block is used to generate the sandstone behind the sand in
+                                    // the desert.
+                                    depth = self.rand.next_int_bounded(4);
+                                    filler_block = sand_stone_block;
+                                }
+
+                            }
+
+                        }
+
+                    }
 
                 }
 

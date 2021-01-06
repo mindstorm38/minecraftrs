@@ -152,10 +152,10 @@ fn biome_rivers(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInte
 
 fn mix_biome_river(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
-    println!("\nBIOME LAYERS :");
+    //println!("\nBIOME LAYERS :");
     internal.expect_parent().inner_generate(x, z, output);
 
-    println!("\nRIVER LAYERS :");
+    //println!("\nRIVER LAYERS :");
     let mut rivers_it = internal.expect_parent_aux().generate(x, z, output.x_size, output.z_size).data.into_iter();
 
     for current in &mut output.data {

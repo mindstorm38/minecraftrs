@@ -59,4 +59,8 @@ where
         Some(&self.data[*self.by_ids.get(&id)?])
     }
 
+    pub fn expect_from_name(&self, name: &str) -> &T {
+        self.get_from_name(name).expect(format!("Block '{}' is missing in the registry.", name).as_str())
+    }
+
 }
