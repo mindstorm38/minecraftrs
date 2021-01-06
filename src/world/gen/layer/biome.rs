@@ -105,7 +105,7 @@ fn shore(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
                     center = MUSHROOM_ISLAND_SHORE::ID;
                 }
             } else if center != OCEAN::ID && center != RIVER::ID && center != SWAMPLAND::ID && center != EXTREME_HILLS::ID {
-                if let (OCEAN::ID, OCEAN::ID, OCEAN::ID, OCEAN::ID) = (south, north, west, east) {
+                if south == OCEAN::ID || north == OCEAN::ID || west == OCEAN::ID || east == OCEAN::ID {
                     center = BEACH::ID;
                 }
             } else if center == EXTREME_HILLS::ID {

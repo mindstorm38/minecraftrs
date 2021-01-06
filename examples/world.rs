@@ -14,17 +14,17 @@ fn main() {
 
     println!("World seed: {}", world.get_info().seed);
 
-    world.provide_chunk(0, 0).unwrap();
+    //world.provide_chunk(9, -9).unwrap();
 
-    /*let start = Instant::now();
+    let start = Instant::now();
 
     for x in 5..10 {
-        for z in -10..-5 {
+        for z in -7..-2 {
             world.provide_chunk(x, z).unwrap();
         }
     }
 
-    println!("Generated {} chunks in {}s", world.get_chunks().len(), start.elapsed().as_secs_f32());*/
+    println!("Generated {} chunks in {}s", world.get_chunks().len(), start.elapsed().as_secs_f32());
 
     let file = File::create("world.obj").unwrap();
     render_world_to_obj(file, &world).unwrap();

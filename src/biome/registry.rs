@@ -65,7 +65,7 @@ impl From<Version> for BiomeRegistry {
 
         reg.register(biome!(OCEAN).set_height_range(-1.0, 0.4));
         reg.register(biome!(PLAINS).set_temp_rainfall(0.8, 0.4));
-        reg.register(biome!(DESERT).set_temp_rainfall(2.0, 0.0).set_height_range(0.1, 0.2));
+        reg.register(biome!(DESERT).set_temp_rainfall(2.0, 0.0).set_height_range(0.1, 0.2).set_blocks("sand", "sand"));
         reg.register(biome!(EXTREME_HILLS).set_temp_rainfall(0.2, 0.3).set_height_range(0.2, 1.3));
         reg.register(biome!(FOREST).set_temp_rainfall(0.7, 0.8));
         reg.register(biome!(TAIGA).set_temp_rainfall(0.05, 0.8).set_height_range(0.1, 0.4));
@@ -77,10 +77,10 @@ impl From<Version> for BiomeRegistry {
         reg.register(biome!(ICE_PLAINS).set_temp_rainfall(0.0, 0.5));
         reg.register(biome!(ICE_MOUNTAINS).set_temp_rainfall(0.0, 0.5));
 
-        reg.register(biome!(MUSHROOM_ISLAND).set_temp_rainfall(0.9, 1.0).set_height_range(0.2, 1.0));
-        reg.register(biome!(MUSHROOM_ISLAND_SHORE).set_temp_rainfall(0.9, 1.0).set_height_range(-1.0, 0.1));
+        reg.register(biome!(MUSHROOM_ISLAND).set_temp_rainfall(0.9, 1.0).set_height_range(0.2, 1.0).set_blocks("mycelium", "dirt"));
+        reg.register(biome!(MUSHROOM_ISLAND_SHORE).set_temp_rainfall(0.9, 1.0).set_height_range(-1.0, 0.1).set_blocks("mycelium", "dirt"));
 
-        reg.register(biome!(BEACH).set_temp_rainfall(0.8, 0.4).set_height_range(0.0, 0.1));
+        reg.register(biome!(BEACH).set_temp_rainfall(0.8, 0.4).set_height_range(0.0, 0.1).set_blocks("sand", "sand"));
 
         reg.register(biome!(DESERT_HILLS).set_temp_rainfall(2.0, 0.0).set_height_range(0.2, 0.7));
         reg.register(biome!(FOREST_HILLS).set_temp_rainfall(0.7, 0.8).set_height_range(0.2, 0.6));

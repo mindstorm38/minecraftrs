@@ -26,6 +26,7 @@ impl From<Version> for BlockRegistry {
         reg.register(Block::new("sand", 12).set_hardness(0.5));
         reg.register(Block::new("sand_stone", 24).set_hardness(0.8));
         reg.register(Block::new("ice", 79).set_hardness(0.5));
+        reg.register(Block::new("mycelium", 110).set_hardness(0.6));
 
         BlockRegistry(reg)
 

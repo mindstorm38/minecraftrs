@@ -59,6 +59,12 @@ impl Biome {
         self
     }
 
+    pub fn set_blocks(mut self, top_block: &'static str, filler_block: &'static str) -> Self {
+        self.top_block = top_block;
+        self.filler_block = filler_block;
+        self
+    }
+
 }
 
 mod registry;
