@@ -6,9 +6,12 @@ Rust library for cross-version Minecraft world generation.
 Spot the differences! *(version: 1.2.5, biomes, terrain)*
 
 ## Supported versions
-Currently, the library obviously does not support all, I started with 1.2.5 because I was interested in seed reversing challenge in this version (and I think nothing changed in the generation from 1.2.1, except for jungles maybe). For now, only biomes *(with layers)* and terrain generation works, there are certainly some bugs, but the main API is operational as you can see in the image above.
+Currently, the library obviously does not support all, I started with 1.2.5 because I was interested in seed reversing challenge in this version (and I think nothing changed in the generation from 1.2.1, except for jungles maybe). For now, only biomes and terrain generation works, there are certainly some bugs, but the main API is operational as you can see in the image above.
 
 Before implementing other versions, I plan to support all features of the version 1.2.5. Maybe not structures but definitely features. For the future of this library I'm open to suggestion for supporting more versions and obviously to contributions.
+
+Summary of supported and tested versions :
+- 1.2.5, biomes, terrain, *ravines (WIP)*
 
 ## Rendering ?
 I'm not planning to implement any renderer for this library, if it's needed this would be created in another repository.
