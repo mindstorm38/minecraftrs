@@ -1,7 +1,6 @@
 use crate::world::chunk::Chunk;
 use crate::math::{JAVA_PI, mc_sin, mc_cos};
 use super::CarverInternal;
-// use std::f32::consts::PI;
 
 
 fn gen_ravine(ccx: i32, ccz: i32, chunk: &mut Chunk, internal: &mut CarverInternal) {
@@ -17,7 +16,6 @@ fn gen_ravine(ccx: i32, ccz: i32, chunk: &mut Chunk, internal: &mut CarverIntern
 
         // println!("[{}/{}] Generate ravine at {}/{}/{}", chunk.get_position().0, chunk.get_position().1, x, y, z);
 
-        // PI might be wrong and cause incoherence with Java.
         // Yaw: Around Y, Pitch: Around the horizontal line
         let angle_yaw = rand.next_float() * JAVA_PI as f32 * 2.0;
         let angle_pitch = ((rand.next_float() - 0.5) * 2.0) / 8.0;
@@ -46,12 +44,18 @@ fn gen_ravine_worker(
     internal: &mut CarverInternal)
 {
 
-    //println!(" => yaw: {}, pitch: {}, width: {}, offset: {}, length: {}", angle_yaw, angle_pitch, param_a, offset, length);
-    //println!(" => x: {}, y: {}, z: {}", x, y, z);
-
     let (cx, cz) = chunk.get_position();
     let x_mid_chunk = (cx * 16 + 8) as f64;
     let z_mid_chunk = (cz * 16 + 8) as f64;
+
+    //let debug = cx == -21 && cz == 34 && x == -306.0 && y == 65.0 && z == 631.0;
+    let debug = false;
+
+    if debug {
+        //println!(" => x: {}, y: {}, z: {}", x, y, z);
+        //println!(" => yaw: {}, pitch: {}, width: {}, offset: {}, length: {}", angle_yaw, angle_pitch, param_a, offset, length);
+        //println!(" => mid chunk: {}/{}", x_mid_chunk, z_mid_chunk);
+    }
 
     //println!(" => mid chunk: {}/{}", x_mid_chunk, z_mid_chunk);
 
@@ -70,7 +74,9 @@ fn gen_ravine_worker(
         flag = true;
     }
 
-    //println!(" => offset: {}, length: {}", offset, length);
+    if debug {
+        //println!(" => offset: {}, length: {}", offset, length);
+    }
 
     let table = {
         let mut table = [0f32; 128];
@@ -86,7 +92,9 @@ fn gen_ravine_worker(
 
     'length_loop: for offset in offset..length {
 
-        //println!(" => Loop {}/{}", offset, length);
+        if debug {
+            //println!(" => loop {}/{}", offset, length);
+        }
 
         let mut a = 1.5 + (mc_sin(offset as f32 * JAVA_PI as f32 / length as f32) * param_a * 1.0) as f64;
         let mut b = a * param_b;
@@ -94,7 +102,9 @@ fn gen_ravine_worker(
         a *= internal.rand.next_float() as f64 * 0.25 + 0.75;
         b *= internal.rand.next_float() as f64 * 0.25 + 0.75;
 
-        //println!(" => a: {}, b: {}", a, b);
+        if debug {
+            //println!(" => a: {}, b: {}", a, b);
+        }
 
         let pitch_cos = mc_cos(angle_pitch);
         let pitch_sin = mc_sin(angle_pitch);
@@ -102,6 +112,10 @@ fn gen_ravine_worker(
         x += (mc_cos(angle_yaw) * pitch_cos) as f64;
         y += pitch_sin as f64;
         z += (mc_sin(angle_yaw) * pitch_cos) as f64;
+
+        if debug {
+            //println!(" => x: {}, y: {}, z: {}", x, y, z);
+        }
 
         angle_pitch *= 0.7;
         angle_pitch += pitch_modifier * 0.05;
@@ -113,10 +127,10 @@ fn gen_ravine_worker(
         pitch_modifier += (internal.rand.next_float() - internal.rand.next_float()) * internal.rand.next_float() * 2.0;
         yaw_modifier += (internal.rand.next_float() - internal.rand.next_float()) * internal.rand.next_float() * 4.0;
 
-        //println!(" => pitch mod: {}, yaw mod: {}", pitch_modifier, yaw_modifier);
-
         if !flag && internal.rand.next_int_bounded(4) == 0 {
-            //println!(" => continue1");
+            /*if debug {
+                println!(" => skip this")
+            }*/
             continue;
         }
 
@@ -125,13 +139,18 @@ fn gen_ravine_worker(
         let remaining_length = (length - offset) as f64;
         let c = (param_a + 2.0 + 16.0) as f64;
 
+        if debug {
+            //println!(" => chunk rel: {}/{}, remaining length: {}, c: {}", x_chunk_rel, z_chunk_rel, remaining_length, c);
+        }
+
         if x_chunk_rel * x_chunk_rel + z_chunk_rel * z_chunk_rel - remaining_length * remaining_length > c * c {
-            //println!(" => break1");
             break;
         }
 
         if x < x_mid_chunk - 16.0 - a * 2.0 || z < z_mid_chunk - 16.0 - a * 2.0 || x > x_mid_chunk + 16.0 + a * 2.0 || z > z_mid_chunk + 16.0 + a * 2.0 {
-            //println!(" => continue2");
+            /*if debug {
+                println!(" => skip this (2)")
+            }*/
             continue;
         }
 
@@ -142,8 +161,9 @@ fn gen_ravine_worker(
         let z_start = ((z - a).floor() as i32 - cz * 16 - 1).max(0) as usize;
         let z_end = ((z + a).floor() as i32 - cz * 16 + 1).max(0).min(16) as usize;
 
-        //println!(" => x: [{};{}[, y: [{};{}[, z: [{};{}[", x_start, x_end, y_start, y_end, z_start, z_end);
-        //println!(" => z_end: {}", ((z + a).floor() as i32 - cz * 16 + 1));
+        if debug {
+            //println!(" => x: [{};{}[, y: [{};{}[, z: [{};{}[", x_start, x_end, y_start, y_end, z_start, z_end);
+        }
 
         for bx in x_start..x_end {
             for bz in z_start..z_end {
@@ -159,6 +179,9 @@ fn gen_ravine_worker(
                         }
 
                         if must_stop {
+                            /*if debug {
+                                println!(" => skip this (3)")
+                            }*/
                             continue'length_loop;
                         }
 
@@ -190,7 +213,11 @@ fn gen_ravine_worker(
 
                     if (dx * dx + dz * dz) * table[by] as f64 + ((dy * dy) / 6.0) < 1.0 {
 
-                        let block_id = chunk.get_block_id(bx, by, bz);
+                        // Why: in Minecraft code the "by" value has an
+                        // offset of 1 block to the bottom.
+                        let rby = by + 1;
+
+                        let block_id = chunk.get_block_id(bx, rby, bz);
 
                         if block_id == 2 { // Replace with 'grass' id
                             pierced_ground = true;
@@ -198,11 +225,11 @@ fn gen_ravine_worker(
 
                         if block_id == 1 || block_id == 3 || block_id == 2 {
                             if by < 10 {
-                                chunk.set_block_id(bx, by, bz, 11); // Lava block
+                                chunk.set_block_id(bx, rby, bz, 11); // Lava block
                             } else {
-                                chunk.set_block_id(bx, by, bz, 0);
-                                if pierced_ground && chunk.get_block_id(bx, by - 1, bz) == 3 { // If dirt
-                                    chunk.set_block_id(bx, by - 1, bz, 2); // Replace the 2 with query to biome generation.
+                                chunk.set_block_id(bx, rby, bz, 0);
+                                if pierced_ground && chunk.get_block_id(bx, rby - 1, bz) == 3 { // If dirt
+                                    chunk.set_block_id(bx, rby - 1, bz, 2); // Replace the 2 with query to biome generation.
                                 }
                             }
                         }

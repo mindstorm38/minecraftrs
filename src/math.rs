@@ -23,7 +23,7 @@ pub fn mc_sin(x: f32) -> f32 {
 }
 
 
-/// Emulate the Minecraft sinus lookup table.
+/// Emulate the Minecraft cosinus lookup table.
 pub fn mc_cos(x: f32) -> f32 {
     mc_sin_table(((x * 10430.38 + 16384.0) as i32 & 0xffff) as u16)
 }
