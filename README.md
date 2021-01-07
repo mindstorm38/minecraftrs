@@ -18,5 +18,5 @@ I'm not planning to implement any renderer for this library, if it's needed this
 
 > For the illustration above I exported the world vertices to a `.obj` file *(check "world" example to understand how)* and then I used "3D Builder" software on Windows.
 
-## Image gallery
+## Gallery
 ![](https://raw.githubusercontent.com/mindstorm38/minecraftrs/master/docs/working_ravines.png)
