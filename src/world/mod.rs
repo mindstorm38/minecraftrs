@@ -16,8 +16,8 @@ use chunk::Chunk;
 
 /// Combine a chunk coordinate pair into 64 bits for hashing.
 #[inline]
-pub const fn combine_chunk_coords(cx: i32, cz: i32) -> u64 {
-    cx as u64 | ((cz as u64) << 32)
+pub fn combine_chunk_coords(cx: i32, cz: i32) -> u64 {
+    cx as u32 as u64 | ((cz as u32 as u64) << 32)
 }
 
 

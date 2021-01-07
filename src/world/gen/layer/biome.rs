@@ -13,7 +13,7 @@ fn biome(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal, a
             let to_set = match output.get(dx, dz).expect_biome() {
                 OCEAN::ID => OCEAN::ID,
                 MUSHROOM_ISLAND::ID => MUSHROOM_ISLAND::ID,
-                PLAINS::ID => internal.rand.choose_copy(allowed_biomes),
+                PLAINS::ID => internal.rand.choose(allowed_biomes),
                 _ => ICE_PLAINS::ID
             };
 

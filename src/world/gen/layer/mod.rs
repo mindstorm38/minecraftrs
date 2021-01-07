@@ -145,20 +145,8 @@ impl LayerRand {
         i as u32
     }
 
-    pub fn choose<'a, T>(&mut self, elements: &'a [T]) -> &'a T {
-        &elements[self.next_int(elements.len() as u32) as usize]
-    }
-
-    pub fn choose_copy<T: Copy>(&mut self, elements: &[T]) -> T {
+    pub fn choose<T: Copy>(&mut self, elements: &[T]) -> T {
         elements[self.next_int(elements.len() as u32) as usize]
-    }
-
-    pub fn choose_ref<'a, T>(&mut self, elements: &'a [&T]) -> &'a T {
-        *self.choose(elements)
-    }
-
-    pub fn choose_ref_and_clone<T: Clone>(&mut self, elements: &[&T]) -> T {
-        (*self.choose(elements)).clone()
     }
 
 }

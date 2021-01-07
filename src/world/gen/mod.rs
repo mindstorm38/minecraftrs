@@ -10,6 +10,8 @@ use crate::version::{Version, VersionType::*};
 use std::rc::Rc;
 
 pub mod layer;
+pub mod feature;
+pub mod carver;
 pub mod gen102;
 
 

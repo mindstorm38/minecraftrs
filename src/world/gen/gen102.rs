@@ -8,10 +8,12 @@ use crate::world::provider::{ChunkLoader, ChunkError};
 use crate::world::chunk::Chunk;
 use crate::world::WorldInfo;
 use super::layer::{Layer, build_biome_rect};
+use crate::world::gen::carver::Carver;
+use crate::res::Registrable;
 use std::cell::RefCell;
 use std::num::Wrapping;
 use std::rc::Rc;
-use crate::res::Registrable;
+use std::borrow::Borrow;
 
 
 struct ChunkGeneratorInternal {
@@ -28,7 +30,9 @@ struct ChunkGeneratorInternal {
     noise_main5: FixedOctavesPerlinNoise,
     noise_surface: FixedOctavesPerlinNoise,
 
-    noise_field: NoiseCube
+    noise_field: NoiseCube,
+
+    ravine_carver: Carver
 
 }
 
@@ -50,6 +54,7 @@ impl ChunkGeneratorInternal {
             noise_main4: FixedOctavesPerlinNoise::new(&mut rand, 10, WIDTH, 1, WIDTH),
             noise_main5: FixedOctavesPerlinNoise::new(&mut rand, 16, WIDTH, 1, WIDTH),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
+            ravine_carver: Carver::new_ravine(),
             rand,
             world_info
         }
@@ -113,6 +118,7 @@ impl ChunkGeneratorInternal {
 
         let mut chunk = self.generate_terrain(cx, cz);
         self.generate_surface(&mut chunk);
+        self.ravine_carver.generate(self.world_info.borrow(), &mut chunk);
 
         Ok(chunk)
 
@@ -378,7 +384,7 @@ impl ChunkGeneratorInternal {
                 let temp = biome.temperature;
 
                 // x/z are inverted
-                let noise_val = (self.noise_surface.get_noise(z, x, 0) / 3.0 + 3.0 + self.rand.next_double() * 0.25) as i32;
+                let noise_val = (self.noise_surface.get_noise(x, z, 0) / 3.0 + 3.0 + self.rand.next_double() * 0.25) as i32;
 
                 let biome_top_block = self.world_info.block_registry.0.expect_from_name(biome.top_block).get_id();
                 let biome_filler_block = self.world_info.block_registry.0.expect_from_name(biome.filler_block).get_id();

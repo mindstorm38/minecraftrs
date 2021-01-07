@@ -35,7 +35,7 @@ fn choose_weird(rand: &mut LayerRand, v1: State, v2: State, v3: State, v4: State
     } else if v4 == v3 && v1 != v2 {
         v3 // As in MCP 1.2.5, but weird
     } else {
-        rand.choose_copy(&[v1, v2, v3, v4])
+        rand.choose(&[v1, v2, v3, v4])
     }
 
 }
@@ -70,10 +70,10 @@ fn common_zoom(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInter
             let v4 = input.get(dx + 1, dz + 1);
 
             tmp.set(dx * 2 + 0, dz * 2 + 0, v1);
-            tmp.set(dx * 2 + 0, dz * 2 + 1, internal.rand.choose_copy(&[v1, v2]));
-            tmp.set(dx * 2 + 1, dz * 2 + 0, internal.rand.choose_copy(&[v1, v3]));
+            tmp.set(dx * 2 + 0, dz * 2 + 1, internal.rand.choose(&[v1, v2]));
+            tmp.set(dx * 2 + 1, dz * 2 + 0, internal.rand.choose(&[v1, v3]));
             tmp.set(dx * 2 + 1, dz * 2 + 1, if fuzzy {
-                internal.rand.choose_copy(&[v1, v3, v2, v4])
+                internal.rand.choose(&[v1, v3, v2, v4])
             } else {
                 choose_weird(&mut internal.rand, v1, v3, v2, v4)
             });

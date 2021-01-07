@@ -14,12 +14,15 @@ fn main() {
 
     println!("World seed: {}", world.get_info().seed);
 
-    //world.provide_chunk(500, 562).unwrap();
+    //world.provide_chunk(-25, 39).unwrap();
+
+    let center_x = -21;
+    let center_z = 34;
 
     let start = Instant::now();
 
-    for x in 5..10 {
-        for z in -7..-2 {
+    for x in (center_x - 3)..=(center_x + 3) {
+        for z in (center_z - 3)..=(center_z + 3) {
             world.provide_chunk(x, z).unwrap();
         }
     }

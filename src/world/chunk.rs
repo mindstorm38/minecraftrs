@@ -12,7 +12,7 @@ pub const DATA_SIZE: usize = SIZE * SIZE * SIZE;
 /// Used to calculate the index in a data array of `DATA_SIZE`.
 #[inline]
 fn calc_data_index(x: usize, y: usize, z: usize) -> usize {
-    debug_assert!(x < 16 && y < 16 && z < 16);
+    debug_assert!(x < 16 && y < 16 && z < 16, "x: {}, y: {}, z: {}", x, y, z);
     (x & 15) | ((y & 15) << 4) | ((z & 15) << 8)
 }
 
