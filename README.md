@@ -2,7 +2,7 @@
 
 Rust library for cross-version Minecraft world generation.
 
-![Spot the differences!](https://raw.githubusercontent.com/mindstorm38/minecraftrs/master/docs/working_generation.png)
+![](https://raw.githubusercontent.com/mindstorm38/minecraftrs/master/docs/working_generation.png)
 Spot the differences! *(version: 1.2.5, biomes, terrain)*
 
 ## Supported versions
@@ -10,10 +10,13 @@ Currently, the library obviously does not support all, I started with 1.2.5 beca
 
 Before implementing other versions, I plan to support all features of the version 1.2.5. Maybe not structures but definitely features. For the future of this library I'm open to suggestion for supporting more versions and obviously to contributions.
 
-Summary of supported and tested versions :
-- 1.2.5, biomes, terrain, *ravines (WIP)*
+Supported and tested versions and their working features:
+- 1.2.5, biomes, terrain, ravines ***(NEW)***
 
 ## Rendering ?
 I'm not planning to implement any renderer for this library, if it's needed this would be created in another repository.
 
 > For the illustration above I exported the world vertices to a `.obj` file *(check "world" example to understand how)* and then I used "3D Builder" software on Windows.
+
+## Gallery
+![](https://raw.githubusercontent.com/mindstorm38/minecraftrs/master/docs/working_ravines.png)
