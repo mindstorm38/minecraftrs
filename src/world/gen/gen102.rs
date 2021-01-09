@@ -54,7 +54,7 @@ impl ChunkGeneratorInternal {
             noise_main4: FixedOctavesPerlinNoise::new(&mut rand, 10, WIDTH, 1, WIDTH),
             noise_main5: FixedOctavesPerlinNoise::new(&mut rand, 16, WIDTH, 1, WIDTH),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
-            ravine_carver: Carver::new_ravine(),
+            ravine_carver: Carver::new_ravine(Rc::clone(&world_info)),
             rand,
             world_info
         }
@@ -143,7 +143,7 @@ impl ChunkGeneratorInternal {
         self.initialize_noise_field(cx, cz);
 
         // Initializing the chunk with 8 sub-chunks.
-        let mut chunk = Chunk::new(cx, cz, 8);
+        let mut chunk = Chunk::new(Rc::clone(&self.world_info), cx, cz, 8);
 
         let stone_block = self.world_info.block_registry.0.expect_from_name("stone").get_id();
         let water_block = self.world_info.block_registry.0.expect_from_name("water").get_id();

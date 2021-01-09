@@ -229,7 +229,7 @@ fn gen_ravine_worker(
                             } else {
                                 chunk.set_block_id(bx, rby, bz, 0);
                                 if pierced_ground && chunk.get_block_id(bx, rby - 1, bz) == 3 { // If dirt
-                                    chunk.set_block_id(bx, rby - 1, bz, 2); // Replace the 2 with query to biome generation.
+                                    chunk.set_block_id(bx, rby - 1, bz, 2); // TODO Replace the 2 with query to biome generation.
                                 }
                             }
                         }
@@ -251,4 +251,4 @@ fn gen_ravine_worker(
 
 }
 
-impl_carver!(gen_ravine, new_ravine);
+impl_carver!(gen_ravine, new_ravine, 8);

@@ -2,11 +2,13 @@ use crate::rand::jrand::JavaRandom;
 use crate::world::WorldInfo;
 use crate::world::chunk::Chunk;
 use std::num::Wrapping;
+use std::rc::Rc;
 
 
 pub struct CarverInternal {
     pub rand: JavaRandom,
-    pub range: i32
+    pub range: i32,
+    pub world_info: Rc<WorldInfo>
 }
 
 pub type CarverHandleFn = fn(ccx: i32, ccz: i32, chunk: &mut Chunk, internal: &mut CarverInternal);
@@ -18,11 +20,12 @@ pub struct Carver {
 
 impl Carver {
 
-    pub fn new(handler: CarverHandleFn) -> Self {
+    pub fn new(handler: CarverHandleFn, range: i32, world_info: Rc<WorldInfo>) -> Self {
         Carver {
             internal: CarverInternal {
                 rand: JavaRandom::new_blank(),
-                range: 8
+                range,
+                world_info
             },
             handler
         }
@@ -54,11 +57,11 @@ impl Carver {
 }
 
 macro_rules! impl_carver {
-    ($func:ident, $new_func:ident) => {
+    ($func:ident, $new_func:ident, $range:expr) => {
         impl $crate::world::gen::carver::Carver {
             #[inline]
-            pub fn $new_func() -> Self {
-                Self::new($func)
+            pub fn $new_func(world_info: std::rc::Rc<$crate::world::WorldInfo>) -> Self {
+                Self::new($func, $range, world_info)
             }
         }
     };
