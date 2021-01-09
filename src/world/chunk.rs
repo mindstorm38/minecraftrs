@@ -1,9 +1,8 @@
 use crate::res::Registrable;
-use crate::block::{Block, BlockRegistry};
-use crate::biome::{Biome, BiomeRegistry};
+use crate::block::Block;
+use crate::biome::Biome;
 use super::WorldInfo;
 use std::rc::Rc;
-use std::borrow::Borrow;
 
 
 /// The number of blocks for each direction in sub chunks.
@@ -12,12 +11,36 @@ pub const SIZE: usize = 16;
 pub const DATA_SIZE: usize = SIZE * SIZE * SIZE;
 
 
+/// Used to calculate the index in a data array of `DATA_SIZE`.
+#[inline]
+fn calc_block_index(x: usize, y: usize, z: usize) -> usize {
+    debug_assert!(x < 16 && y < 16 && z < 16, "x: {}, y: {}, z: {}", x, y, z);
+    (x & 15) | ((z & 15) << 4) | ((y & 15) << 8)
+}
+
+
+#[inline]
+fn calc_biome_2d_index(x: usize, z: usize) -> usize {
+    debug_assert!(x < 16 && z < 16, "x: {}, z: {}", x, z);
+    (x & 15) | ((z & 15) << 4)
+}
+
+
+#[inline]
+fn calc_biome_3d_index(x: usize, y: usize, z: usize) -> usize {
+    debug_assert!(x < 4 && y < 4 && z < 4, "x: {}, y: {}, z: {}", x, y, z);
+    (x & 3) | ((z & 3) << 2) | ((y & 3) << 4)
+}
+
+
 /// A vertical chunk, 16x16 blocks.
 pub struct Chunk {
     world_info: Rc<WorldInfo>,
     cx: i32,
     cz: i32,
-    sub_chunks: Vec<SubChunk>
+    sub_chunks: Vec<SubChunk>,
+    /// The legacy flat biomes array.
+    biomes: [u8; SIZE * SIZE]
 }
 
 impl Chunk {
@@ -27,8 +50,14 @@ impl Chunk {
             cx,
             cz,
             sub_chunks: (0..sub_chunks_count).map(|_| SubChunk::new(Rc::clone(&world_info))).collect(),
-            world_info
+            biomes: [0; 256],
+            world_info,
         }
+    }
+
+    /// Return the world info this chunk belongs to.
+    pub fn get_world_info(&self) -> &WorldInfo {
+        &self.world_info
     }
 
     /// Get the chunk position `(x, z)`.
@@ -96,14 +125,46 @@ impl Chunk {
     }
 
     // RAW BIOMES //
-    // TODO
+
+    pub fn get_biome_2d_id(&self, x: usize, z: usize) -> u8 {
+        self.biomes[calc_biome_2d_index(x, z)]
+    }
+
+    pub fn get_biome_3d_id(&self, x: usize, y: usize, z: usize) -> u8 {
+        self.get_sub_chunk(y >> 4).get_biome_id(x, y & 15, z)
+    }
+
+    pub fn set_biome_2d_id(&mut self, x: usize, z: usize, id: u8) {
+        self.biomes[calc_biome_2d_index(x, z)] = id;
+    }
+
+    pub fn set_biome_3d_id(&mut self, x: usize, y: usize, z: usize, id: u8) {
+        self.get_sub_chunk_mut(y >> 4).set_biome_id(x, y & 15, z, id);
+    }
 
     // ACTUAL BIOMES //
-    // TODO
+
+    pub fn get_biome_2d(&self, x: usize, z: usize) -> Option<&Biome> {
+        self.world_info.biome_registry.0.get_from_id(self.get_biome_2d_id(x, z))
+    }
+
+    pub fn get_biome_3d(&self, x: usize, y: usize, z: usize) -> Option<&Biome> {
+        self.world_info.biome_registry.0.get_from_id(self.get_biome_3d_id(x, y, z))
+    }
+
+    pub fn set_biome_2d(&mut self, x: usize, z: usize, biome: &Biome) {
+        self.world_info.biome_registry.0.check_if_exists(biome);
+        self.set_biome_2d_id(x, z, biome.get_id());
+    }
+
+    pub fn set_biome_3d(&mut self, x: usize, y: usize, z: usize, biome: &Biome) {
+        self.world_info.biome_registry.0.check_if_exists(biome);
+        self.set_biome_3d_id(x, y, z, biome.get_id());
+    }
 
     // LEGACY BIOMES //
 
-    /// Get the biome id at a specific position relative to this chunk.
+    /*/// Get the biome id at a specific position relative to this chunk.
     /// **The function may panic if positions are not within ranges,
     /// for safer function, check world functions.**
     /// *For more documentation, refer to SubChunk structure's function
@@ -131,43 +192,16 @@ impl Chunk {
     #[deprecated]
     pub fn set_biome(&mut self, x: usize, y: usize, z: usize, biome: Option<&Biome>) {
         self.get_sub_chunk_mut(y >> 4).set_biome(x, y & 15, z, biome);
-    }
+    }*/
 
-}
-
-
-/// Used to calculate the index in a data array of `DATA_SIZE`.
-#[inline]
-fn calc_block_index(x: usize, y: usize, z: usize) -> usize {
-    debug_assert!(x < 16 && y < 16 && z < 16, "x: {}, y: {}, z: {}", x, y, z);
-    (x & 15) | ((z & 15) << 4) | ((y & 15) << 8)
-}
-
-
-#[inline]
-fn calc_biome_2d_index(x: usize, z: usize) -> usize {
-    debug_assert!(x < 16 && z < 16, "x: {}, z: {}", x, z);
-    (x & 15) | ((z & 15) << 4)
-}
-
-
-#[inline]
-fn calc_biome_3d_index(x: usize, y: usize, z: usize) -> usize {
-    debug_assert!(x < 4 && y < 4 && z < 4, "x: {}, y: {}, z: {}", x, y, z);
-    (x & 3) | ((z & 3) << 2) | ((y & 3) << 4)
 }
 
 
 /// A sub chunk, 16x16x16 blocks.
-///
-/// Actual sub chunk size: 4096*2 + 64 + 256 = 8512 bytes
 pub struct SubChunk {
     world_info: Rc<WorldInfo>,
     blocks: Vec<u16>,
-    /// In this biomes array, two type of biomes format coexists in order to reduce
-    /// memory fragmentation of biomes, the first 64 bytes are used to map 3D biomes
-    /// in a 4x4x4 cube where each byte stands for a cube of 4x4 blocks in the chunk.
-    /// The next 256 bytes are for the legacy (pre 1.15) biomes 16x16 rectangle.
+    /// Modern cube biomes array.
     biomes: Vec<u8>
 }
 
@@ -181,7 +215,7 @@ impl SubChunk {
         }
     }
 
-    /// Return the world info this sub chunks belongs to.
+    /// Return the world info this sub chunk belongs to.
     pub fn get_world_info(&self) -> &WorldInfo {
         &self.world_info
     }
@@ -212,7 +246,7 @@ impl SubChunk {
     /// Get the block at specific position by converting the resulting raw id to an
     /// actual block by using the world's block registry.
     pub fn get_block(&self, x: usize, y: usize, z: usize) -> Option<&Block> {
-        self.world_info.borrow().block_registry.0.get_from_id(self.get_block_id(x, y, z))
+        self.world_info.block_registry.0.get_from_id(self.get_block_id(x, y, z))
     }
 
     /// Set the block id at specific position, the position is relative to this chunk
@@ -227,45 +261,30 @@ impl SubChunk {
 
     // RAW BIOMES //
 
-    pub fn get_biome_2d_id(&self, x: usize, z: usize) -> u8 {
-        self.biomes[64 + calc_biome_2d_index(x, z)]
-    }
-
-    pub fn get_biome_3d_id(&self, x: usize, y: usize, z: usize) -> u8 {
+    pub fn get_biome_id(&self, x: usize, y: usize, z: usize) -> u8 {
         // Note: Shifting position because biomes 3D cube is 4x4x4 and
-        // I don't want to expose this details to the API.
+        // we don't want to expose this details to the API.
         self.biomes[calc_biome_3d_index(x >> 2, y >> 2, z >> 2)]
     }
 
-    pub fn set_biome_2d_id(&mut self, x: usize, z: usize, id: u8) {
-        self.biomes[64 + calc_biome_2d_index(x, z)] = id;
-    }
-
-    pub fn set_biome_3d_id(&mut self, x: usize, y: usize, z: usize, id: u8) {
+    pub fn set_biome_id(&mut self, x: usize, y: usize, z: usize, id: u8) {
         self.biomes[calc_biome_3d_index(x >> 2, y >> 2, z >> 2)] = id;
     }
 
     // ACTUAL BIOMES //
 
-    pub fn get_biome_2d(&self, x: usize, z: usize) -> Option<&Biome> {
-        self.world_info.biome_registry.0.get_from_id(self.get_biome_2d_id(x, z))
+    pub fn get_biome(&self, x: usize, y: usize, z: usize) -> Option<&Biome> {
+        self.world_info.biome_registry.0.get_from_id(self.get_biome_id(x, y, z))
     }
 
-    pub fn get_biome_3d(&self, x: usize, y: usize, z: usize) -> Option<&Biome> {
-        self.world_info.biome_registry.0.get_from_id(self.get_biome_3d_id(x, y, z))
-    }
-
-    pub fn set_biome_2d(&mut self, x: usize, z: usize, biome: &Biome) {
-        self.set_biome_2d_id(x, z, biome.get_id());
-    }
-
-    pub fn set_biome_3d(&mut self, x: usize, y: usize, z: usize, biome: &Biome) {
-        self.set_biome_3d_id(x, y, z, biome.get_id());
+    pub fn set_biome(&mut self, x: usize, y: usize, z: usize, biome: &Biome) {
+        self.world_info.biome_registry.0.check_if_exists(biome);
+        self.set_biome_id(x, y, z, biome.get_id());
     }
 
     // LEGACY BIOMES //
 
-    /// Get the biome id at specific position, the position is relative to this chunk
+    /*/// Get the biome id at specific position, the position is relative to this chunk
     /// `(0 <= x/y/z < 16)`.
     ///
     /// *The resolution of the biome grid allowed by this structure
@@ -308,6 +327,6 @@ impl SubChunk {
             Some(biome) => biome.get_id(),
             None => 0
         })
-    }
+    }*/
 
 }

@@ -14,3 +14,7 @@ categories = ["games", "mathematics", "accessibility"]
 [dependencies.derive_more]
 version = "0.99.11"
 features = ["deref", "deref_mut"]
+
+[features]
+default = ["release-1-2"]
+release-1-2 = []

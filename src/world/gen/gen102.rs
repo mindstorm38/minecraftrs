@@ -116,7 +116,9 @@ impl ChunkGeneratorInternal {
 
         self.rand.set_seed((Wrapping(cx as i64) * X_MUL + Wrapping(cz as i64) * Z_MUL).0);
 
-        let mut chunk = self.generate_terrain(cx, cz);
+        let mut chunk = Chunk::new(Rc::clone(&self.world_info), cx, cz, 8);
+
+        self.generate_terrain(&mut chunk);
         self.generate_surface(&mut chunk);
         self.ravine_carver.generate(self.world_info.borrow(), &mut chunk);
 
@@ -125,7 +127,7 @@ impl ChunkGeneratorInternal {
     }
 
     /// Generate base terrain and return the first stage chunk.
-    fn generate_terrain(&mut self, cx: i32, cz: i32) -> Chunk {
+    fn generate_terrain(&mut self, chunk: &mut Chunk) {
 
         // Generate terrain only generate 8 sub-chunks in height,
         // the construction limit is 16 chunks in height.
@@ -140,10 +142,8 @@ impl ChunkGeneratorInternal {
         // This function just apply linear interpolation between
         // noise points.
 
+        let (cx, cz) = chunk.get_position();
         self.initialize_noise_field(cx, cz);
-
-        // Initializing the chunk with 8 sub-chunks.
-        let mut chunk = Chunk::new(Rc::clone(&self.world_info), cx, cz, 8);
 
         let stone_block = self.world_info.block_registry.0.expect_from_name("stone").get_id();
         let water_block = self.world_info.block_registry.0.expect_from_name("water").get_id();
@@ -233,8 +233,6 @@ impl ChunkGeneratorInternal {
                 }
             }
         }
-
-        chunk
 
     }
 

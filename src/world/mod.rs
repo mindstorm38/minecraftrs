@@ -74,6 +74,8 @@ impl World {
         &self.chunks
     }
 
+    // PROVIDE CHUNKS //
+
     /// Provide an existing chunk, if the chunk is not cached the world's
     /// chunk loader is called. If you need a chunk
     pub fn provide_chunk(&mut self, cx: i32, cz: i32) -> Result<&Chunk, ChunkError> {
@@ -90,6 +92,8 @@ impl World {
     pub fn provide_chunk_at(&mut self, x: i32, z: i32) -> Result<&Chunk, ChunkError> {
         self.provide_chunk(x >> 4, z >> 4)
     }
+
+    // CHUNKS //
 
     /// Get a chunk reference at specific coordinates.
     pub fn get_chunk(&self, cx: i32, cz: i32) -> Option<&Chunk> {
@@ -111,8 +115,10 @@ impl World {
         self.get_chunk_mut(x >> 4, z >> 4)
     }
 
-    fn with_chunk_at<F, R>(&self, x: i32, y: i32, z: i32, func: F) -> Option<R>
-        where F: FnOnce(&Chunk, usize, usize, usize) -> Option<R>
+    // SAFE FUNCTION FOR CHUNKS //
+
+    fn with_chunk_at<'a, F, R>(&'a self, x: i32, y: i32, z: i32, func: F) -> Option<R>
+        where F: FnOnce(&'a Chunk, usize, usize, usize) -> Option<R>
     {
         if y < 0 {
             None
@@ -127,8 +133,8 @@ impl World {
         }
     }
 
-    fn with_chunk_mut_at<F>(&mut self, x: i32, y: i32, z: i32, func: F)
-        where F: FnOnce(&mut Chunk, usize, usize, usize)
+    fn with_chunk_mut_at<'a, F>(&'a mut self, x: i32, y: i32, z: i32, func: F)
+        where F: FnOnce(&'a mut Chunk, usize, usize, usize)
     {
         if y >= 0 {
             if let Some(chunk) = self.get_chunk_mut_at(x, z) {
@@ -140,6 +146,8 @@ impl World {
         }
     }
 
+    // RAW BLOCKS //
+
     /// Get a block id at specific position, if the position is invalid, or
     /// the target chunk not loaded, `None` is returned.
     pub fn get_block_id(&self, x: i32, y: i32, z: i32) -> Option<u16> {
@@ -147,6 +155,8 @@ impl World {
             Some(c.get_block_id(x, y, z))
         })
     }
+
+    // ACTUAL BLOCKS //
 
     /// Get a block at specific position, if the position is invalid, or
     /// the target chunk not loaded, `None` is returned.
@@ -161,7 +171,35 @@ impl World {
         });
     }
 
-    /// Get a biome id at specific position, if the position is invalid, or
+    // ACTUAL BIOMES //
+
+    pub fn get_biome_2d(&self, x: i32, z: i32) -> Option<&Biome> {
+        self.with_chunk_at(x, 0, z, |c, x, y, z| {
+            c.get_biome_2d(x, z)
+        })
+    }
+
+    pub fn get_biome_3d(&self, x: i32, y: i32, z: i32) -> Option<&Biome> {
+        self.with_chunk_at(x, y, z, |c, x, y, z| {
+            c.get_biome_3d(x, y, z)
+        })
+    }
+
+    pub fn set_biome_2d(&mut self, x: i32, z: i32, biome: &Biome) {
+        self.with_chunk_mut_at(x, 0, z, |c, x, y, z| {
+            c.set_biome_2d(x, z, biome);
+        })
+    }
+
+    pub fn set_biome_3d(&mut self, x: i32, y: i32, z: i32, biome: &Biome) {
+        self.with_chunk_mut_at(x, y, z, |c, x, y, z| {
+            c.set_biome_3d(x, y, z, biome);
+        })
+    }
+
+    // LEGACY BIOMES //
+
+    /*/// Get a biome id at specific position, if the position is invalid, or
     /// the target chunk not loaded, `None` is returned.
     pub fn get_biome_id(&self, x: i32, y: i32, z: i32) -> Option<u8> {
         self.with_chunk_at(x, y, z, |c, x, y, z| {
@@ -180,6 +218,6 @@ impl World {
         self.with_chunk_mut_at(x, y, z, |c, x, y, z| {
             c.set_biome(x, y, z, biome);
         });
-    }
+    }*/
 
 }

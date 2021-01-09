@@ -63,4 +63,12 @@ where
         self.get_from_name(name).expect(format!("Block '{}' is missing in the registry.", name).as_str())
     }
 
+    pub fn check_if_exists<'a>(&self, item: &'a T) -> &'a T {
+        if !self.by_ids.contains_key(&item.get_id()) {
+            panic!("The item '{}' is not registered.", item.get_name());
+        } else {
+            item
+        }
+    }
+
 }

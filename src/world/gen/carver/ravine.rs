@@ -169,7 +169,7 @@ fn gen_ravine_worker(
             for bz in z_start..z_end {
                 let mut by = y_end + 1;
                 while by >= y_start - 1 {
-                    if by >= 0 && by < 128 {
+                    if /*by >= 0 && */by < 128 {
 
                         // Replace with water id from registry
                         let must_stop = chunk.get_block_id(bx, by, bz) == 9;
