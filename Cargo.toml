@@ -8,6 +8,7 @@ homepage = "https://github.com/mindstorm38/minecraftrs"
 description = "Minecraft world generation backend in Rust."
 keywords = ["minecraft", "mc", "gen"]
 categories = ["games", "mathematics", "accessibility"]
+license = "Apache-2.0"
 
 [dependencies]
 
