@@ -36,12 +36,12 @@ fn gen_ravine_worker(
     mut x: f64,
     mut y: f64,
     mut z: f64,
-    base_width: f32, // Maybe the width
+    base_width: f32,
     mut angle_yaw: f32,
     mut angle_pitch: f32,
     mut offset: i32,
     mut length: i32,
-    height_ratio: f64, // Maybe the height/width
+    height_ratio: f64,
     internal: &mut CarverInternal)
 {
 
@@ -68,11 +68,11 @@ fn gen_ravine_worker(
         length = i - internal.rand.next_int_bounded(i / 4);
     }
 
-    let mut flag = false;
+    let mut auto_offset = false;
 
     if offset < 0 {
         offset = length / 2;
-        flag = true;
+        auto_offset = true;
     }
 
     if debug {
@@ -135,7 +135,7 @@ fn gen_ravine_worker(
         pitch_modifier += (internal.rand.next_float() - internal.rand.next_float()) * internal.rand.next_float() * 2.0;
         yaw_modifier += (internal.rand.next_float() - internal.rand.next_float()) * internal.rand.next_float() * 4.0;
 
-        if !flag && internal.rand.next_int_bounded(4) == 0 {
+        if !auto_offset && internal.rand.next_int_bounded(4) == 0 {
             /*if debug {
                 println!(" => skip this")
             }*/
@@ -254,7 +254,7 @@ fn gen_ravine_worker(
             }
         }
 
-        if flag {
+        if auto_offset {
             break;
         }
 
