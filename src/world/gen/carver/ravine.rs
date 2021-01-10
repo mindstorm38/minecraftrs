@@ -1,3 +1,4 @@
+use crate::res::Registrable;
 use crate::world::chunk::Chunk;
 use crate::math::{JAVA_PI, mc_sin, mc_cos};
 use super::CarverInternal;
@@ -90,6 +91,13 @@ fn gen_ravine_worker(
         table
     };
 
+    // Querying block ids used in ravines
+    let stone_block = chunk.get_world_info().block_registry.0.expect_from_name("stone").get_id();
+    let grass_block = chunk.get_world_info().block_registry.0.expect_from_name("grass").get_id();
+    let dirt_block = chunk.get_world_info().block_registry.0.expect_from_name("dirt").get_id();
+    let water_block = chunk.get_world_info().block_registry.0.expect_from_name("water").get_id();
+    let lava_block = chunk.get_world_info().block_registry.0.expect_from_name("lava").get_id();
+
     'length_loop: for offset in offset..length {
 
         if debug {
@@ -171,8 +179,7 @@ fn gen_ravine_worker(
                 while by >= y_start - 1 {
                     if /*by >= 0 && */by < 128 {
 
-                        // Replace with water id from registry
-                        let must_stop = chunk.get_block_id(bx, by, bz) == 9;
+                        let must_stop = chunk.get_block_id(bx, by, bz) == water_block;
 
                         if by != y_start - 1 && bx != x_start && bx != x_end - 1 && bz != z_start && bz != z_end - 1 {
                             by = y_start;
@@ -219,17 +226,21 @@ fn gen_ravine_worker(
 
                         let block_id = chunk.get_block_id(bx, rby, bz);
 
-                        if block_id == 2 { // Replace with 'grass' id
+                        if block_id == grass_block {
                             pierced_ground = true;
                         }
 
-                        if block_id == 1 || block_id == 3 || block_id == 2 {
+                        if block_id == stone_block || block_id == dirt_block || block_id == grass_block {
                             if by < 10 {
-                                chunk.set_block_id(bx, rby, bz, 11); // Lava block
+                                chunk.set_block_id(bx, rby, bz, lava_block);
                             } else {
                                 chunk.set_block_id(bx, rby, bz, 0);
-                                if pierced_ground && chunk.get_block_id(bx, rby - 1, bz) == 3 { // If dirt
-                                    chunk.set_block_id(bx, rby - 1, bz, 2); // TODO Replace the 2 with query to biome generation.
+                                if pierced_ground && chunk.get_block_id(bx, rby - 1, bz) == dirt_block {
+                                    chunk.set_block_id(bx, rby - 1, bz, {
+                                        chunk.get_world_info().block_registry.0
+                                            .expect_from_name(chunk.get_biome_2d(bx, bz).top_block)
+                                            .get_id()
+                                    });
                                 }
                             }
                         }

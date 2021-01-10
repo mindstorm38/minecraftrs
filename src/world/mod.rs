@@ -175,13 +175,13 @@ impl World {
 
     pub fn get_biome_2d(&self, x: i32, z: i32) -> Option<&Biome> {
         self.with_chunk_at(x, 0, z, |c, x, _, z| {
-            c.get_biome_2d(x, z)
+            Some(c.get_biome_2d(x, z))
         })
     }
 
     pub fn get_biome_3d(&self, x: i32, y: i32, z: i32) -> Option<&Biome> {
         self.with_chunk_at(x, y, z, |c, x, y, z| {
-            c.get_biome_3d(x, y, z)
+            Some(c.get_biome_3d(x, y, z))
         })
     }
 

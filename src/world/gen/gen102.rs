@@ -118,11 +118,27 @@ impl ChunkGeneratorInternal {
 
         let mut chunk = Chunk::new(Rc::clone(&self.world_info), cx, cz, 8);
 
+        self.initialize_biomes(&mut chunk);
         self.generate_terrain(&mut chunk);
         self.generate_surface(&mut chunk);
         self.ravine_carver.generate(self.world_info.borrow(), &mut chunk);
 
         Ok(chunk)
+
+    }
+
+    fn initialize_biomes(&mut self, chunk: &mut Chunk) {
+
+        let (cx, cz) = chunk.get_position();
+        let biomes = self.voronoi_layer.generate(cx * 16, cz * 16, 16, 16);
+
+        for x in 0..16 {
+            for z in 0..16 {
+                chunk.set_biome_2d(x, z, self.world_info.biome_registry.0.expect_from_id(biomes.get(x, z).expect_biome()));
+            }
+        }
+
+        chunk.set_biome_3d_auto();
 
     }
 
@@ -245,8 +261,6 @@ impl ChunkGeneratorInternal {
         // Terrain biomes don't expect to be "voronoi-ed"
         let biome_layer = self.voronoi_layer.expect_parent();
         let biome_layer_data = biome_layer.generate(cx * 4 - 2, cz * 4 - 2, 10, 10);
-        //println!();
-        //biome_layer_data.debug("Final result");
         let biome_rect = build_biome_rect(biome_layer_data, &self.world_info.biome_registry);
 
         const WIDTH_SCALE: f64 = 684.41200000000003;
@@ -362,9 +376,6 @@ impl ChunkGeneratorInternal {
 
         let (cx, cz) = chunk.get_position();
 
-        let biome_layer_data = self.voronoi_layer.generate(cx * 16, cz * 16, 16, 16);
-        let biome_rect = build_biome_rect(biome_layer_data, &self.world_info.biome_registry);
-
         let stone_block = self.world_info.block_registry.0.expect_from_name("stone").get_id();
         let bedrock_block = self.world_info.block_registry.0.expect_from_name("bedrock").get_id();
         let water_block = self.world_info.block_registry.0.expect_from_name("water").get_id();
@@ -378,7 +389,8 @@ impl ChunkGeneratorInternal {
         for z in 0..16 {
             for x in 0..16 {
 
-                let biome = biome_rect.get(x, z);
+                //let biome = biome_rect.get(x, z);
+                let biome = chunk.get_biome_2d(x, z);
                 let temp = biome.temperature;
 
                 // x/z are inverted

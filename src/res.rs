@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::fmt::Display;
 
 /// Common trait for all object usable in the registry.
 pub trait Registrable<ID: Eq + Hash> {
@@ -60,7 +61,14 @@ where
     }
 
     pub fn expect_from_name(&self, name: &str) -> &T {
-        self.get_from_name(name).expect(format!("Block '{}' is missing in the registry.", name).as_str())
+        self.get_from_name(name).expect(format!("Missing name '{}' in the registry.", name).as_str())
+    }
+
+    pub fn expect_from_id(&self, id: ID) -> &T
+    where
+        ID: Display + Copy
+    {
+        self.get_from_id(id).expect(format!("Missing id '{}' in the registry.", id).as_str())
     }
 
     pub fn check_if_exists<'a>(&self, item: &'a T) -> &'a T {

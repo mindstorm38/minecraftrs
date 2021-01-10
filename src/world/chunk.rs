@@ -144,12 +144,14 @@ impl Chunk {
 
     // ACTUAL BIOMES //
 
-    pub fn get_biome_2d(&self, x: usize, z: usize) -> Option<&Biome> {
+    pub fn get_biome_2d(&self, x: usize, z: usize) -> &Biome {
         self.world_info.biome_registry.0.get_from_id(self.get_biome_2d_id(x, z))
+            .expect("Chunk can't have undefined biome.")
     }
 
-    pub fn get_biome_3d(&self, x: usize, y: usize, z: usize) -> Option<&Biome> {
+    pub fn get_biome_3d(&self, x: usize, y: usize, z: usize) -> &Biome {
         self.world_info.biome_registry.0.get_from_id(self.get_biome_3d_id(x, y, z))
+            .expect("Chunk can't have undefined biome.")
     }
 
     pub fn set_biome_2d(&mut self, x: usize, z: usize, biome: &Biome) {
@@ -160,6 +162,22 @@ impl Chunk {
     pub fn set_biome_3d(&mut self, x: usize, y: usize, z: usize, biome: &Biome) {
         self.world_info.biome_registry.0.check_if_exists(biome);
         self.set_biome_3d_id(x, y, z, biome.get_id());
+    }
+
+    // BIOMES CONVERSIONS //
+
+    pub fn set_biome_3d_auto(&mut self) {
+        for x in 0..4 {
+            for z in 0..4 {
+                // Maybe we can choose the most represented biome in the 4x4 cube
+                let biome = self.get_biome_2d_id((x << 2) + 1, (z << 2) + 1);
+                for sub_chunk in &mut self.sub_chunks {
+                    for y in 0..4 {
+                        sub_chunk.set_biome_id(x << 2, y << 2, z << 2, biome);
+                    }
+                }
+            }
+        }
     }
 
     // LEGACY BIOMES //
@@ -211,7 +229,7 @@ impl SubChunk {
         SubChunk {
             world_info,
             blocks: vec![0; DATA_SIZE],
-            biomes: vec![0; 64 + 256]
+            biomes: vec![0; 64]
         }
     }
 
@@ -273,8 +291,9 @@ impl SubChunk {
 
     // ACTUAL BIOMES //
 
-    pub fn get_biome(&self, x: usize, y: usize, z: usize) -> Option<&Biome> {
+    pub fn get_biome(&self, x: usize, y: usize, z: usize) -> &Biome {
         self.world_info.biome_registry.0.get_from_id(self.get_biome_id(x, y, z))
+            .expect("Sub chunk can't have undefined biome.")
     }
 
     pub fn set_biome(&mut self, x: usize, y: usize, z: usize, biome: &Biome) {
