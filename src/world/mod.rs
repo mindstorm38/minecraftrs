@@ -7,10 +7,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub mod chunk;
-pub mod provider;
+pub mod loader;
 pub mod gen;
 
-use provider::{ChunkError, ChunkLoader};
+use loader::{ChunkError, ChunkLoader};
 use chunk::Chunk;
 
 
@@ -174,7 +174,7 @@ impl World {
     // ACTUAL BIOMES //
 
     pub fn get_biome_2d(&self, x: i32, z: i32) -> Option<&Biome> {
-        self.with_chunk_at(x, 0, z, |c, x, y, z| {
+        self.with_chunk_at(x, 0, z, |c, x, _, z| {
             c.get_biome_2d(x, z)
         })
     }
@@ -186,7 +186,7 @@ impl World {
     }
 
     pub fn set_biome_2d(&mut self, x: i32, z: i32, biome: &Biome) {
-        self.with_chunk_mut_at(x, 0, z, |c, x, y, z| {
+        self.with_chunk_mut_at(x, 0, z, |c, x, _, z| {
             c.set_biome_2d(x, z, biome);
         })
     }

@@ -4,7 +4,7 @@
 
 use crate::rand::jrand::JavaRandom;
 use crate::rand::noise::{NoiseCube, FixedOctavesPerlinNoise};
-use crate::world::provider::{ChunkLoader, ChunkError};
+use crate::world::loader::{ChunkLoader, ChunkError};
 use crate::world::chunk::Chunk;
 use crate::world::WorldInfo;
 use super::layer::{Layer, build_biome_rect};

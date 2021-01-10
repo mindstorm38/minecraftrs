@@ -42,7 +42,7 @@ pub type BiomeRect<'a> = Rect<&'a Biome>;
 
 
 impl LayerData {
-    pub fn debug(&self, title: &'static str) {
+    pub fn debug(&self, _title: &'static str) {
         /*#[cfg(debug_assertions)]
         {
             println!(" -----------------------");

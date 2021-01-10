@@ -5,7 +5,7 @@
 //!
 
 use crate::world::WorldInfo;
-use crate::world::provider::ChunkLoader;
+use crate::world::loader::ChunkLoader;
 use crate::version::{Version, VersionType::*};
 use std::rc::Rc;
 
