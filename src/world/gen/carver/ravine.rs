@@ -11,25 +11,27 @@ fn gen_ravine(ccx: i32, ccz: i32, chunk: &mut Chunk, internal: &mut CarverIntern
     if rand.next_int_bounded(50) == 0 {
 
         let x = ccx * 16 + rand.next_int_bounded(16);
-        let y = rand.next_int_bounded(40) + 8;
-        let y = rand.next_int_bounded(y) + 20;
+        let y = {
+            let v = rand.next_int_bounded(40);
+            rand.next_int_bounded(v + 8) + 20
+        };
         let z = ccz * 16 + rand.next_int_bounded(16);
-
-        // println!("[{}/{}] Generate ravine at {}/{}/{}", chunk.get_position().0, chunk.get_position().1, x, y, z);
 
         // Yaw: Around Y, Pitch: Around the horizontal line
         let angle_yaw = rand.next_float() * JAVA_PI as f32 * 2.0;
         let angle_pitch = ((rand.next_float() - 0.5) * 2.0) / 8.0;
-        let a = (rand.next_float() * 2.0 + rand.next_float()) * 2.0;
+        let base_width = (rand.next_float() * 2.0 + rand.next_float()) * 2.0;
 
         let new_seed = rand.next_long();
         rand.set_seed(new_seed);
 
-        gen_ravine_worker(chunk, x as f64, y as f64, z as f64, a, angle_yaw, angle_pitch, 0, 0, 3.0, internal);
+        gen_ravine_worker(chunk, x as f64, y as f64, z as f64, base_width, angle_yaw, angle_pitch, 0, 0, 3.0, internal);
 
     }
 
 }
+
+impl_carver!(gen_ravine, new_ravine, 8);
 
 fn gen_ravine_worker(
     chunk: &mut Chunk,
@@ -261,5 +263,3 @@ fn gen_ravine_worker(
     }
 
 }
-
-impl_carver!(gen_ravine, new_ravine, 8);

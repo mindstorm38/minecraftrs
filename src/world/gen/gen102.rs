@@ -121,7 +121,7 @@ impl ChunkGeneratorInternal {
         self.initialize_biomes(&mut chunk);
         self.generate_terrain(&mut chunk);
         self.generate_surface(&mut chunk);
-        self.ravine_carver.generate(self.world_info.borrow(), &mut chunk);
+        self.ravine_carver.generate(&mut chunk);
 
         Ok(chunk)
 

@@ -31,9 +31,10 @@ impl Carver {
         }
     }
 
-    pub fn generate(&mut self, world: &WorldInfo, chunk: &mut Chunk) {
+    pub fn generate(&mut self, chunk: &mut Chunk) {
 
-        self.internal.rand.set_seed(world.seed);
+        let word_seed = chunk.get_world_info().seed;
+        self.internal.rand.set_seed(word_seed);
 
         let x_rand = Wrapping(self.internal.rand.next_long());
         let z_rand = Wrapping(self.internal.rand.next_long());
@@ -44,7 +45,7 @@ impl Carver {
         for ccx in (cx - range)..=(cx + range) {
             for ccz in (cz - range)..=(cz + range) {
 
-                let seed = (Wrapping(ccx as i64) * x_rand) ^ (Wrapping(ccz as i64) * z_rand) ^ Wrapping(world.seed);
+                let seed = (Wrapping(ccx as i64) * x_rand) ^ (Wrapping(ccz as i64) * z_rand) ^ Wrapping(word_seed);
                 self.internal.rand.set_seed(seed.0);
 
                 (self.handler)(ccx, ccz, chunk, &mut self.internal);
@@ -68,3 +69,4 @@ macro_rules! impl_carver {
 }
 
 pub mod ravine;
+pub mod cave;
