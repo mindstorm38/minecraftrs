@@ -13,7 +13,6 @@ use crate::res::Registrable;
 use std::cell::RefCell;
 use std::num::Wrapping;
 use std::rc::Rc;
-use std::borrow::Borrow;
 
 
 struct ChunkGeneratorInternal {
@@ -32,7 +31,8 @@ struct ChunkGeneratorInternal {
 
     noise_field: NoiseCube,
 
-    ravine_carver: Carver
+    ravine_carver: Carver,
+    cave_carver: Carver
 
 }
 
@@ -54,7 +54,8 @@ impl ChunkGeneratorInternal {
             noise_main4: FixedOctavesPerlinNoise::new(&mut rand, 10, WIDTH, 1, WIDTH),
             noise_main5: FixedOctavesPerlinNoise::new(&mut rand, 16, WIDTH, 1, WIDTH),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
-            ravine_carver: Carver::new_ravine(Rc::clone(&world_info)),
+            ravine_carver: Carver::new_ravine(),
+            cave_carver: Carver::new_cave(),
             rand,
             world_info
         }
@@ -121,6 +122,7 @@ impl ChunkGeneratorInternal {
         self.initialize_biomes(&mut chunk);
         self.generate_terrain(&mut chunk);
         self.generate_surface(&mut chunk);
+        self.cave_carver.generate(&mut chunk);
         self.ravine_carver.generate(&mut chunk);
 
         Ok(chunk)

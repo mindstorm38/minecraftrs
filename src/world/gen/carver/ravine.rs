@@ -4,6 +4,9 @@ use crate::math::{JAVA_PI, mc_sin, mc_cos};
 use super::CarverInternal;
 
 
+impl_carver!(gen_ravine, new_ravine, 8);
+
+
 fn gen_ravine(ccx: i32, ccz: i32, chunk: &mut Chunk, internal: &mut CarverInternal) {
 
     let rand = &mut internal.rand;
@@ -31,8 +34,6 @@ fn gen_ravine(ccx: i32, ccz: i32, chunk: &mut Chunk, internal: &mut CarverIntern
 
 }
 
-impl_carver!(gen_ravine, new_ravine, 8);
-
 fn gen_ravine_worker(
     chunk: &mut Chunk,
     mut x: f64,
@@ -51,17 +52,6 @@ fn gen_ravine_worker(
     let x_mid_chunk = (cx * 16 + 8) as f64;
     let z_mid_chunk = (cz * 16 + 8) as f64;
 
-    //let debug = cx == -21 && cz == 34 && x == -306.0 && y == 65.0 && z == 631.0;
-    let debug = false;
-
-    if debug {
-        //println!(" => x: {}, y: {}, z: {}", x, y, z);
-        //println!(" => yaw: {}, pitch: {}, width: {}, offset: {}, length: {}", angle_yaw, angle_pitch, param_a, offset, length);
-        //println!(" => mid chunk: {}/{}", x_mid_chunk, z_mid_chunk);
-    }
-
-    //println!(" => mid chunk: {}/{}", x_mid_chunk, z_mid_chunk);
-
     let mut yaw_modifier = 0.0;
     let mut pitch_modifier = 0.0;
 
@@ -75,10 +65,6 @@ fn gen_ravine_worker(
     if offset < 0 {
         offset = length / 2;
         auto_offset = true;
-    }
-
-    if debug {
-        //println!(" => offset: {}, length: {}", offset, length);
     }
 
     let table = {
@@ -102,19 +88,11 @@ fn gen_ravine_worker(
 
     'length_loop: for offset in offset..length {
 
-        if debug {
-            //println!(" => loop {}/{}", offset, length);
-        }
-
         let mut a = 1.5 + (mc_sin(offset as f32 * JAVA_PI as f32 / length as f32) * base_width * 1.0) as f64;
         let mut b = a * height_ratio;
 
         a *= internal.rand.next_float() as f64 * 0.25 + 0.75;
         b *= internal.rand.next_float() as f64 * 0.25 + 0.75;
-
-        if debug {
-            //println!(" => a: {}, b: {}", a, b);
-        }
 
         let pitch_cos = mc_cos(angle_pitch);
         let pitch_sin = mc_sin(angle_pitch);
@@ -123,14 +101,9 @@ fn gen_ravine_worker(
         y += pitch_sin as f64;
         z += (mc_sin(angle_yaw) * pitch_cos) as f64;
 
-        if debug {
-            //println!(" => x: {}, y: {}, z: {}", x, y, z);
-        }
-
         angle_pitch *= 0.7;
         angle_pitch += pitch_modifier * 0.05;
         angle_yaw += yaw_modifier * 0.05;
-
         pitch_modifier *= 0.8;
         yaw_modifier *= 0.5;
 
@@ -138,9 +111,6 @@ fn gen_ravine_worker(
         yaw_modifier += (internal.rand.next_float() - internal.rand.next_float()) * internal.rand.next_float() * 4.0;
 
         if !auto_offset && internal.rand.next_int_bounded(4) == 0 {
-            /*if debug {
-                println!(" => skip this")
-            }*/
             continue;
         }
 
@@ -149,31 +119,20 @@ fn gen_ravine_worker(
         let remaining_length = (length - offset) as f64;
         let c = (base_width + 2.0 + 16.0) as f64;
 
-        if debug {
-            //println!(" => chunk rel: {}/{}, remaining length: {}, c: {}", x_chunk_rel, z_chunk_rel, remaining_length, c);
-        }
-
         if x_chunk_rel * x_chunk_rel + z_chunk_rel * z_chunk_rel - remaining_length * remaining_length > c * c {
             break;
         }
 
         if x < x_mid_chunk - 16.0 - a * 2.0 || z < z_mid_chunk - 16.0 - a * 2.0 || x > x_mid_chunk + 16.0 + a * 2.0 || z > z_mid_chunk + 16.0 + a * 2.0 {
-            /*if debug {
-                println!(" => skip this (2)")
-            }*/
             continue;
         }
 
-        let x_start = ((x - a).floor() as i32 - cx * 16 - 1).max(0) as usize;
-        let x_end = ((x + a).floor() as i32 - cx * 16 + 1).max(0).min(16) as usize;
-        let y_start = ((y - b).floor() as i32 - 1).max(1) as usize;
-        let y_end = ((y + b).floor() as i32 + 1).max(0).min(120) as usize;
-        let z_start = ((z - a).floor() as i32 - cz * 16 - 1).max(0) as usize;
-        let z_end = ((z + a).floor() as i32 - cz * 16 + 1).max(0).min(16) as usize;
-
-        if debug {
-            //println!(" => x: [{};{}[, y: [{};{}[, z: [{};{}[", x_start, x_end, y_start, y_end, z_start, z_end);
-        }
+        let x_start = ((x - a).floor() as i32 - cx * 16 - 1).max(0);
+        let x_end = ((x + a).floor() as i32 - cx * 16 + 1).min(16);
+        let y_start = ((y - b).floor() as i32 - 1).max(1);
+        let y_end = ((y + b).floor() as i32 + 1).min(120);
+        let z_start = ((z - a).floor() as i32 - cz * 16 - 1).max(0);
+        let z_end = ((z + a).floor() as i32 - cz * 16 + 1).min(16);
 
         for bx in x_start..x_end {
             for bz in z_start..z_end {
@@ -181,17 +140,10 @@ fn gen_ravine_worker(
                 while by >= y_start - 1 {
                     if /*by >= 0 && */by < 128 {
 
-                        let must_stop = chunk.get_block_id(bx, by, bz) == water_block;
-
-                        if by != y_start - 1 && bx != x_start && bx != x_end - 1 && bz != z_start && bz != z_end - 1 {
-                            by = y_start;
-                        }
-
-                        if must_stop {
-                            /*if debug {
-                                println!(" => skip this (3)")
-                            }*/
+                        if chunk.get_block_id(bx as usize, by as usize, bz as usize) == water_block {
                             continue'length_loop;
+                        } else if by != y_start - 1 && bx != x_start && bx != x_end - 1 && bz != z_start && bz != z_end - 1 {
+                            by = y_start;
                         }
 
                         by -= 1;
@@ -203,11 +155,11 @@ fn gen_ravine_worker(
 
         for bx in x_start..x_end {
 
-            let dx = ((bx as i32 + cx * 16) as f64 + 0.5 - x) / a;
+            let dx = ((bx + cx * 16) as f64 + 0.5 - x) / a;
 
             for bz in z_start..z_end {
 
-                let dz = ((bz as i32 + cz * 16) as f64 + 0.5 - z) / a;
+                let dz = ((bz + cz * 16) as f64 + 0.5 - z) / a;
 
                 if dx * dx + dz * dz >= 1.0 {
                     continue;
@@ -220,10 +172,11 @@ fn gen_ravine_worker(
 
                     let dy = (by as f64 + 0.5 - y) / b;
 
-                    if (dx * dx + dz * dz) * table[by] as f64 + ((dy * dy) / 6.0) < 1.0 {
+                    if (dx * dx + dz * dz) * table[by as usize] as f64 + ((dy * dy) / 6.0) < 1.0 {
 
                         // Why: in Minecraft code the "by" value has an
                         // offset of 1 block to the bottom.
+                        let (bx, by, bz) = (bx as usize, by as usize, bz as usize);
                         let rby = by + 1;
 
                         let block_id = chunk.get_block_id(bx, rby, bz);

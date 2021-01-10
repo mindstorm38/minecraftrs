@@ -14,8 +14,8 @@ fn main() {
 
     println!("World seed: {}", world.get_info().seed);
 
-    let center_x = -21;
-    let center_z = 34;
+    let center_x = -24;
+    let center_z = 37;
 
     //world.provide_chunk(center_x, center_z).unwrap();
 
