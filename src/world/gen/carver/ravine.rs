@@ -36,12 +36,12 @@ fn gen_ravine_worker(
     mut x: f64,
     mut y: f64,
     mut z: f64,
-    param_a: f32, // Maybe the width
+    base_width: f32, // Maybe the width
     mut angle_yaw: f32,
     mut angle_pitch: f32,
     mut offset: i32,
     mut length: i32,
-    param_b: f64, // Maybe the height/width
+    height_ratio: f64, // Maybe the height/width
     internal: &mut CarverInternal)
 {
 
@@ -104,8 +104,8 @@ fn gen_ravine_worker(
             //println!(" => loop {}/{}", offset, length);
         }
 
-        let mut a = 1.5 + (mc_sin(offset as f32 * JAVA_PI as f32 / length as f32) * param_a * 1.0) as f64;
-        let mut b = a * param_b;
+        let mut a = 1.5 + (mc_sin(offset as f32 * JAVA_PI as f32 / length as f32) * base_width * 1.0) as f64;
+        let mut b = a * height_ratio;
 
         a *= internal.rand.next_float() as f64 * 0.25 + 0.75;
         b *= internal.rand.next_float() as f64 * 0.25 + 0.75;
@@ -145,7 +145,7 @@ fn gen_ravine_worker(
         let x_chunk_rel = x - x_mid_chunk;
         let z_chunk_rel = z - z_mid_chunk;
         let remaining_length = (length - offset) as f64;
-        let c = (param_a + 2.0 + 16.0) as f64;
+        let c = (base_width + 2.0 + 16.0) as f64;
 
         if debug {
             //println!(" => chunk rel: {}/{}, remaining length: {}, c: {}", x_chunk_rel, z_chunk_rel, remaining_length, c);
