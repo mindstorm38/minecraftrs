@@ -5,8 +5,7 @@ use super::ChunkMap;
 /// Common chunk error enum
 #[derive(Debug)]
 pub enum ChunkError {
-    IllegalPosition(i32, i32),
-    CannotPopulate
+    IllegalPosition(i32, i32)
 }
 
 
@@ -14,6 +13,16 @@ pub enum ChunkError {
 /// disk or generator loaders, combine these two types of loaders to
 /// save and load change in a chunk to avoid generating twice.
 pub trait ChunkLoader {
+
+    /// Load the chunk at specified position, generators must generate.
     fn load_chunk(&self, cx: i32, cz: i32) -> Result<Chunk, ChunkError>;
-    fn populate_chunk(&self, world: &mut ChunkMap, cx: i32, cz: i32) -> Result<(), ChunkError>;
+
+    /// Because the chunk population mechanism involve multiples chunks checks,
+    /// the chunk population must be generated separately from the `load_chunk`.
+    ///
+    /// Implementations that does not support populating should load chunk and
+    /// set the populated flag to true and should panic with `unimplemented!`
+    /// macro if this function is called.
+    fn populate_chunk(&self, world: &mut ChunkMap, cx: i32, cz: i32);
+
 }

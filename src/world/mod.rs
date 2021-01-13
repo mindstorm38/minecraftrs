@@ -100,12 +100,22 @@ impl World {
         }
 
         if let Some(chunk) = self.get_chunk(cx - 1, cz) {
-            if !chunk.is_populated() && self.is_chunk_loaded(cx - 1, cz + 1) && self.is_chunk_loaded(cx, cz + 1) && self.is_chunk_loaded(cx - 1, cz + 1) {
+            if !chunk.is_populated() && self.is_chunk_loaded(cx - 1, cz + 1) && self.is_chunk_loaded(cx, cz + 1) {
                 self.loader.populate_chunk(&mut self.chunk_map, cx - 1, cz);
             }
         }
 
-        // TODO
+        if let Some(chunk) = self.get_chunk(cx, cz - 1) {
+            if !chunk.is_populated() && self.is_chunk_loaded(cx + 1, cz - 1) && self.is_chunk_loaded(cx + 1, cz) {
+                self.loader.populate_chunk(&mut self.chunk_map, cx, cz - 1);
+            }
+        }
+
+        if let Some(chunk) = self.get_chunk(cx - 1, cz - 1) {
+            if !chunk.is_populated() && self.is_chunk_loaded(cx - 1, cz) && self.is_chunk_loaded(cx, cz - 1) {
+                self.loader.populate_chunk(&mut self.chunk_map, cx - 1, cz - 1);
+            }
+        }
 
         Ok(self.expect_chunk(cx, cz))
 

@@ -495,8 +495,8 @@ impl ChunkLoader for ChunkGenerator102 {
         self.0.borrow_mut().generate_chunk(cx, cz)
     }
 
-    fn populate_chunk(&self, world: &mut ChunkMap, cx: i32, cz: i32) -> Result<(), ChunkError> {
-        unimplemented!()
+    fn populate_chunk(&self, world: &mut ChunkMap, cx: i32, cz: i32) {
+
     }
 
 }
