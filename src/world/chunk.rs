@@ -38,6 +38,7 @@ pub struct Chunk {
     world_info: Rc<WorldInfo>,
     cx: i32,
     cz: i32,
+    populated: bool,
     sub_chunks: Vec<SubChunk>,
     /// The legacy flat biomes array.
     biomes: [u8; SIZE * SIZE]
@@ -49,6 +50,7 @@ impl Chunk {
         Chunk {
             cx,
             cz,
+            populated: false,
             sub_chunks: (0..sub_chunks_count).map(|_| SubChunk::new(Rc::clone(&world_info))).collect(),
             biomes: [0; 256],
             world_info,
@@ -63,6 +65,14 @@ impl Chunk {
     /// Get the chunk position `(x, z)`.
     pub fn get_position(&self) -> (i32, i32) {
         (self.cx, self.cz)
+    }
+
+    pub fn is_populated(&self) -> bool {
+        self.populated
+    }
+
+    pub fn set_populated(&mut self, populated: bool) {
+        self.populated = populated;
     }
 
     /// Get a sub chunk reference at a specified index.
@@ -180,38 +190,6 @@ impl Chunk {
         }
     }
 
-    // LEGACY BIOMES //
-
-    /*/// Get the biome id at a specific position relative to this chunk.
-    /// **The function may panic if positions are not within ranges,
-    /// for safer function, check world functions.**
-    /// *For more documentation, refer to SubChunk structure's function
-    /// with the same name.*
-    #[deprecated]
-    pub fn get_biome_id(&self, x: usize, y: usize, z: usize) -> u8 {
-        self.get_sub_chunk(y >> 4).get_biome_id(x, y & 15, z)
-    }
-
-    /// Set the biome id at a specific position relative to this chunk.
-    /// **The function may panic if positions are not within ranges,
-    /// for safer function, check world functions.**
-    /// *For more documentation, refer to SubChunk structure's function
-    /// with the same name.*
-    #[deprecated]
-    pub fn set_biome_id(&mut self, x: usize, y: usize, z: usize, biome_id: u8) {
-        self.get_sub_chunk_mut(y >> 4).set_biome_id(x, y & 15, z, biome_id);
-    }
-
-    /// Set the biome at a specific position relative to this chunk.
-    /// **The function may panic if positions are not within ranges,
-    /// for safer function, check world functions.**
-    /// *For more documentation, refer to SubChunk structure's function
-    /// with the same name.*
-    #[deprecated]
-    pub fn set_biome(&mut self, x: usize, y: usize, z: usize, biome: Option<&Biome>) {
-        self.get_sub_chunk_mut(y >> 4).set_biome(x, y & 15, z, biome);
-    }*/
-
 }
 
 
@@ -300,52 +278,5 @@ impl SubChunk {
         self.world_info.biome_registry.0.check_if_exists(biome);
         self.set_biome_id(x, y, z, biome.get_id());
     }
-
-    // LEGACY BIOMES //
-
-    /*/// Get the biome id at specific position, the position is relative to this chunk
-    /// `(0 <= x/y/z < 16)`.
-    ///
-    /// *The resolution of the biome grid allowed by this structure
-    /// might not be the resolution of the internal Minecraft storage witch only allow
-    /// 1024 biomes for a whole chunk (not sub chunk).*
-    ///
-    /// *In version prior to 1.15, the biome grid was a 2D rectangle, so the same biome
-    /// is set for all Y.**
-    #[deprecated]
-    pub fn get_biome_id(&self, x: usize, y: usize, z: usize) -> u8 {
-        self.biomes[calc_block_index(x, y, z)]
-    }
-
-    /// Get the biome at specific position by converting the resulting raw id to an
-    /// actual biome by using a biome registry, this registry should be the one of
-    /// the world this chunk belongs to.
-    ///
-    /// **This function is intended for internal uses, but is still public to allow
-    /// low level manipulation, be careful!**
-    #[deprecated]
-    pub fn get_biome(&self, x: usize, y: usize, z: usize) -> Option<&Biome> {
-        self.world_info.biome_registry.0.get_from_id(self.get_biome_id(x, y, z))
-    }
-
-    /// Set the biome id at specific position, the position is relative to this chunk
-    /// `(0 <= x/y/z < 16)`.
-    ///
-    /// Check SubChunk::get_biome_id function for more information.
-    #[deprecated]
-    pub fn set_biome_id(&mut self, x: usize, y: usize, z: usize, biome_id: u8) {
-        self.biomes[calc_block_index(x, y, z)] = biome_id
-    }
-
-    /// Set the biome at specific position, the position is relative to this chunk
-    /// `(0 <= x/y/z < 16)`. The biome can be `None` to remove the biome, if `Some`,
-    /// the biome must be valid for the registry of the world this chunk belongs to.
-    #[deprecated]
-    pub fn set_biome(&mut self, x: usize, y: usize, z: usize, biome: Option<&Biome>) {
-        self.set_biome_id(x, y, z, match biome {
-            Some(biome) => biome.get_id(),
-            None => 0
-        })
-    }*/
 
 }

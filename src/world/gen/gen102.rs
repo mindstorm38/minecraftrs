@@ -6,7 +6,7 @@ use crate::rand::jrand::JavaRandom;
 use crate::rand::noise::{NoiseCube, FixedOctavesPerlinNoise};
 use crate::world::loader::{ChunkLoader, ChunkError};
 use crate::world::chunk::Chunk;
-use crate::world::WorldInfo;
+use crate::world::{WorldInfo, ChunkMap};
 use super::layer::{Layer, build_biome_rect};
 use crate::world::gen::carver::Carver;
 use crate::res::Registrable;
@@ -112,8 +112,13 @@ impl ChunkGeneratorInternal {
     /// Entry point.
     fn generate_chunk(&mut self, cx: i32, cz: i32) -> Result<Chunk, ChunkError> {
 
+        const POS_LIMIT: i32 = 1_875_004;
         const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);
         const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
+
+        if cx < -POS_LIMIT || cz < -POS_LIMIT || cx >= POS_LIMIT || cz >= POS_LIMIT {
+            return Err(ChunkError::IllegalPosition(cx, cz))
+        }
 
         self.rand.set_seed((Wrapping(cx as i64) * X_MUL + Wrapping(cz as i64) * Z_MUL).0);
 
@@ -485,7 +490,13 @@ impl ChunkGenerator102 {
 }
 
 impl ChunkLoader for ChunkGenerator102 {
+
     fn load_chunk(&self, cx: i32, cz: i32) -> Result<Chunk, ChunkError> {
         self.0.borrow_mut().generate_chunk(cx, cz)
     }
+
+    fn populate_chunk(&self, world: &mut ChunkMap, cx: i32, cz: i32) -> Result<(), ChunkError> {
+        unimplemented!()
+    }
+
 }

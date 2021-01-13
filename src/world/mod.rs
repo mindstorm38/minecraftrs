@@ -12,6 +12,7 @@ pub mod gen;
 
 use loader::{ChunkError, ChunkLoader};
 use chunk::Chunk;
+use std::ops::{Deref, DerefMut};
 
 
 /// Combine a chunk coordinate pair into 64 bits for hashing.
@@ -29,11 +30,17 @@ pub struct WorldInfo {
     pub biome_registry: BiomeRegistry
 }
 
+/// Contains a world's chunk map, this is the main entry for
+pub struct ChunkMap {
+    info: Rc<WorldInfo>,
+    chunks: HashMap<u64, Chunk>
+}
+
 /// A world for a specific version with specific registries and chunk loaders.
 pub struct World {
     info: Rc<WorldInfo>,
     loader: Box<dyn ChunkLoader>,
-    chunks: HashMap<u64, Chunk>
+    chunk_map: ChunkMap
 }
 
 impl World {
@@ -53,7 +60,10 @@ impl World {
 
         World {
             loader: gen::for_world(Rc::clone(&info)),
-            chunks: HashMap::new(),
+            chunk_map: ChunkMap {
+                info: Rc::clone(&info),
+                chunks: HashMap::new(),
+            },
             info
         }
 
@@ -69,9 +79,12 @@ impl World {
         &self.info
     }
 
-    /// Return the list of cached chunks.
-    pub fn get_chunks(&self) -> &HashMap<u64, Chunk> {
-        &self.chunks
+    pub fn get_chunk_view(&self) -> &ChunkMap {
+        &self.chunk_map
+    }
+
+    pub fn get_chunk_map(&mut self) -> &mut ChunkMap {
+        &mut self.chunk_map
     }
 
     // PROVIDE CHUNKS //
@@ -79,18 +92,78 @@ impl World {
     /// Provide an existing chunk, if the chunk is not cached the world's
     /// chunk loader is called. If you need a chunk
     pub fn provide_chunk(&mut self, cx: i32, cz: i32) -> Result<&Chunk, ChunkError> {
-        match self.chunks.entry(combine_chunk_coords(cx, cz)) {
-            Entry::Occupied(o) => Ok(o.into_mut()),
-            Entry::Vacant(v) => {
-                Ok(v.insert(self.loader.load_chunk(cx, cz)?))
+
+        self.ensure_chunk(cx, cz)?;
+
+        if !self.expect_chunk(cx, cz).is_populated() && self.is_chunk_loaded(cx + 1, cz) && self.is_chunk_loaded(cx, cz + 1) && self.is_chunk_loaded(cx + 1, cz + 1) {
+            self.loader.populate_chunk(&mut self.chunk_map, cx, cz);
+        }
+
+        if let Some(chunk) = self.get_chunk(cx - 1, cz) {
+            if !chunk.is_populated() && self.is_chunk_loaded(cx - 1, cz + 1) && self.is_chunk_loaded(cx, cz + 1) && self.is_chunk_loaded(cx - 1, cz + 1) {
+                self.loader.populate_chunk(&mut self.chunk_map, cx - 1, cz);
             }
         }
+
+        // TODO
+
+        Ok(self.expect_chunk(cx, cz))
+
     }
 
     /// Provide an existing chunk at specific block position, if the chunk is
     /// not cached the world's chunk loader is called.
     pub fn provide_chunk_at(&mut self, x: i32, z: i32) -> Result<&Chunk, ChunkError> {
         self.provide_chunk(x >> 4, z >> 4)
+    }
+
+    /// Internal function used to ensure a chunk in the `chunks` HashMap, or return an error
+    /// if the loading fails.
+    fn ensure_chunk(&mut self, cx: i32, cz: i32) -> Result<(), ChunkError> {
+        match self.chunk_map.chunks.entry(combine_chunk_coords(cx, cz)) {
+            Entry::Occupied(_) => Ok(()),
+            Entry::Vacant(v) => {
+                v.insert(self.loader.load_chunk(cx, cz)?);
+                Ok(())
+            }
+        }
+    }
+
+    fn expect_chunk(&self, cx: i32, cz: i32) -> &Chunk {
+        match self.get_chunk(cx, cz) {
+            None => panic!("Unexpected unloaded chunk {}/{}", cx, cz),
+            Some(chunk) => chunk
+        }
+    }
+
+}
+
+
+impl Deref for World {
+    type Target = ChunkMap;
+    fn deref(&self) -> &Self::Target {
+        self.get_chunk_view()
+    }
+}
+
+
+impl DerefMut for World {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.get_chunk_map()
+    }
+}
+
+
+impl ChunkMap {
+
+    /// Return the list of cached chunks.
+    pub fn get_chunks(&self) -> &HashMap<u64, Chunk> {
+        &self.chunks
+    }
+
+    /// Return true if a chunk is loaded at a specific position.
+    pub fn is_chunk_loaded(&self, cx: i32, cz: i32) -> bool {
+        self.chunks.contains_key(&combine_chunk_coords(cx, cz))
     }
 
     // CHUNKS //
@@ -196,28 +269,5 @@ impl World {
             c.set_biome_3d(x, y, z, biome);
         })
     }
-
-    // LEGACY BIOMES //
-
-    /*/// Get a biome id at specific position, if the position is invalid, or
-    /// the target chunk not loaded, `None` is returned.
-    pub fn get_biome_id(&self, x: i32, y: i32, z: i32) -> Option<u8> {
-        self.with_chunk_at(x, y, z, |c, x, y, z| {
-            Some(c.get_biome_id(x, y, z))
-        })
-    }
-
-    /// Get a biome at specific position, if the position is invalid, or
-    /// the target chunk not loader, `None` is returned.
-    pub fn get_biome(&self, x: i32, y: i32, z: i32) -> Option<&Biome> {
-        self.info.biome_registry.0.get_from_id(self.get_biome_id(x, y, z)?)
-    }
-
-    /// Set a biome at specific position, if the position is invalid nothing happens.
-    pub fn set_biome(&mut self, x: i32, y: i32, z: i32, biome: Option<&Biome>) {
-        self.with_chunk_mut_at(x, y, z, |c, x, y, z| {
-            c.set_biome(x, y, z, biome);
-        });
-    }*/
 
 }

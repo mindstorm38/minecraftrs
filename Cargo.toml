@@ -1,5 +1,7 @@
 [package]
 name = "minecraftrs"
+# May be renamed to
+# name = "mc-backend"
 version = "0.1.1"
 authors = ["Théo Rozier <contact@theorozier.fr>"]
 edition = "2018"

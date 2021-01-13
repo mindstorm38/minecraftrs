@@ -29,8 +29,8 @@ fn main() {
 
     println!("Generated {} chunks in {}s", world.get_chunks().len(), start.elapsed().as_secs_f32());
 
-    let file = File::create("world.obj").unwrap();
-    render_world_to_obj(file, &world).unwrap();
+    /*let file = File::create("world.obj").unwrap();
+    render_world_to_obj(file, &world).unwrap();*/
 
 }
 
