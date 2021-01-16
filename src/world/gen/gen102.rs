@@ -109,7 +109,7 @@ impl ChunkGeneratorInternal {
 
     }
 
-    /// Entry point.
+    /// Entry point for chunk generation.
     fn generate_chunk(&mut self, cx: i32, cz: i32) -> Result<Chunk, ChunkError> {
 
         const POS_LIMIT: i32 = 1_875_004;
@@ -131,6 +131,12 @@ impl ChunkGeneratorInternal {
         self.ravine_carver.generate(&mut chunk);
 
         Ok(chunk)
+
+    }
+
+    fn populate_chunk(&mut self, world: &mut ChunkMap, cx: i32, cz: i32) {
+
+
 
     }
 
@@ -496,7 +502,7 @@ impl ChunkLoader for ChunkGenerator102 {
     }
 
     fn populate_chunk(&self, world: &mut ChunkMap, cx: i32, cz: i32) {
-
+        self.0.borrow_mut().populate_chunk(world, cx, cz);
     }
 
 }
