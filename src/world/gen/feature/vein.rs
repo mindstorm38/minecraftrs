@@ -1,5 +1,5 @@
 use super::Feature;
-use crate::world::ChunkMap;
+use crate::world::WorldAccess;
 use crate::rand::jrand::JavaRandom;
 use crate::res::Registrable;
 
@@ -14,7 +14,7 @@ impl GenWaterCircle {
 
 impl Feature for GenWaterCircle {
 
-    fn generate(&self, world: &mut ChunkMap, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
+    fn generate(&self, world: &mut WorldAccess, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
 
         let water_id = world.get_info().block_registry.0.expect_from_name("water").get_id();
         let dirt_id = world.get_info().block_registry.0.expect_from_name("dirt").get_id();

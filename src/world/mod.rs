@@ -31,7 +31,7 @@ pub struct WorldInfo {
 }
 
 /// Contains a world's chunk map, this is the main entry for
-pub struct ChunkMap {
+pub struct WorldAccess {
     info: Rc<WorldInfo>,
     chunks: HashMap<u64, Chunk>
 }
@@ -40,7 +40,7 @@ pub struct ChunkMap {
 pub struct World {
     info: Rc<WorldInfo>,
     loader: Box<dyn ChunkLoader>,
-    chunk_map: ChunkMap
+    chunk_map: WorldAccess
 }
 
 impl World {
@@ -60,7 +60,7 @@ impl World {
 
         World {
             loader: gen::for_world(Rc::clone(&info)),
-            chunk_map: ChunkMap {
+            chunk_map: WorldAccess {
                 info: Rc::clone(&info),
                 chunks: HashMap::new(),
             },
@@ -79,11 +79,11 @@ impl World {
         &self.info
     }
 
-    pub fn get_chunk_view(&self) -> &ChunkMap {
+    pub fn get_access(&self) -> &WorldAccess {
         &self.chunk_map
     }
 
-    pub fn get_chunk_map(&mut self) -> &mut ChunkMap {
+    pub fn get_access_mut(&mut self) -> &mut WorldAccess {
         &mut self.chunk_map
     }
 
@@ -150,21 +150,21 @@ impl World {
 
 
 impl Deref for World {
-    type Target = ChunkMap;
+    type Target = WorldAccess;
     fn deref(&self) -> &Self::Target {
-        self.get_chunk_view()
+        self.get_access()
     }
 }
 
 
 impl DerefMut for World {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.get_chunk_map()
+        self.get_access_mut()
     }
 }
 
 
-impl ChunkMap {
+impl WorldAccess {
 
     pub fn get_info(&self) -> &WorldInfo {
         &self.info

@@ -1,5 +1,5 @@
 use crate::rand::jrand::JavaRandom;
-use crate::world::ChunkMap;
+use crate::world::WorldAccess;
 use super::{Feature, PosDistrib};
 
 
@@ -10,7 +10,7 @@ pub struct RepeatedFeature {
 }
 
 impl Feature for RepeatedFeature {
-    fn generate(&self, world: &mut ChunkMap, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
+    fn generate(&self, world: &mut WorldAccess, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
         for _ in 0..self.count {
             if let Some((rx, ry, rz)) = self.distrib.pick_pos(world, rand, x, y, z) {
                 self.feature.generate(world, rand, rx, ry, rz);

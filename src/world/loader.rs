@@ -1,5 +1,5 @@
 use super::chunk::Chunk;
-use super::ChunkMap;
+use super::WorldAccess;
 
 
 /// Common chunk error enum
@@ -23,6 +23,6 @@ pub trait ChunkLoader {
     /// Implementations that does not support populating should load chunk and
     /// set the populated flag to true and should panic with `unimplemented!`
     /// macro if this function is called.
-    fn populate_chunk(&self, world: &mut ChunkMap, cx: i32, cz: i32);
+    fn populate_chunk(&self, world: &mut WorldAccess, cx: i32, cz: i32);
 
 }

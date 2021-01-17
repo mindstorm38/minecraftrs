@@ -6,7 +6,7 @@ use crate::rand::jrand::JavaRandom;
 use crate::rand::noise::{NoiseCube, FixedOctavesPerlinNoise};
 use crate::world::loader::{ChunkLoader, ChunkError};
 use crate::world::chunk::Chunk;
-use crate::world::{WorldInfo, ChunkMap};
+use crate::world::{WorldInfo, WorldAccess};
 use super::layer::{Layer, build_biome_rect};
 use crate::world::gen::carver::Carver;
 use crate::res::Registrable;
@@ -134,7 +134,7 @@ impl ChunkGeneratorInternal {
 
     }
 
-    fn populate_chunk(&mut self, world: &mut ChunkMap, cx: i32, cz: i32) {
+    fn populate_chunk(&mut self, world: &mut WorldAccess, cx: i32, cz: i32) {
 
 
 
@@ -501,7 +501,7 @@ impl ChunkLoader for ChunkGenerator102 {
         self.0.borrow_mut().generate_chunk(cx, cz)
     }
 
-    fn populate_chunk(&self, world: &mut ChunkMap, cx: i32, cz: i32) {
+    fn populate_chunk(&self, world: &mut WorldAccess, cx: i32, cz: i32) {
         self.0.borrow_mut().populate_chunk(world, cx, cz);
     }
 
