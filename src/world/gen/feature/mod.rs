@@ -15,6 +15,8 @@ pub trait Feature {
 
 mod distrib;
 mod repeated;
+mod vein;
 
 pub use distrib::*;
 pub use repeated::*;
+pub use vein::*;

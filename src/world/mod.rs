@@ -166,6 +166,10 @@ impl DerefMut for World {
 
 impl ChunkMap {
 
+    pub fn get_info(&self) -> &WorldInfo {
+        &self.info
+    }
+
     /// Return the list of cached chunks.
     pub fn get_chunks(&self) -> &HashMap<u64, Chunk> {
         &self.chunks
@@ -236,6 +240,13 @@ impl ChunkMap {
     pub fn get_block_id(&self, x: i32, y: i32, z: i32) -> Option<u16> {
         self.with_chunk_at(x, y, z, |c, x, y, z| {
             Some(c.get_block_id(x, y, z))
+        })
+    }
+
+    /// Set a block id at specific position.
+    pub fn set_block_id(&mut self, x: i32, y: i32, z: i32, id: u16) {
+        self.with_chunk_mut_at(x, y, z, |c, x, y, z| {
+            c.set_block_id(x, y, z, id);
         })
     }
 
