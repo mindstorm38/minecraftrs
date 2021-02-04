@@ -3,35 +3,6 @@ use crate::math::{lerp, Cube};
 use std::cell::RefCell;
 
 
-/*/// A noise cube (3D) represented in a flat vector, the vector length
-/// is the product of all coordinates sizes.
-pub struct NoiseCube {
-    pub data: Vec<f64>,
-    pub x_size: usize,
-    pub y_size: usize,
-    pub z_size: usize
-}
-
-impl NoiseCube {
-
-    pub fn new(x_size: usize, y_size: usize, z_size: usize) -> Self {
-        NoiseCube {
-            data: vec![0.0; x_size * y_size * z_size],
-            x_size,
-            y_size,
-            z_size
-        }
-    }
-
-    pub fn reset(&mut self) {
-        for v in &mut self.data {
-            *v = 0.0;
-        }
-    }
-
-}*/
-
-
 pub type NoiseCube = Cube<f64>;
 
 
