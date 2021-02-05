@@ -132,7 +132,11 @@ impl BlockStateContainerBuilder {
                 neighbors: HashMap::new()
             })));
 
-            *uid += 1;
+            if let Some(new_uid) = uid.checked_add(1) {
+                *uid = new_uid;
+            } else {
+                panic!("Block state uid overflown (> {})", uid);
+            }
 
         }
 
