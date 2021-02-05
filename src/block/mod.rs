@@ -47,7 +47,11 @@ impl Block {
 }
 
 
-/// To keep states safe, do not extract them from their states vectors.
+/// Represent a particular state of a block, this block state also know
+/// all its neighbors by their properties and values.
+///
+/// To build states, use `BlockStateContainerBuilder` and add all wanted
+/// properties.
 pub struct BlockState {
     uid: u16,
     properties: HashMap<&'static str, (TypeId, u8)>,
@@ -55,24 +59,32 @@ pub struct BlockState {
 }
 
 
-pub struct BlockStateContainerBuilder {
+/// A builder used to build all block states according to a list of properties.
+///
+/// First register your properties using the `prop` then build the states vec
+/// using `build`.
+pub struct BlockStateBuilder {
     properties: HashMap<&'static str, (TypeId, Vec<u8>)>
 }
 
 
-impl BlockStateContainerBuilder {
+impl BlockStateBuilder {
 
     pub fn new() -> Self {
-        BlockStateContainerBuilder {
+        BlockStateBuilder {
             properties: HashMap::new()
         }
     }
 
-    pub fn add<T, P>(&mut self, property: &P)
+    /// Register a property to add to the built states. Properties are indexed
+    /// by their name, so this method will panic if you add properties with the
+    /// same name.
+    pub fn prop<T, P>(mut self, property: &P) -> Self
         where
             T: Copy,
             P: Property<T>
     {
+
         match self.properties.entry(property.get_name()) {
             Entry::Occupied(_) => panic!("Property '{}' already registered.", property.get_name()),
             Entry::Vacant(v) => {
@@ -89,8 +101,14 @@ impl BlockStateContainerBuilder {
 
             }
         }
+
+        self
+
     }
 
+    /// Build and resolve all combinations of property values as block states, all resolved
+    /// block states know their neighbors by property and values. The given uid reference
+    /// is set and incremented for each state.
     pub fn build(self, uid: &mut u16) -> Vec<Rc<RefCell<BlockState>>> {
 
         // Move properties from the structure and convert to a linear properties vec
