@@ -7,21 +7,25 @@ use std::rc::Rc;
 
 use crate::res::Registrable;
 
+#[deprecated]
 mod registry;
 pub use registry::*;
 
-pub mod property;
-use property::{Property, IntProperty};
+mod vanilla;
+pub use vanilla::*;
 
-
-pub static PROP_LIQUID_LEVEL: IntProperty = IntProperty("level", 15);
+mod property;
+pub use property::*;
 
 
 /// A basic block.
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct Block {
     name: &'static str,
-    id: u16
+    #[deprecated]
+    id: u16,
+    states: Vec<Rc<RefCell<BlockState>>>,
+    default_state: Rc<RefCell<BlockState>>
 }
 
 impl Registrable<u16> for Block {
@@ -37,11 +41,33 @@ impl Display for Block {
 
 impl Block {
 
+    #[deprecated]
     pub fn new(name: &'static str, id: u16) -> Self {
+        let states = BlockStateBuilder::new().build(&mut 0);
         Block {
             name,
-            id
+            id,
+            default_state: Rc::clone(&states[0]),
+            states,
         }
+    }
+
+    pub fn from_builder(name: &'static str, state_builder: BlockStateBuilder, uid: &mut u16) -> Self {
+        let states = state_builder.build(uid);
+        Block {
+            name,
+            id: 0,
+            default_state: Rc::clone(&states[0]),
+            states,
+        }
+    }
+
+    pub fn get_default_state(&self) -> Ref<BlockState> {
+        self.default_state.borrow()
+    }
+
+    pub fn get_default_state_mut(&mut self) -> RefMut<BlockState> {
+        self.default_state.borrow_mut()
     }
 
 }
@@ -52,6 +78,7 @@ impl Block {
 ///
 /// To build states, use `BlockStateContainerBuilder` and add all wanted
 /// properties.
+#[derive(Debug)]
 pub struct BlockState {
     uid: u16,
     properties: HashMap<&'static str, (TypeId, u8)>,
@@ -227,4 +254,35 @@ impl BlockState {
 
     }
 
+}
+
+
+#[macro_export]
+macro_rules! def_blocks {
+    ($struct_id:ident [
+        $(
+            $block_id:ident $block_name:literal $([ $($prop_const:ident),* ])?
+        ),*
+    ]) => {
+
+        #[allow(non_snake_case)]
+        pub struct $struct_id {
+            $( pub $block_id: $crate::block::Block ),*
+        }
+
+        impl $struct_id {
+            pub fn load() -> Self {
+                let mut uid = 1;
+                Self {
+                    $(
+                        $block_id: $crate::block::Block::from_builder($block_name, {
+                            $crate::block::BlockStateBuilder::new()
+                            $($( .prop(&$prop_const) )*)?
+                        }, &mut uid)
+                    ),*
+                }
+            }
+        }
+
+    };
 }
