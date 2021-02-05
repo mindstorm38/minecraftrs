@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Debug};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::cell::{RefCell, Ref, RefMut};
 use std::any::TypeId;
-use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::res::Registrable;
@@ -49,8 +49,9 @@ impl Block {
 
 /// To keep states safe, do not extract them from their states vectors.
 pub struct BlockState {
+    uid: u16,
     properties: HashMap<&'static str, (TypeId, u8)>,
-    neighbors: HashMap<(&'static str, TypeId, u8), Rc<BlockState>>
+    neighbors: HashMap<(&'static str, TypeId, u8), Rc<RefCell<BlockState>>>
 }
 
 
@@ -90,7 +91,7 @@ impl BlockStateContainerBuilder {
         }
     }
 
-    pub fn build(self) -> Vec<Rc<BlockState>> {
+    pub fn build(self, uid: &mut u16) -> Vec<Rc<RefCell<BlockState>>> {
 
         // Move properties from the structure and convert to a linear properties vec
         let properties: Vec<(&'static str, TypeId, Vec<u8>)> = self.properties.into_iter()
@@ -117,40 +118,33 @@ impl BlockStateContainerBuilder {
         // Build every state according to built groups
         let mut states = Vec::new();
 
-        for (idx, group) in groups.iter().enumerate() {
+        for group in &groups {
 
             let mut group_properties = HashMap::new();
 
-            for (i, &(name, type_id, _)) in properties.iter().enumerate() {
-                group_properties.insert(name, (type_id, group[idx]));
+            for (prop_idx, &(name, type_id, _)) in properties.iter().enumerate() {
+                group_properties.insert(name, (type_id, group[prop_idx]));
             }
 
-            states.push(Rc::new(BlockState {
+            states.push(Rc::new(RefCell::new(BlockState {
+                uid: *uid,
                 properties: group_properties,
                 neighbors: HashMap::new()
-            }));
+            })));
+
+            *uid += 1;
 
         }
 
         for (idx, state) in states.iter().enumerate() {
-
-            // SAFETY: This mutable state reference is not modified during the next
-            //         loop because of the `idx != neighbor_idx` condition. We have
-            //         to do that because we want to keep `states` borrowable in
-            //         order to clone the Rc containing the neighbor state.
-            let state_mut = unsafe {
-                &mut *(&**state as *const BlockState as *mut BlockState)
-            };
-
             for (neighbor_idx, neighbor_group) in groups.iter().enumerate() {
                 if idx != neighbor_idx {
                     for (prop_idx, &neighbor_prop) in neighbor_group.iter().enumerate() {
                         let (prop_name, type_id, _) = properties[prop_idx];
-                        state_mut.neighbors.insert((prop_name, type_id, neighbor_prop), Rc::clone(&states[neighbor_idx]));
+                        state.borrow_mut().neighbors.insert((prop_name, type_id, neighbor_prop), Rc::clone(&states[neighbor_idx]));
                     }
                 }
             }
-
         }
 
         states
@@ -189,13 +183,26 @@ impl BlockState {
         self.get(property).unwrap()
     }
 
-    pub fn with<T, P>(&self, property: &P, value: T) -> Option<&BlockState>
+    pub fn with<T, P>(&self, property: &P, value: T) -> Option<Ref<BlockState>>
     where
         T: Copy,
         P: Property<T>
     {
+
         self.neighbors.get(&(property.get_name(), property.type_id(), property.encode_prop(value)))
-            .map(|state| &**state)
+            .map(|state| state.borrow())
+
+    }
+
+    pub fn with_mut<T, P>(&self, property: &P, value: T) -> Option<RefMut<BlockState>>
+    where
+        T: Copy,
+        P: Property<T>
+    {
+
+        self.neighbors.get(&(property.get_name(), property.type_id(), property.encode_prop(value)))
+            .map(|state| state.borrow_mut())
+
     }
 
 }
