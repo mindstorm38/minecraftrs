@@ -1,23 +1,22 @@
-[package]
-name = "minecraftrs"
+[workspace]
+members = ["core", "worldgen"]
+
+# [package]
+# name = "minecraftrs"
 # May be renamed to
 # name = "mc-backend"
-version = "0.1.1"
-authors = ["Théo Rozier <contact@theorozier.fr>"]
-edition = "2018"
-repository = "https://github.com/mindstorm38/minecraftrs"
-homepage = "https://github.com/mindstorm38/minecraftrs"
-description = "Minecraft world generation backend in Rust."
-keywords = ["minecraft", "mc", "gen"]
-categories = ["games", "mathematics", "accessibility"]
-license = "Apache-2.0"
+# version = "0.1.1"
+# authors = ["Théo Rozier <contact@theorozier.fr>"]
+# edition = "2018"
+# repository = "https://github.com/mindstorm38/minecraftrs"
+# homepage = "https://github.com/mindstorm38/minecraftrs"
+# description = "Minecraft world generation backend in Rust."
+# keywords = ["minecraft", "mc", "gen"]
+# categories = ["games", "mathematics", "accessibility"]
+# license = "Apache-2.0"
 
-[dependencies]
+# [dependencies]
 
-[dependencies.derive_more]
-version = "0.99.11"
-features = ["deref", "deref_mut"]
-
-[features]
-default = ["release-1-2"]
-release-1-2 = []
+# [dependencies.derive_more]
+# version = "0.99.11"
+# features = ["deref", "deref_mut"]

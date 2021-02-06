@@ -1,0 +1,14 @@
+[package]
+name = "mc-core"
+version = "0.1.0"
+authors = ["Théo Rozier <contact@theorozier.fr>"]
+edition = "2018"
+repository = "https://github.com/mindstorm38/minecraftrs"
+homepage = "https://github.com/mindstorm38/minecraftrs"
+description = "Minecraft core backend."
+keywords = ["minecraft", "mc", "core"]
+categories = ["games", "mathematics"]
+license = "Apache-2.0"
+
+[dependencies]
+lazy_static = "1.4.0"

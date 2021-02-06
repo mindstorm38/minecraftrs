@@ -1,45 +1,91 @@
-use std::fmt::{Display, Formatter, Result as FmtResult, Debug};
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 use std::cell::{RefCell, Ref, RefMut};
-use std::any::TypeId;
+use std::collections::HashMap;
+use std::any::{Any, TypeId};
 use std::rc::Rc;
 
-mod property;
-pub use property::*;
 
-
-/// A basic block.
-#[derive(Debug)]
-pub struct Block {
-    name: &'static str,
-    states: Vec<Rc<RefCell<BlockState>>>,
-    default_state: Rc<RefCell<BlockState>>
+/// Trait for all properties stored in a block state.
+pub trait Property<T: Copy>: Any {
+    fn get_name(&self) -> &'static str;
+    fn iter_values(&self) -> Box<dyn Iterator<Item=T>>;
+    fn encode_prop(&self, value: T) -> u8;
+    fn decode_prop(&self, raw: u8) -> Option<T>;
 }
 
-impl Display for Block {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.write_fmt(format_args!("{}/{}", self.id, self.name))
+
+pub struct BoolProperty(pub &'static str);
+
+impl Property<bool> for BoolProperty {
+
+    fn get_name(&self) -> &'static str {
+        self.0
     }
+
+    fn iter_values(&self) -> Box<dyn Iterator<Item = bool>> {
+        static VALUES: [bool; 2] = [false, true];
+        Box::new(VALUES.iter().copied())
+    }
+
+    fn encode_prop(&self, value: bool) -> u8 {
+        if value { 1 } else { 0 }
+    }
+
+    fn decode_prop(&self, raw: u8) -> Option<bool> {
+        Some(raw != 0)
+    }
+
 }
 
-impl Block {
 
-    pub fn from_builder(name: &'static str, state_builder: BlockStateBuilder, uid: &mut u16) -> Self {
-        let states = state_builder.build(uid);
-        Block {
-            name,
-            default_state: Rc::clone(&states[0]),
-            states,
+pub struct IntProperty(pub &'static str, pub u8);
+
+impl Property<u8> for IntProperty {
+
+    fn get_name(&self) -> &'static str {
+        self.0
+    }
+
+    fn iter_values(&self) -> Box<dyn Iterator<Item = u8>> {
+        Box::new((0..self.1).into_iter())
+    }
+
+    fn encode_prop(&self, value: u8) -> u8 {
+        value
+    }
+
+    fn decode_prop(&self, raw: u8) -> Option<u8> {
+        if raw < self.1 {
+            Some(raw)
+        } else {
+            None
         }
     }
 
-    pub fn get_default_state(&self) -> Ref<BlockState> {
-        self.default_state.borrow()
+}
+
+
+pub struct EnumProperty<T: 'static + Copy + Eq>(pub &'static str, pub &'static [T]);
+
+impl<T> Property<T> for EnumProperty<T>
+where
+    T: 'static + Copy + Eq
+{
+
+    fn get_name(&self) -> &'static str {
+        self.0
     }
 
-    pub fn get_default_state_mut(&mut self) -> RefMut<BlockState> {
-        self.default_state.borrow_mut()
+    fn iter_values(&self) -> Box<dyn Iterator<Item=T>> {
+        Box::new(self.1.iter().copied())
+    }
+
+    fn encode_prop(&self, value: T) -> u8 {
+        self.1.iter().position(|v| *v == value).unwrap() as u8
+    }
+
+    fn decode_prop(&self, raw: u8) -> Option<T> {
+        self.1.get(raw as usize).copied()
     }
 
 }
@@ -106,9 +152,8 @@ impl BlockStateBuilder {
     }
 
     /// Build and resolve all combinations of property values as block states, all resolved
-    /// block states know their neighbors by property and values. The given uid reference
-    /// is set and incremented for each state.
-    pub fn build(self, uid: &mut u16) -> Vec<Rc<RefCell<BlockState>>> {
+    /// block states know their neighbors by property and values.
+    pub fn build(self) -> Vec<Rc<RefCell<BlockState>>> {
 
         // Move properties from the structure and convert to a linear properties vec
         let properties: Vec<(&'static str, TypeId, Vec<u8>)> = self.properties.into_iter()
@@ -144,16 +189,16 @@ impl BlockStateBuilder {
             }
 
             states.push(Rc::new(RefCell::new(BlockState {
-                uid: *uid,
+                uid: 0,
                 properties: group_properties,
                 neighbors: HashMap::new()
             })));
 
-            if let Some(new_uid) = uid.checked_add(1) {
+            /*if let Some(new_uid) = uid.checked_add(1) {
                 *uid = new_uid;
             } else {
                 panic!("Block state uid overflown (> {})", uid);
-            }
+            }*/
 
         }
 
@@ -179,9 +224,9 @@ impl BlockState {
 
     /// Get a block state property value if the property exists.
     pub fn get<T, P>(&self, property: &P) -> Option<T>
-    where
-        T: Copy,
-        P: Property<T>
+        where
+            T: Copy,
+            P: Property<T>
     {
 
         let (
@@ -198,17 +243,17 @@ impl BlockState {
     }
 
     pub fn expect<T, P>(&self, property: &P) -> T
-    where
-        T: Copy,
-        P: Property<T>
+        where
+            T: Copy,
+            P: Property<T>
     {
         self.get(property).unwrap()
     }
 
     pub fn with<T, P>(&self, property: &P, value: T) -> Option<Ref<BlockState>>
-    where
-        T: Copy,
-        P: Property<T>
+        where
+            T: Copy,
+            P: Property<T>
     {
 
         self.neighbors.get(&(property.get_name(), property.type_id(), property.encode_prop(value)))
@@ -217,9 +262,9 @@ impl BlockState {
     }
 
     pub fn with_mut<T, P>(&self, property: &P, value: T) -> Option<RefMut<BlockState>>
-    where
-        T: Copy,
-        P: Property<T>
+        where
+            T: Copy,
+            P: Property<T>
     {
 
         self.neighbors.get(&(property.get_name(), property.type_id(), property.encode_prop(value)))
@@ -227,35 +272,4 @@ impl BlockState {
 
     }
 
-}
-
-
-#[macro_export]
-macro_rules! def_blocks {
-    ($struct_id:ident [
-        $(
-            $block_id:ident $block_name:literal $([ $($prop_const:ident),* ])?
-        ),*
-    ]) => {
-
-        #[allow(non_snake_case)]
-        pub struct $struct_id {
-            $( pub $block_id: $crate::block::Block ),*
-        }
-
-        impl $struct_id {
-            pub fn load() -> Self {
-                let mut uid = 1;
-                Self {
-                    $(
-                        $block_id: $crate::block::Block::from_builder($block_name, {
-                            $crate::block::BlockStateBuilder::new()
-                            $($( .prop(&$prop_const) )*)?
-                        }, &mut uid)
-                    ),*
-                }
-            }
-        }
-
-    };
 }

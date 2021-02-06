@@ -1,0 +1,1 @@
+# DEPRECATED CRATE: check "core" and "worldgen" in the workspace.
