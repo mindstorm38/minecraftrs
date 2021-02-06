@@ -1,8 +1,10 @@
 use std::collections::hash_map::Entry;
-use std::cell::{RefCell, Ref, RefMut};
 use std::collections::HashMap;
 use std::any::{Any, TypeId};
-use std::rc::Rc;
+use std::sync::{Weak, Arc};
+
+use super::Block;
+use crate::util;
 
 
 /// Trait for all properties stored in a block state.
@@ -98,9 +100,11 @@ where
 /// properties.
 #[derive(Debug)]
 pub struct BlockState {
-    uid: u16,
+    pub(crate) uid: u16,
+    pub(crate) reg_tid: TypeId,
+    owner: Weak<Block>,
     properties: HashMap<&'static str, (TypeId, u8)>,
-    neighbors: HashMap<(&'static str, TypeId, u8), Rc<RefCell<BlockState>>>
+    neighbors: HashMap<(&'static str, TypeId, u8), Weak<BlockState>>
 }
 
 
@@ -153,7 +157,13 @@ impl BlockStateBuilder {
 
     /// Build and resolve all combinations of property values as block states, all resolved
     /// block states know their neighbors by property and values.
-    pub fn build(self) -> Vec<Rc<RefCell<BlockState>>> {
+    ///
+    /// The given `reg_tid` (Register Type ID) must be the type id of the structure that will hold
+    /// the block for these states. The passed UID is the next uid to set and increment for
+    /// each state (pass 0 for the first state builder, then the first state will have uid 0).
+    ///
+    /// The method will panic if the UID overflow the max for `u16`.
+    pub fn build(self, reg_tid: TypeId, uid: &mut u16) -> Vec<Arc<BlockState>> {
 
         // Move properties from the structure and convert to a linear properties vec
         let properties: Vec<(&'static str, TypeId, Vec<u8>)> = self.properties.into_iter()
@@ -179,8 +189,15 @@ impl BlockStateBuilder {
 
         // Build every state according to built groups
         let mut states = Vec::new();
+        let mut uid_overflowed = false;
 
         for group in &groups {
+
+            if uid_overflowed {
+                // Delaying the panic by one iteration in order to
+                // avoid panicking if the last state have the max UID.
+                panic!("State UID overflown (> {})", *uid);
+            }
 
             let mut group_properties = HashMap::new();
 
@@ -188,17 +205,19 @@ impl BlockStateBuilder {
                 group_properties.insert(name, (type_id, group[prop_idx]));
             }
 
-            states.push(Rc::new(RefCell::new(BlockState {
-                uid: 0,
+            states.push(Arc::new(BlockState {
+                uid: *uid,
+                reg_tid,
+                owner: Weak::new(),
                 properties: group_properties,
                 neighbors: HashMap::new()
-            })));
+            }));
 
-            /*if let Some(new_uid) = uid.checked_add(1) {
+            if let Some(new_uid) = uid.checked_add(1) {
                 *uid = new_uid;
             } else {
-                panic!("Block state uid overflown (> {})", uid);
-            }*/
+                uid_overflowed = true;
+            }
 
         }
 
@@ -207,7 +226,14 @@ impl BlockStateBuilder {
                 if idx != neighbor_idx {
                     for (prop_idx, &neighbor_prop) in neighbor_group.iter().enumerate() {
                         let (prop_name, type_id, _) = properties[prop_idx];
-                        state.borrow_mut().neighbors.insert((prop_name, type_id, neighbor_prop), Rc::clone(&states[neighbor_idx]));
+                        unsafe {
+                            // SAFETY: Neighbors states map is only set one time here, so I'm not
+                            // using RefCell and this allows the trait to be Sync without Mutex.
+                            util::mutate_ref(&state.neighbors).insert(
+                                (prop_name, type_id, neighbor_prop),
+                                Arc::downgrade(&states[neighbor_idx])
+                            );
+                        }
                     }
                 }
             }
@@ -221,6 +247,19 @@ impl BlockStateBuilder {
 
 
 impl BlockState {
+
+    pub fn get_uid(&self) -> u16 {
+        self.uid
+    }
+
+    /*pub(in crate::block) fn set_uid(&self, uid: u16) {
+        // SAFETY: It's safe to set uid only at initialization of the blocks register,
+        //         which need to be done before any manipulation of any world by any
+        //         thread.
+        unsafe {
+            *(&self.uid as *const u16 as *mut u16) = uid;
+        }
+    }*/
 
     /// Get a block state property value if the property exists.
     pub fn get<T, P>(&self, property: &P) -> Option<T>
@@ -250,25 +289,14 @@ impl BlockState {
         self.get(property).unwrap()
     }
 
-    pub fn with<T, P>(&self, property: &P, value: T) -> Option<Ref<BlockState>>
+    pub fn with<T, P>(&self, property: &P, value: T) -> Option<Arc<BlockState>>
         where
             T: Copy,
             P: Property<T>
     {
 
         self.neighbors.get(&(property.get_name(), property.type_id(), property.encode_prop(value)))
-            .map(|state| state.borrow())
-
-    }
-
-    pub fn with_mut<T, P>(&self, property: &P, value: T) -> Option<RefMut<BlockState>>
-        where
-            T: Copy,
-            P: Property<T>
-    {
-
-        self.neighbors.get(&(property.get_name(), property.type_id(), property.encode_prop(value)))
-            .map(|state| state.borrow_mut())
+            .map(|state| state.upgrade().unwrap())
 
     }
 

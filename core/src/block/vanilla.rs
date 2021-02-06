@@ -1,4 +1,5 @@
 use super::{IntProperty, BoolProperty};
+use crate::blocks;
 
 
 pub static PROP_LIQUID_LEVEL: IntProperty = IntProperty("level", 16);
