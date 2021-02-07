@@ -2,17 +2,41 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::any::{Any, TypeId};
 use std::sync::{Weak, Arc};
+use std::str::FromStr;
 
 use super::Block;
 use crate::util;
 
 
+/// All valid property values types must implement this trait.
+pub trait PropertySerializable: 'static + Copy {
+    fn prop_to_string(self) -> String;
+    fn prop_from_string(value: &str) -> Option<Self>;
+}
+
+
 /// Trait for all properties stored in a block state.
-pub trait Property<T: Copy>: Any {
+pub trait Property<T: PropertySerializable>: Any {
     fn get_name(&self) -> &'static str;
-    fn iter_values(&self) -> Box<dyn Iterator<Item=T>>;
+    fn iter_values(&self) -> Box<dyn Iterator<Item = T>>;
     fn encode_prop(&self, value: T) -> u8;
     fn decode_prop(&self, raw: u8) -> Option<T>;
+}
+
+
+impl<T> PropertySerializable for T
+where
+    T: 'static + Copy + ToString + FromStr
+{
+
+    fn prop_to_string(self) -> String {
+        self.to_string()
+    }
+
+    fn prop_from_string(value: &str) -> Option<Self> {
+        Self::from_str(value).ok()
+    }
+
 }
 
 
@@ -67,11 +91,11 @@ impl Property<u8> for IntProperty {
 }
 
 
-pub struct EnumProperty<T: 'static + Copy + Eq + ToString>(pub &'static str, pub &'static [T]);
+pub struct EnumProperty<T: PropertySerializable + Eq>(pub &'static str, pub &'static [T]);
 
 impl<T> Property<T> for EnumProperty<T>
 where
-    T: 'static + Copy + Eq + ToString
+    T: PropertySerializable + Eq
 {
 
     fn get_name(&self) -> &'static str {
@@ -112,6 +136,26 @@ macro_rules! properties {
 }
 
 
+#[macro_export]
+macro_rules! impl_enum_serializable {
+    ($enum_id:ident { $($item_id:ident: $item_name:literal),* }) => {
+        impl $crate::block::PropertySerializable for $enum_id {
+            fn prop_to_string(self) -> String {
+                match self {
+                    $(Self::$item_id => $item_name),*
+                }.to_string()
+            }
+            fn prop_from_string(value: &str) -> Option<Self> {
+                match value {
+                    $($item_name => Some(Self::$item_id),)*
+                    _ => None
+                }
+            }
+        }
+    };
+}
+
+
 /// Represent a particular state of a block, this block state also know
 /// all its neighbors by their properties and values.
 ///
@@ -149,7 +193,7 @@ impl BlockStateBuilder {
     /// same name.
     pub fn prop<T, P>(mut self, property: &P) -> Self
         where
-            T: Copy,
+            T: PropertySerializable,
             P: Property<T>
     {
 
@@ -274,19 +318,10 @@ impl BlockState {
         self.uid
     }
 
-    /*pub(in crate::block) fn set_uid(&self, uid: u16) {
-        // SAFETY: It's safe to set uid only at initialization of the blocks register,
-        //         which need to be done before any manipulation of any world by any
-        //         thread.
-        unsafe {
-            *(&self.uid as *const u16 as *mut u16) = uid;
-        }
-    }*/
-
     /// Get a block state property value if the property exists.
     pub fn get<T, P>(&self, property: &P) -> Option<T>
         where
-            T: Copy,
+            T: PropertySerializable,
             P: Property<T>
     {
 
@@ -305,7 +340,7 @@ impl BlockState {
 
     pub fn expect<T, P>(&self, property: &P) -> T
         where
-            T: Copy,
+            T: PropertySerializable,
             P: Property<T>
     {
         self.get(property).unwrap()
@@ -313,7 +348,7 @@ impl BlockState {
 
     pub fn with<T, P>(&self, property: &P, value: T) -> Option<Arc<BlockState>>
         where
-            T: Copy,
+            T: PropertySerializable,
             P: Property<T>
     {
 

@@ -104,6 +104,7 @@ macro_rules! blocks {
         $(
             $block_id:ident $block_name:literal $([ $($prop_const:ident),* ])?
         ),*
+        $(,)?
     ]) => {
 
         #[allow(non_snake_case)]

@@ -1,5 +1,22 @@
 use crate::util::{Direction, Axis};
-use crate::{blocks, properties};
+use crate::{blocks, properties, impl_enum_serializable};
+
+
+impl_enum_serializable!(Direction {
+    East: "east",
+    West: "west",
+    South: "south",
+    North: "north",
+    Up: "up",
+    Down: "down"
+});
+
+
+impl_enum_serializable!(Axis {
+    X: "x",
+    Y: "y",
+    Z: "z"
+});
 
 
 properties! {
@@ -33,8 +50,13 @@ properties! {
     pub PROP_END_PORTAL_EYE: bool("eye");
     pub PROP_FARMLAND_MOISTURE: int("moisture", 8);
     pub PROP_SNOWY: bool("snowy");
-    pub PROP_JUKEBOX_HAS_RECORD: bool("has_record");
+    pub PROP_HAS_RECORD: bool("has_record");
     pub PROP_HANGING: bool("hanging");
+    pub PROP_HAS_BOOK: bool("has_book");
+    pub PROP_NOTE: int("note", 25);
+    pub PROP_STICKY: bool("sticky");
+    pub PROP_EXTENDED: bool("extended");
+    pub PROP_SHORT: bool("short");
 
     pub PROP_DOWN: bool("down");
     pub PROP_EAST: bool("east");
@@ -64,6 +86,25 @@ properties! {
         Face::Ceiling, Face::Floor, Face::Wall
     ]);
 
+    pub PROP_INSTRUMENT: enum<Instrument>("instrument", INSTRUMENT, [
+        Instrument::Banjo,
+        Instrument::BassDrum,
+        Instrument::Bass,
+        Instrument::Bell,
+        Instrument::Bit,
+        Instrument::Chime,
+        Instrument::CowBell,
+        Instrument::Didjeridoo,
+        Instrument::Flute,
+        Instrument::Guitar,
+        Instrument::Harp,
+        Instrument::Hat,
+        Instrument::IronXylophone,
+        Instrument::Pling,
+        Instrument::Snare,
+        Instrument::Xylophone
+    ]);
+
 }
 
 
@@ -81,6 +122,9 @@ properties! {
 //  - Jigsaw Block
 //  - Large Flowers
 //  - Fluids
+//  - Logs
+//  - Mob heads
+//  - Mushroom Blocks
 
 
 blocks!(VanillaBlocksStruct VanillaBlocks [
@@ -130,43 +174,103 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     HOPPER "hopper"                 [PROP_ENABLED, PROP_FACING],
     IRON_BARS "iron_bars"           [PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_WEST, PROP_WATERLOGGED],
     JACK_O_LANTERN "jack_o_lantern" [PROP_FACING],
-    JUKEBOX "jukebox"               [PROP_JUKEBOX_HAS_RECORD],
+    JUKEBOX "jukebox"               [PROP_HAS_RECORD],
     KELP "kelp"                     [PROP_AGE_26],
     LADDER "ladder"                 [PROP_FACING, PROP_WATERLOGGED],
-    LANTERN "lantern"               [PROP_HANGING]
-]); // TODO: https://minecraft.gamepedia.com/Block_states#Lectern
+    LANTERN "lantern"               [PROP_HANGING],
+    LECTERN "lectern"               [PROP_FACING, PROP_HAS_BOOK, PROP_POWERED],
+    LEVER "lever"                   [PROP_FACE, PROP_FACING, PROP_POWERED],
+    LOOM "loom"                     [PROP_FACING],
+    MELON_STEM "melon_stem"         [PROP_AGE_8],
+    ATTACHED_MELON_STEM "attached_melon_stem" [PROP_FACING],
+    NETHER_WART "nether_wart"       [PROP_AGE_4],
+    NETHER_PORTAL "nether_portal"   [PROP_AXIS],
+    NOTE_BLOCK "note_block"         [PROP_INSTRUMENT, PROP_NOTE, PROP_POWERED],
+    OBSERVER "observer"             [PROP_FACING, PROP_POWERED],
+    PISTON "piston"                 [PROP_STICKY, PROP_EXTENDED, PROP_FACING_ALL], // Merged the two piston type into one using a property "sticky".
+    PISTON_HEAD "piston_head"       [PROP_STICKY, PROP_SHORT, PROP_FACING_ALL]
+]); // TODO: https://minecraft.gamepedia.com/Block_states#Potatoes
 
 
-#[derive(strum::ToString, Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BambooLeaves {
-    #[strum(serialize = "none")]
     None,
-    #[strum(serialize = "large")]
     Large,
-    #[strum(serialize = "small")]
     Small
 }
 
+impl_enum_serializable!(BambooLeaves {
+    None: "none",
+    Large: "large",
+    Small: "small"
+});
 
-#[derive(strum::ToString, Debug, Copy, Clone, Eq, PartialEq)]
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BedPart {
-    #[strum(serialize = "foot")]
     Foot,
-    #[strum(serialize = "head")]
     Head
 }
 
+impl_enum_serializable!(BedPart {
+    Foot: "foot",
+    Head: "head"
+});
 
-#[derive(strum::ToString, Debug, Copy, Clone, Eq, PartialEq)]
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Face {
-    #[strum(serialize = "ceiling")]
     Ceiling,
-    #[strum(serialize = "floor")]
     Floor,
-    #[strum(serialize = "wall")]
     Wall,
-    #[strum(serialize = "double_wall")]
     DoubleWall,
-    #[strum(serialize = "single_wall")]
     SingleWall
 }
+
+impl_enum_serializable!(Face {
+    Ceiling: "ceiling",
+    Floor: "floor",
+    Wall: "wall",
+    DoubleWall: "double_wall",
+    SingleWall: "single_wall"
+});
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Instrument {
+    Banjo,
+    BassDrum,
+    Bass,
+    Bell,
+    Bit,
+    Chime,
+    CowBell,
+    Didjeridoo,
+    Flute,
+    Guitar,
+    Harp,
+    Hat,
+    IronXylophone,
+    Pling,
+    Snare,
+    Xylophone
+}
+
+impl_enum_serializable!(Instrument {
+    Banjo: "banjo",
+    BassDrum: "basedrum",
+    Bass: "bass",
+    Bell: "bell",
+    Bit: "bit",
+    Chime: "chime",
+    CowBell: "cow_bell",
+    Didjeridoo: "didgeridoo",
+    Flute: "flute",
+    Guitar: "guitar",
+    Harp: "harp",
+    Hat: "hat",
+    IronXylophone: "iron_xylophone",
+    Pling: "pling",
+    Snare: "snare",
+    Xylophone: "xylophone"
+});
