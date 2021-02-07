@@ -67,11 +67,11 @@ impl Property<u8> for IntProperty {
 }
 
 
-pub struct EnumProperty<T: 'static + Copy + Eq>(pub &'static str, pub &'static [T]);
+pub struct EnumProperty<T: 'static + Copy + Eq + ToString>(pub &'static str, pub &'static [T]);
 
 impl<T> Property<T> for EnumProperty<T>
 where
-    T: 'static + Copy + Eq
+    T: 'static + Copy + Eq + ToString
 {
 
     fn get_name(&self) -> &'static str {
@@ -90,6 +90,25 @@ where
         self.1.get(raw as usize).copied()
     }
 
+}
+
+
+#[macro_export]
+macro_rules! properties {
+    ($v:vis $id:ident: int($name:literal, $count:expr); $($t:tt)*) => {
+        $v static $id: $crate::block::IntProperty = $crate::block::IntProperty($name, $count);
+        properties!($($t)*);
+    };
+    ($v:vis $id:ident: bool($name:literal); $($t:tt)*) => {
+        $v static $id: $crate::block::BoolProperty = $crate::block::BoolProperty($name);
+        properties!($($t)*);
+    };
+    ($v:vis $id:ident: enum<$enum_type:ty>($name:literal, $values_id:ident, [$($value:expr),+]); $($t:tt)*) => {
+        static $values_id: [$enum_type; 0 $(+ (1, $value).0)+] = [$($value),+];
+        $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
+        properties!($($t)*);
+    };
+    () => {}
 }
 
 
@@ -163,7 +182,7 @@ impl BlockStateBuilder {
     /// each state (pass 0 for the first state builder, then the first state will have uid 0).
     ///
     /// The method will panic if the UID overflow the max for `u16`.
-    pub fn build(self, reg_tid: TypeId, uid: &mut u16) -> Vec<Arc<BlockState>> {
+    pub fn build(self, reg_tid: TypeId, uid: &mut u16, states_by_uid: &mut HashMap<u16, Weak<BlockState>>) -> Vec<Arc<BlockState>> {
 
         // Move properties from the structure and convert to a linear properties vec
         let properties: Vec<(&'static str, TypeId, Vec<u8>)> = self.properties.into_iter()
@@ -205,13 +224,16 @@ impl BlockStateBuilder {
                 group_properties.insert(name, (type_id, group[prop_idx]));
             }
 
-            states.push(Arc::new(BlockState {
+            let new_state = Arc::new(BlockState {
                 uid: *uid,
                 reg_tid,
                 owner: Weak::new(),
                 properties: group_properties,
                 neighbors: HashMap::new()
-            }));
+            });
+
+            states_by_uid.insert(*uid, Arc::downgrade(&new_state));
+            states.push(new_state);
 
             if let Some(new_uid) = uid.checked_add(1) {
                 *uid = new_uid;

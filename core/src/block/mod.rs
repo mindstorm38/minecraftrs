@@ -17,13 +17,22 @@ pub struct Block {
 
 impl Block {
 
-    pub fn new(name: &'static str, state_builder: BlockStateBuilder, reg_tid: TypeId, uid: &mut u16) -> Self {
-        let states = state_builder.build(reg_tid, uid);
+    pub fn new(
+        name: &'static str,
+        state_builder: BlockStateBuilder,
+        reg_tid: TypeId,
+        uid: &mut u16,
+        states_by_uid: &mut HashMap<u16, Weak<BlockState>>
+    ) -> Self {
+
+        let states = state_builder.build(reg_tid, uid, states_by_uid);
+
         Block {
             name,
             default_state: Arc::downgrade(&states[0]),
             states,
         }
+
     }
 
     pub fn get_default_state(&self) -> Arc<BlockState> {
@@ -99,7 +108,7 @@ macro_rules! blocks {
 
         #[allow(non_snake_case)]
         pub struct $struct_id {
-            states_by_uids: std::collections::HashMap<u16, std::sync::Weak<$crate::block::BlockState>>,
+            states_by_uid: std::collections::HashMap<u16, std::sync::Weak<$crate::block::BlockState>>,
             last_uid: u16,
             $( pub $block_id: $crate::block::Block ),*
         }
@@ -108,31 +117,23 @@ macro_rules! blocks {
             fn load() -> Self {
 
                 use std::collections::HashMap;
-                use std::sync::Arc;
                 use $crate::block::{Block, BlockStateBuilder};
 
                 let mut uid = 0;
                 let tid = std::any::TypeId::of::<Self>();
+                let mut states_by_uid = HashMap::new();
 
-                let mut ret = Self {
-                    states_by_uids: HashMap::new(),
-                    $(
-                    $block_id: Block::new(
+                Self {
+                    $( $block_id: Block::new(
                         $block_name,
                         BlockStateBuilder::new() $($( .prop(&$prop_const) )*)?,
                         tid,
-                        &mut uid),
-                    )*
-                    last_uid: uid
-                };
-
-                $(
-                for state in &ret.$block_id.states {
-                    ret.states_by_uids.insert(state.uid, Arc::downgrade(state));
+                        &mut uid,
+                        &mut states_by_uid
+                    ), )*
+                    last_uid: uid,
+                    states_by_uid
                 }
-                )*
-
-                ret
 
             }
         }
@@ -140,7 +141,7 @@ macro_rules! blocks {
         impl $crate::block::StaticBlocks for $struct_id {
 
             fn get_state(&self, uid: u16) -> Option<std::sync::Arc<$crate::block::BlockState>> {
-                self.states_by_uids.get(&uid).map(|weak_state| weak_state.upgrade().unwrap())
+                self.states_by_uid.get(&uid).map(|weak_state| weak_state.upgrade().unwrap())
             }
 
             fn get_last_uid(&self) -> u16 {
