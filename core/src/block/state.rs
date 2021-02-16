@@ -132,6 +132,10 @@ macro_rules! properties {
         $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
         properties!($($t)*);
     };
+    ($v:vis $id:ident: enum<$enum_type:ty>($name:literal, $values_id:ident); $($t:tt)*) => {
+        $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
+        properties!($($t)*);
+    };
     () => {}
 }
 

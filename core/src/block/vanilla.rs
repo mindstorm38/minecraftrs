@@ -19,6 +19,9 @@ impl_enum_serializable!(Axis {
 });
 
 
+static REDSTONE_WIRE_MODE: [RedstoneWireMode; 3] = [RedstoneWireMode::None, RedstoneWireMode::Side, RedstoneWireMode::Up];
+
+
 properties! {
 
     pub PROP_AGE_26: int("age", 26);
@@ -57,6 +60,19 @@ properties! {
     pub PROP_STICKY: bool("sticky");
     pub PROP_EXTENDED: bool("extended");
     pub PROP_SHORT: bool("short");
+    pub PROP_LOCKED: bool("locked");
+    pub PROP_REPEATER_DELAY: int("delay", 4); // Real is 1 to 4
+    pub PROP_CHARGES: int("charges", 5);
+    pub PROP_SCAFFOLDING_DISTANCE: int("distance", 8);
+    pub PROP_PICKLES: int("pickles", 4);  // Real is 1 to 4
+    pub PROP_SNOW_LAYERS: int("layers", 8);  // Real is 1 to 8
+    pub PROP_UNSTABLE: bool("unstable");
+    pub PROP_ATTACHED: bool("attached");
+    pub PROP_DISARMED: bool("disarmed");
+    pub PROP_EGGS: int("eggs", 4);  // Real is 1 to 4
+    pub PROP_HATCH: int("hatch", 3);
+    pub PROP_LIQUID_LEVEL: int("level", 8);
+    pub PROP_LIQUID_FALLING: bool("falling");
 
     pub PROP_DOWN: bool("down");
     pub PROP_EAST: bool("east");
@@ -64,6 +80,7 @@ properties! {
     pub PROP_SOUTH: bool("south");
     pub PROP_UP: bool("up");
     pub PROP_WEST: bool("west");
+    pub PROP_BOTTOM: bool("bottom");
 
     pub PROP_FACING: enum<Direction>("facing", FACING, [
         Direction::East, Direction::North, Direction::South, Direction::West
@@ -86,6 +103,10 @@ properties! {
         Face::Ceiling, Face::Floor, Face::Wall
     ]);
 
+    pub PROP_HALF: enum<PlantHalf>("half", HALF, [
+        PlantHalf::Lower, PlantHalf::Upper
+    ]);
+
     pub PROP_INSTRUMENT: enum<Instrument>("instrument", INSTRUMENT, [
         Instrument::Banjo,
         Instrument::BassDrum,
@@ -104,6 +125,38 @@ properties! {
         Instrument::Snare,
         Instrument::Xylophone
     ]);
+
+    pub PROP_RAIL_SHAPE: enum<RailShape>("shape", RAIL_SHAPE, [
+        RailShape::EastWest,
+        RailShape::NorthEast,
+        RailShape::NorthSouth,
+        RailShape::NorthWest,
+        RailShape::SouthEast,
+        RailShape::SouthWest,
+        RailShape::AscendingEast,
+        RailShape::AscendingNorth,
+        RailShape::AscendingSouth,
+        RailShape::AscendingWest
+    ]);
+
+    pub PROP_RAIL_SHAPE_SPECIAL: enum<RailShape>("shape", RAIL_SHAPE_SPECIAL, [
+        RailShape::EastWest,
+        RailShape::NorthSouth,
+        RailShape::AscendingEast,
+        RailShape::AscendingNorth,
+        RailShape::AscendingSouth,
+        RailShape::AscendingWest
+    ]);
+
+    pub PROP_COMPARATOR_MODE: enum<ComparatorMode>("mode", COMPARATOR_MODE, [
+        ComparatorMode::Compare,
+        ComparatorMode::Subtract
+    ]);
+
+    pub PROP_REDSTONE_WIRE_EAST: enum<RedstoneWireMode>("east", REDSTONE_WIRE_MODE);
+    pub PROP_REDSTONE_WIRE_NORTH: enum<RedstoneWireMode>("north", REDSTONE_WIRE_MODE);
+    pub PROP_REDSTONE_WIRE_SOUTH: enum<RedstoneWireMode>("south", REDSTONE_WIRE_MODE);
+    pub PROP_REDSTONE_WIRE_WEST: enum<RedstoneWireMode>("west", REDSTONE_WIRE_MODE);
 
 }
 
@@ -125,6 +178,17 @@ properties! {
 //  - Logs
 //  - Mob heads
 //  - Mushroom Blocks
+//  - Wooden Pressure Plates
+//  - Saplings
+//  - Shulker Boxes
+//  - Signs
+//  - Slabs
+//  - Stairs
+//  - Structure Blocks / Void
+//  - Tall Grass / Tall Plants / Large Fern / Seagrass
+//  - Trapdoors
+//  - Walls
+//  - Wood
 
 
 blocks!(VanillaBlocksStruct VanillaBlocks [
@@ -182,14 +246,50 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     LEVER "lever"                   [PROP_FACE, PROP_FACING, PROP_POWERED],
     LOOM "loom"                     [PROP_FACING],
     MELON_STEM "melon_stem"         [PROP_AGE_8],
+    PUMPKIN_STEM "pumpkin_stem"     [PROP_AGE_8],
     ATTACHED_MELON_STEM "attached_melon_stem" [PROP_FACING],
+    ATTACHED_PUMPKIN_STEM "attached_pumpkin_stem" [PROP_FACING],
     NETHER_WART "nether_wart"       [PROP_AGE_4],
     NETHER_PORTAL "nether_portal"   [PROP_AXIS],
     NOTE_BLOCK "note_block"         [PROP_INSTRUMENT, PROP_NOTE, PROP_POWERED],
     OBSERVER "observer"             [PROP_FACING, PROP_POWERED],
     PISTON "piston"                 [PROP_STICKY, PROP_EXTENDED, PROP_FACING_ALL], // Merged the two piston type into one using a property "sticky".
-    PISTON_HEAD "piston_head"       [PROP_STICKY, PROP_SHORT, PROP_FACING_ALL]
-]); // TODO: https://minecraft.gamepedia.com/Block_states#Potatoes
+    PISTON_HEAD "piston_head"       [PROP_STICKY, PROP_SHORT, PROP_FACING_ALL],
+    POTATOES "potatoes"             [PROP_AGE_8],
+    STONE_PRESSURE_PLATE "stone_pressure_plate" [PROP_POWERED],
+    POLISHED_BLACKSTONE_PRESSURE_PLATE "polished_blackstone_pressure_plate" [PROP_POWERED],
+    LIGHT_WEIGHTED_PRESSURE_PLATE "light_weighted_pressure_plate" [PROP_REDSTONE_POWER],
+    HEAVY_WEIGHTED_PRESSURE_PLATE "heavy_weighted_pressure_plate" [PROP_REDSTONE_POWER],
+    PURPUR_PILLAR "purpur_pillar"   [PROP_AXIS],
+    QUARTZ_PILLAR "quartz_pillar"   [PROP_AXIS],
+    RAIL "rail"                     [PROP_RAIL_SHAPE],
+    POWERED_RAIL "powered_rail"     [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
+    DETECTOR_RAIL "detector_rail"   [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
+    ACTIVATOR_RAIL "activator_rail" [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
+    COMPARATOR "comparator"         [PROP_FACING, PROP_COMPARATOR_MODE, PROP_POWERED],
+    REDSTONE_WIRE "redstone_wire"   [PROP_REDSTONE_POWER, PROP_REDSTONE_WIRE_EAST, PROP_REDSTONE_WIRE_NORTH, PROP_REDSTONE_WIRE_SOUTH, PROP_REDSTONE_WIRE_WEST],
+    REDSTONE_LAMP "redstone_lamp"   [PROP_LIT],
+    REDSTONE_ORE "redstone_ore"     [PROP_LIT],
+    REPEATER "repeater"             [PROP_REPEATER_DELAY, PROP_FACING, PROP_LOCKED, PROP_POWERED],
+    REDSTONE_TORCH "redstone_torch" [PROP_LIT],
+    REDSTONE_WALL_TORCH "redstone_wall_torch" [PROP_FACING, PROP_LIT],
+    RESPAWN_ANCHOR "respawn_anchor" [PROP_CHARGES],
+    SCAFFOLDING "scaffolding"       [PROP_BOTTOM, PROP_SCAFFOLDING_DISTANCE, PROP_WATERLOGGED],
+    SEA_PICKLE "sea_pickle"         [PROP_PICKLES, PROP_WATERLOGGED],
+    SMOKER "smoker"                 [PROP_FACING, PROP_LIT],
+    SNOW "snow"                     [PROP_SNOW_LAYERS],
+    STONECUTTER "stonecutter"       [PROP_FACING],
+    SUGAR_CANE "sugar_cane"         [PROP_AGE_16],
+    SWEET_BERRY_BUSH "sweet_berry_bush" [PROP_AGE_4],
+    TNT "tnt"                       [PROP_UNSTABLE],
+    TRIPWIRE "tripwire"             [PROP_ATTACHED, PROP_DISARMED, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_WEST, PROP_POWERED],
+    TRIPWIRE_HOOK "tripwire_hook"   [PROP_ATTACHED, PROP_FACING, PROP_POWERED],
+    TURTLE_EGG "turtle_egg"         [PROP_EGGS, PROP_HATCH],
+    VINE "vine"                     [PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_UP, PROP_WEST],
+    WALL_TORCH "wall_torch"         [PROP_FACING],
+    WATER "water"                   [PROP_LIQUID_FALLING],
+    FLOWING_WATER "flowing_water"   [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL]
+]);
 
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -273,4 +373,70 @@ impl_enum_serializable!(Instrument {
     Pling: "pling",
     Snare: "snare",
     Xylophone: "xylophone"
+});
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum RailShape {
+    EastWest,
+    NorthEast,
+    NorthSouth,
+    NorthWest,
+    SouthEast,
+    SouthWest,
+    AscendingEast,
+    AscendingNorth,
+    AscendingSouth,
+    AscendingWest
+}
+
+impl_enum_serializable!(RailShape {
+    EastWest: "east_west",
+    NorthEast: "north_east",
+    NorthSouth: "north_south",
+    NorthWest: "north_west",
+    SouthEast: "south_east",
+    SouthWest: "south_west",
+    AscendingEast: "ascending_east",
+    AscendingNorth: "ascending_north",
+    AscendingSouth: "ascending_south",
+    AscendingWest: "ascending_west"
+});
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ComparatorMode {
+    Compare,
+    Subtract
+}
+
+impl_enum_serializable!(ComparatorMode {
+    Compare: "compare",
+    Subtract: "subtract"
+});
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum RedstoneWireMode {
+    None,
+    Side,
+    Up
+}
+
+impl_enum_serializable!(RedstoneWireMode {
+    None: "none",
+    Side: "side",
+    Up: "up"
+});
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PlantHalf {
+    Lower,
+    Upper
+}
+
+impl_enum_serializable!(PlantHalf {
+    Lower: "lower",
+    Upper: "upper"
 });
