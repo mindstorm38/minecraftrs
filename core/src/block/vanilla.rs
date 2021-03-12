@@ -104,117 +104,92 @@ properties! {
     pub PROP_BOTTOM: bool("bottom");
 
     pub PROP_FACING: enum<Direction>("facing", FACING, [
-        Direction::East, Direction::North, Direction::South, Direction::West
+        East, North, South, West
     ]);
 
     pub PROP_FACING_ALL: enum<Direction>("facing", FACING_ALL, [
-        Direction::Down, Direction::East, Direction::North, Direction::South, Direction::Up, Direction::West
+        Down, East, North, South, Up, West
     ]);
 
-    pub PROP_AXIS: enum<Axis>("axis", AXIS, [Axis::X, Axis::Y, Axis::Z]);
+    pub PROP_AXIS: enum<Axis>("axis", AXIS, [X, Y, Z]);
 
-    pub PROP_BAMBOO_LEAVES: enum<BambooLeaves>("leaves", BAMBOO_LEAVES, [BambooLeaves::Large, BambooLeaves::None, BambooLeaves::Small]);
-    pub PROP_BED_PART: enum<BedPart>("part", BED_PART, [BedPart::Foot, BedPart::Head]);
+    pub PROP_BAMBOO_LEAVES: enum<BambooLeaves>("leaves", BAMBOO_LEAVES, [Large, None, Small]);
+    pub PROP_BED_PART: enum<BedPart>("part", BED_PART, [Foot, Head]);
 
     pub PROP_BELL_ATTACHMENT: enum<Face>("attachment", BELL_ATTACHMENT, [
-        Face::Ceiling, Face::DoubleWall, Face::Floor, Face::SingleWall
+        Ceiling, DoubleWall, Floor, SingleWall
     ]);
 
-    pub PROP_FACE: enum<Face>("face", FACE, [
-        Face::Ceiling, Face::Floor, Face::Wall
-    ]);
-
-    pub PROP_DOUBLE_BLOCK_HALF: enum<DoubleBlockHalf>("half", DOUBLE_BLOCK_HALF, [
-        DoubleBlockHalf::Lower, DoubleBlockHalf::Upper
-    ]);
-
-    pub PROP_DOOR_HINGE: enum<DoorHingeSide>("hinge", DOOR_HINGE, [
-        DoorHingeSide::Left, DoorHingeSide::Right
-    ]);
-
-    pub PROP_HALF: enum<Half>("half", HALF, [
-        Half::Top, Half::Bottom
-    ]);
+    pub PROP_FACE: enum<Face>("face", FACE, [Ceiling, Floor, Wall]);
+    pub PROP_DOUBLE_BLOCK_HALF: enum<DoubleBlockHalf>("half", DOUBLE_BLOCK_HALF, [Lower, Upper]);
+    pub PROP_DOOR_HINGE: enum<DoorHingeSide>("hinge", DOOR_HINGE, [Left, Right]);
+    pub PROP_HALF: enum<Half>("half", HALF, [Top, Bottom]);
 
     pub PROP_COLOR: enum<DyeColor>("color", COLOR, [
-        DyeColor::White,
-        DyeColor::Orange,
-        DyeColor::Magenta,
-        DyeColor::LightBlue,
-        DyeColor::Yellow,
-        DyeColor::Lime,
-        DyeColor::Pink,
-        DyeColor::Gray,
-        DyeColor::LightGray,
-        DyeColor::Cyan,
-        DyeColor::Purple,
-        DyeColor::Blue,
-        DyeColor::Brown,
-        DyeColor::Green,
-        DyeColor::Red,
-        DyeColor::Black
+        White,
+        Orange,
+        Magenta,
+        LightBlue,
+        Yellow,
+        Lime,
+        Pink,
+        Gray,
+        LightGray,
+        Cyan,
+        Purple,
+        Blue,
+        Brown,
+        Green,
+        Red,
+        Black
     ]);
 
     pub PROP_INSTRUMENT: enum<Instrument>("instrument", INSTRUMENT, [
-        Instrument::Banjo,
-        Instrument::BassDrum,
-        Instrument::Bass,
-        Instrument::Bell,
-        Instrument::Bit,
-        Instrument::Chime,
-        Instrument::CowBell,
-        Instrument::Didjeridoo,
-        Instrument::Flute,
-        Instrument::Guitar,
-        Instrument::Harp,
-        Instrument::Hat,
-        Instrument::IronXylophone,
-        Instrument::Pling,
-        Instrument::Snare,
-        Instrument::Xylophone
+        Banjo,
+        BassDrum,
+        Bass,
+        Bell,
+        Bit,
+        Chime,
+        CowBell,
+        Didjeridoo,
+        Flute,
+        Guitar,
+        Harp,
+        Hat,
+        IronXylophone,
+        Pling,
+        Snare,
+        Xylophone
     ]);
 
     pub PROP_RAIL_SHAPE: enum<RailShape>("shape", RAIL_SHAPE, [
-        RailShape::EastWest,
-        RailShape::NorthEast,
-        RailShape::NorthSouth,
-        RailShape::NorthWest,
-        RailShape::SouthEast,
-        RailShape::SouthWest,
-        RailShape::AscendingEast,
-        RailShape::AscendingNorth,
-        RailShape::AscendingSouth,
-        RailShape::AscendingWest
+        EastWest,
+        NorthEast,
+        NorthSouth,
+        NorthWest,
+        SouthEast,
+        SouthWest,
+        AscendingEast,
+        AscendingNorth,
+        AscendingSouth,
+        AscendingWest
     ]);
 
     pub PROP_RAIL_SHAPE_SPECIAL: enum<RailShape>("shape", RAIL_SHAPE_SPECIAL, [
-        RailShape::EastWest,
-        RailShape::NorthSouth,
-        RailShape::AscendingEast,
-        RailShape::AscendingNorth,
-        RailShape::AscendingSouth,
-        RailShape::AscendingWest
+        EastWest, NorthSouth, AscendingEast, AscendingNorth, AscendingSouth, AscendingWest
     ]);
 
     pub PROP_COMPARATOR_MODE: enum<ComparatorMode>("mode", COMPARATOR_MODE, [
-        ComparatorMode::Compare,
-        ComparatorMode::Subtract
+        Compare, Subtract
     ]);
 
     pub PROP_WOOD_TYPE: enum<WoodType>("wood_type", WOOD_TYPE, [
-        WoodType::Oak,
-        WoodType::Spruce,
-        WoodType::Birch,
-        WoodType::Jungle,
-        WoodType::Acacia,
-        WoodType::DarkOak,
-        WoodType::Crimson,
-        WoodType::Warped
+        Oak, Spruce, Birch, Jungle, Acacia, DarkOak, Crimson, Warped
     ]);
 
     pub PROP_NETHER_WOOD_TYPE: enum<NetherWoodType>("wood_type", NETHER_WOOD_TYPE, [
-        NetherWoodType::Crimson,
-        NetherWoodType::Warped
+        Crimson,  Warped
     ]);
 
     pub PROP_REDSTONE_WIRE_EAST: enum<RedstoneWireMode>("east", REDSTONE_WIRE_MODE);
@@ -222,18 +197,10 @@ properties! {
     pub PROP_REDSTONE_WIRE_SOUTH: enum<RedstoneWireMode>("south", REDSTONE_WIRE_MODE);
     pub PROP_REDSTONE_WIRE_WEST: enum<RedstoneWireMode>("west", REDSTONE_WIRE_MODE);
 
-    pub PROP_CHEST_TYPE: enum<ChestType>("type", CHEST_TYPE, [
-        ChestType::Single,
-        ChestType::Left,
-        ChestType::Right
-    ]);
+    pub PROP_CHEST_TYPE: enum<ChestType>("type", CHEST_TYPE, [Single, Left, Right]);
 
     pub PROP_STAIRS_SHAPE: enum<StairsShape>("shape", STAIRS_SHAPE, [
-        StairsShape::Straight,
-        StairsShape::InnerLeft,
-        StairsShape::InnerRight,
-        StairsShape::OuterLeft,
-        StairsShape::OuterRight
+        Straight, InnerLeft, InnerRight, OuterLeft, OuterRight
     ]);
 
 }

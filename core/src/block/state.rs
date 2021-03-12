@@ -25,15 +25,6 @@ pub trait Property<T: PropertySerializable>: Any {
 }
 
 
-/*/// Trait for all properties stored in a block state.
-pub trait Property<T: PropertySerializable>: Any {
-    fn get_name(&self) -> &'static str;
-    fn iter_values(&self) -> Box<dyn Iterator<Item = T>>;
-    fn encode_prop(&self, value: T) -> u8;
-    fn decode_prop(&self, raw: u8) -> Option<T>;
-}*/
-
-
 impl<T> PropertySerializable for T
 where
     T: 'static + Copy + ToString + FromStr
@@ -51,27 +42,6 @@ where
 
 
 pub struct BoolProperty(pub &'static str);
-
-/*impl Property<bool> for BoolProperty {
-
-    fn get_name(&self) -> &'static str {
-        self.0
-    }
-
-    fn iter_values(&self) -> Box<dyn Iterator<Item = bool>> {
-        static VALUES: [bool; 2] = [false, true];
-        Box::new(VALUES.iter().copied())
-    }
-
-    fn encode_prop(&self, value: bool) -> u8 {
-        if value { 1 } else { 0 }
-    }
-
-    fn decode_prop(&self, raw: u8) -> Option<bool> {
-        Some(raw != 0)
-    }
-
-}*/
 
 impl Property<bool> for BoolProperty {
 
@@ -96,30 +66,6 @@ impl Property<bool> for BoolProperty {
 
 pub struct IntProperty(pub &'static str, pub u8);
 
-/*impl Property<u8> for IntProperty {
-
-    fn get_name(&self) -> &'static str {
-        self.0
-    }
-
-    fn iter_values(&self) -> Box<dyn Iterator<Item = u8>> {
-        Box::new((0..self.1).into_iter())
-    }
-
-    fn encode_prop(&self, value: u8) -> u8 {
-        value
-    }
-
-    fn decode_prop(&self, raw: u8) -> Option<u8> {
-        if raw < self.1 {
-            Some(raw)
-        } else {
-            None
-        }
-    }
-
-}*/
-
 impl Property<u8> for IntProperty {
 
     fn name(&self) -> &'static str {
@@ -141,29 +87,6 @@ impl Property<u8> for IntProperty {
 
 
 pub struct EnumProperty<T: PropertySerializable + Eq>(pub &'static str, pub &'static [T]);
-
-/*impl<T> Property<T> for EnumProperty<T>
-where
-    T: PropertySerializable + Eq
-{
-
-    fn get_name(&self) -> &'static str {
-        self.0
-    }
-
-    fn iter_values(&self) -> Box<dyn Iterator<Item=T>> {
-        Box::new(self.1.iter().copied())
-    }
-
-    fn encode_prop(&self, value: T) -> u8 {
-        self.1.iter().position(|v| *v == value).unwrap() as u8
-    }
-
-    fn decode_prop(&self, raw: u8) -> Option<T> {
-        self.1.get(raw as usize).copied()
-    }
-
-}*/
 
 impl<T> Property<T> for EnumProperty<T>
 where
@@ -199,8 +122,8 @@ macro_rules! properties {
         $v static $id: $crate::block::BoolProperty = $crate::block::BoolProperty($name);
         properties!($($t)*);
     };
-    ($v:vis $id:ident: enum<$enum_type:ty>($name:literal, $values_id:ident, [$($value:expr),+]); $($t:tt)*) => {
-        static $values_id: [$enum_type; 0 $(+ (1, $value).0)+] = [$($value),+];
+    ($v:vis $id:ident: enum<$enum_type:ty>($name:literal, $values_id:ident, [$($value:ident),+]); $($t:tt)*) => {
+        static $values_id: [$enum_type; 0 $(+ (1, <$enum_type>::$value).0)+] = [$(<$enum_type>::$value),+];
         $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
         properties!($($t)*);
     };
@@ -252,13 +175,12 @@ pub struct BlockState {
     pub(crate) uid: u16,
     /// Unique TypeId of the register this state belongs to.
     pub(crate) reg_tid: TypeId,
-    // owner: Weak<Block>,
-    // properties: HashMap<&'static str, (TypeId, u8)>,
-    // neighbors: HashMap<(&'static str, TypeId, u8), Weak<BlockState>>,
+    /// The index of this state within the shared data's states vector.
     index: usize,
+    /// Array of property encoded values.
     properties: Vec<u8>,
+    ///
     shared_data: Weak<BlockSharedData>,
-    // shared_properties: Arc<HashMap<&'static str, SharedProperty>>
 }
 
 
@@ -267,7 +189,6 @@ pub struct BlockState {
 /// First register your properties using the `prop` then build the states vec
 /// using `build`.
 pub struct BlockStateBuilder {
-    //properties: HashMap<&'static str, (TypeId, Vec<u8>)>,
     properties: HashMap<&'static str, (TypeId, u8)>,
 }
 
@@ -276,7 +197,6 @@ impl BlockStateBuilder {
 
     pub fn new() -> Self {
         BlockStateBuilder {
-            //properties: HashMap::new(),
             properties: HashMap::new()
         }
     }
@@ -289,23 +209,6 @@ impl BlockStateBuilder {
             T: PropertySerializable,
             P: Property<T>
     {
-
-        /*match self.properties.entry(property.get_name()) {
-            Entry::Occupied(_) => panic!("Property '{}' already registered.", property.get_name()),
-            Entry::Vacant(v) => {
-
-                let values = property.iter_values()
-                    .map(|val| property.encode_prop(val))
-                    .collect::<Vec<u8>>();
-
-                if values.is_empty() {
-                    panic!("No property values returned by property '{}'.", property.get_name());
-                }
-
-                v.insert((property.type_id(), values));
-
-            }
-        }*/
 
         match self.properties.entry(property.name()) {
             Entry::Occupied(_) => panic!("Property '{}' already registered.", property.name()),
@@ -382,10 +285,6 @@ impl BlockStateBuilder {
             let state = Arc::new(BlockState {
                 uid: *uid,
                 reg_tid,
-                // Deprecated properties:
-                // properties: HashMap::new(),
-                // neighbors: HashMap::new(),
-                // New properties:
                 index: i,
                 properties: state_properties,
                 shared_data: Arc::downgrade(&shared_data_arc)
@@ -403,124 +302,6 @@ impl BlockStateBuilder {
         shared_data_arc
 
     }
-
-    /*/// Build and resolve all combinations of property values as block states, all resolved
-    /// block states know their neighbors by property and values.
-    ///
-    /// The given `reg_tid` (Register Type ID) must be the type id of the structure that will hold
-    /// the block for these states. The passed UID is the next uid to set and increment for
-    /// each state (pass 0 for the first state builder, then the first state will have uid 0).
-    ///
-    /// The method will panic if the UID overflow the max for `u16`.
-    pub fn build(self, reg_tid: TypeId, uid: &mut u16, states_by_uid: &mut HashMap<u16, Weak<BlockState>>) -> Vec<Arc<BlockState>> {
-
-        let time = Instant::now();
-
-        // Move properties from the structure and convert to a linear properties vec
-        let properties: Vec<(&'static str, TypeId, Vec<u8>)> = self.properties.into_iter()
-            .map(|(name, (type_id, values))| (name, type_id, values))
-            .collect();
-
-        let t1 = time.elapsed().as_nanos();
-        let time = Instant::now();
-
-        // Create all possible groups of properties values
-        let mut groups = vec![vec![]];
-        let mut future_groups = vec![];
-
-        for (_, _, values) in &properties {
-            for group in &groups {
-                for &value in values {
-                    let mut new_group = group.clone();
-                    new_group.push(value);
-                    future_groups.push(new_group);
-                }
-            }
-            groups.clear();
-            groups.extend_from_slice(&future_groups[..]);
-            future_groups.clear();
-        }
-
-        let t2 = time.elapsed().as_nanos();
-        let time = Instant::now();
-
-        // Build every state according to built groups
-        let mut states = Vec::new();
-        let mut uid_overflowed = false;
-
-        for group in &groups {
-
-            if uid_overflowed {
-                // Delaying the panic by one iteration in order to
-                // avoid panicking if the last state have the max UID.
-                panic!("State UID overflown (> {})", *uid);
-            }
-
-            let mut group_properties = HashMap::new();
-
-            for (prop_idx, &(name, type_id, _)) in properties.iter().enumerate() {
-                group_properties.insert(name, (type_id, group[prop_idx]));
-            }
-
-            let new_state = Arc::new(BlockState {
-                uid: *uid,
-                reg_tid,
-                owner: Weak::new(),
-                properties: group_properties,
-                neighbors: HashMap::new(),
-                new_properties: Vec::new(),
-                shared_properties: Arc::new(HashMap::new())
-            });
-
-            states_by_uid.insert(*uid, Arc::downgrade(&new_state));
-            states.push(new_state);
-
-            if let Some(new_uid) = uid.checked_add(1) {
-                *uid = new_uid;
-            } else {
-                uid_overflowed = true;
-            }
-
-        }
-
-        let t3 = time.elapsed().as_nanos();
-        let time = Instant::now();
-
-        let mut neighbor_count = 0;
-
-        for (idx, state) in states.iter().enumerate() {
-            for (neighbor_idx, neighbor_group) in groups.iter().enumerate() {
-                if idx != neighbor_idx {
-                    for (prop_idx, &neighbor_prop) in neighbor_group.iter().enumerate() {
-                        let (prop_name, type_id, _) = properties[prop_idx];
-                        neighbor_count += 1;
-                        unsafe {
-                            // SAFETY: Neighbors states map is only set one time here, so I'm not
-                            // using RefCell and this allows the trait to be Sync without Mutex.
-                            util::mutate_ref(&state.neighbors).insert(
-                                (prop_name, type_id, neighbor_prop),
-                                Arc::downgrade(&states[neighbor_idx])
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        let t4 = time.elapsed().as_nanos();
-        let total = (t1 + t2 + t3 + t4) as f32;
-
-        println!("count: {}, t1: {}, t2: {}, t3: {}, t4: {}, neighbors: {}",
-                 states.len(),
-                 t1 as f32 / total,
-                 t2 as f32 / total,
-                 t3 as f32 / total,
-                 t4 as f32 / total,
-                 neighbor_count);
-
-        states
-
-    }*/
 
 }
 
@@ -546,17 +327,6 @@ impl BlockState {
         } else {
             None
         }
-
-        /*let (
-            type_id,
-            raw_value
-        ) = self.properties.get(&property.get_name())?;
-
-        if *type_id == property.type_id() {
-            property.decode_prop(*raw_value)
-        } else {
-            None
-        }*/
 
     }
 
@@ -584,9 +354,6 @@ impl BlockState {
         let neighbor_index = (self.index as isize + value_diff) as usize;
 
         Some(Arc::clone(&data.states[neighbor_index]))
-
-        /*self.neighbors.get(&(property.get_name(), property.type_id(), property.encode_prop(value)))
-            .map(|state| state.upgrade().unwrap())*/
 
     }
 
