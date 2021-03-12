@@ -11,13 +11,19 @@ pub mod vanilla;
 #[derive(Debug)]
 pub struct Block {
     name: &'static str,
+    shared_data: Arc<BlockSharedData>
+}
+
+#[derive(Debug)]
+pub struct BlockSharedData {
     states: Vec<Arc<BlockState>>,
-    default_state: Weak<BlockState>
+    default_state: Weak<BlockState>,
+    properties: HashMap<&'static str, SharedProperty>
 }
 
 impl Block {
 
-    pub fn new(
+    pub(crate) fn new(
         name: &'static str,
         state_builder: BlockStateBuilder,
         reg_tid: TypeId,
@@ -25,19 +31,28 @@ impl Block {
         states_by_uid: &mut HashMap<u16, Weak<BlockState>>
     ) -> Self {
 
-        let states = state_builder.build(reg_tid, uid, states_by_uid);
-
         Block {
             name,
-            default_state: Arc::downgrade(&states[0]),
-            states,
+            shared_data: state_builder.build(reg_tid, uid, states_by_uid)
         }
 
     }
 
     pub fn get_default_state(&self) -> Arc<BlockState> {
         // SAFETY: Unwrap should never panic if the object is not dropped.
-        self.default_state.upgrade().unwrap()
+        self.shared_data.default_state.upgrade().unwrap()
+    }
+
+}
+
+impl BlockSharedData {
+
+    fn new(properties_count: usize, states_count: usize) -> Self {
+        BlockSharedData {
+            states: Vec::with_capacity(states_count),
+            default_state: Weak::new(),
+            properties: HashMap::with_capacity(properties_count)
+        }
     }
 
 }

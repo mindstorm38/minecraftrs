@@ -24,3 +24,24 @@ pub enum Axis {
     Y,
     Z
 }
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum DyeColor {
+    White,
+    Orange,
+    Magenta,
+    LightBlue,
+    Yellow,
+    Lime,
+    Pink,
+    Gray,
+    LightGray,
+    Cyan,
+    Purple,
+    Blue,
+    Brown,
+    Green,
+    Red,
+    Black
+}
