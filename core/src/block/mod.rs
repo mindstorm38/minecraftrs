@@ -65,6 +65,7 @@ impl BlockSharedData {
 pub trait StaticBlocks: Any {
     fn get_state(&self, uid: u16) -> Option<Arc<BlockState>>;
     fn get_last_uid(&self) -> u16;
+    fn get_block_count(&self) -> u16;
 }
 
 
@@ -126,6 +127,7 @@ macro_rules! blocks {
         pub struct $struct_id {
             states_by_uid: std::collections::HashMap<u16, std::sync::Weak<$crate::block::BlockState>>,
             last_uid: u16,
+            block_count: u16,
             $( pub $block_id: $crate::block::Block ),*
         }
 
@@ -138,15 +140,22 @@ macro_rules! blocks {
                 let mut uid = 0;
                 let tid = std::any::TypeId::of::<Self>();
                 let mut states_by_uid = HashMap::new();
+                let mut block_count = 0;
+
+                fn increase_block_count(b: Block, c: &mut u16) -> Block {
+                    *c += 1;
+                    b
+                }
 
                 Self {
-                    $( $block_id: Block::new(
+                    $( $block_id: increase_block_count(Block::new(
                         $block_name,
                         BlockStateBuilder::new() $($( .prop(&$prop_const) )*)?,
                         tid,
                         &mut uid,
                         &mut states_by_uid
-                    ), )*
+                    ), &mut block_count), )*
+                    block_count,
                     last_uid: uid,
                     states_by_uid
                 }
@@ -162,6 +171,10 @@ macro_rules! blocks {
 
             fn get_last_uid(&self) -> u16 {
                 self.last_uid
+            }
+
+            fn get_block_count(&self) -> u16 {
+                self.block_count
             }
 
         }

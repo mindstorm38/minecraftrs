@@ -20,6 +20,7 @@ fn main() {
     println!("State with uid 54 in reg: {:?}", blocks.get_state(54));
     println!("State sizeof: {}", size_of::<Block>());
     println!("States count: {}", VanillaBlocks.get_last_uid());
+    println!("Blocks count: {}", VanillaBlocks.get_block_count());
 
     println!("Example {}s", start.elapsed().as_secs_f32());
 
