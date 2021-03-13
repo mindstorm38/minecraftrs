@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::collections::{HashMap, HashSet};
 use std::any::{Any, TypeId};
 use std::sync::{Weak, Arc};
@@ -14,11 +15,17 @@ pub trait PropertySerializable: 'static + Copy {
 }
 
 
-/// Trait for all properties stored in a block state.
-pub trait Property<T: PropertySerializable>: Any {
-    type Target: PropertySerializable;
+/// An untyped property trait used for storage in shared property.
+pub trait UntypedProperty: Any + Sync {
     fn name(&self) -> &'static str;
     fn len(&self) -> u8;
+    fn prop_to_string(&self, index: u8) -> Option<String>;
+    fn prop_from_string(&self, value: &str) -> Option<u8>;
+}
+
+
+/// Trait for all properties stored in a block state.
+pub trait Property<T: PropertySerializable>: UntypedProperty {
     fn encode(&self, value: T) -> Option<u8>;
     fn decode(&self, index: u8) -> Option<T>;
 }
@@ -42,42 +49,50 @@ where
 
 pub struct BoolProperty(pub &'static str);
 
+impl UntypedProperty for BoolProperty {
+
+    fn name(&self) -> &'static str { self.0 }
+    fn len(&self) -> u8 { 2 }
+
+    fn prop_to_string(&self, index: u8) -> Option<String> {
+        Some((index != 0).to_string())
+    }
+
+    fn prop_from_string(&self, value: &str) -> Option<u8> {
+        Some(if bool::from_str(value).ok()? { 1 } else { 0 })
+    }
+
+}
+
 impl Property<bool> for BoolProperty {
-
-    type Target = bool;
-
-    fn name(&self) -> &'static str {
-        self.0
-    }
-
-    fn len(&self) -> u8 {
-        2
-    }
-
     fn encode(&self, value: bool) -> Option<u8> {
         Some(if value { 1 } else { 0 })
     }
-
     fn decode(&self, index: u8) -> Option<bool> {
         Some(index != 0)
     }
-
 }
 
 
 pub struct IntProperty(pub &'static str, pub u8);
 
+impl UntypedProperty for IntProperty {
+
+    fn name(&self) -> &'static str { self.0 }
+    fn len(&self) -> u8 { self.1 }
+
+    fn prop_to_string(&self, index: u8) -> Option<String> {
+        if index < self.1 { Some(index.to_string()) } else { None }
+    }
+
+    fn prop_from_string(&self, value: &str) -> Option<u8> {
+        let value = u8::from_str(value).ok()?;
+        if value < self.1 { Some(value) } else { None }
+    }
+
+}
+
 impl Property<u8> for IntProperty {
-
-    type Target = u8;
-
-    fn name(&self) -> &'static str {
-        self.0
-    }
-
-    fn len(&self) -> u8 {
-        self.1
-    }
 
     fn encode(&self, value: u8) -> Option<u8> {
         if value < self.1 { Some(value) } else { None }
@@ -91,19 +106,29 @@ impl Property<u8> for IntProperty {
 
 pub struct EnumProperty<T: PropertySerializable + Eq>(pub &'static str, pub &'static [T]);
 
+impl<T> UntypedProperty for EnumProperty<T>
+where
+    T: PropertySerializable + Eq + Sync
+{
+
+    fn name(&self) -> &'static str { self.0 }
+    fn len(&self) -> u8 { self.1.len() as u8 }
+
+    fn prop_to_string(&self, index: u8) -> Option<String> {
+        Some(self.1.get(index as usize)?.prop_to_string())
+    }
+
+    fn prop_from_string(&self, value: &str) -> Option<u8> {
+        let value = T::prop_from_string(value)?;
+        Some(self.1.iter().position(|v| *v == value)? as u8)
+    }
+
+}
+
 impl<T> Property<T> for EnumProperty<T>
 where
-    T: PropertySerializable + Eq
+    T: PropertySerializable + Eq + Sync
 {
-    type Target = T;
-
-    fn name(&self) -> &'static str {
-        self.0
-    }
-
-    fn len(&self) -> u8 {
-        self.1.len() as u8
-    }
 
     fn encode(&self, value: T) -> Option<u8> {
         Some(self.1.iter().position(|v| *v == value)? as u8)
@@ -159,9 +184,16 @@ macro_rules! impl_enum_serializable {
 }
 
 
+impl Debug for dyn UntypedProperty {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("UntypedProperty").field("name", &self.name()).finish()
+    }
+}
+
+
 #[derive(Debug)]
 pub(crate) struct SharedProperty {
-    type_id: TypeId,
+    prop: &'static dyn UntypedProperty,
     index: usize,
     length: u8,
     period: usize
@@ -173,7 +205,6 @@ pub(crate) struct SharedProperty {
 ///
 /// To build states, use `BlockStateContainerBuilder` and add all wanted
 /// properties.
-#[derive(Debug)]
 pub struct BlockState {
     /// Unique ID of this state within its register.
     pub(crate) uid: u16,
@@ -194,7 +225,7 @@ pub struct BlockState {
 /// using `build`.
 pub struct BlockStateBuilder {
     properties_names: HashSet<&'static str>,
-    properties: Vec<(&'static str, TypeId, u8)>
+    properties: Vec<&'static dyn UntypedProperty>
 }
 
 
@@ -210,21 +241,16 @@ impl BlockStateBuilder {
     /// Register a property to add to the built states. Properties are indexed
     /// by their name, so this method will panic if you add properties with the
     /// same name.
-    pub fn prop<T, P>(mut self, property: &P) -> Self
-        where
-            T: PropertySerializable,
-            P: Property<T>
-    {
+    pub fn prop(mut self, property: &'static impl UntypedProperty) -> Self {
 
         if self.properties_names.contains(&property.name()) {
             panic!("Property '{}' already registered.", property.name())
         } else {
-            let len = property.len();
-            if len == 0 {
+            if property.len() == 0 {
                 panic!("Property '{}' length is 0.", property.name());
             } else {
                 self.properties_names.insert(property.name());
-                self.properties.push((property.name(), property.type_id(), len));
+                self.properties.push(property);
                 self
             }
         }
@@ -248,9 +274,10 @@ impl BlockStateBuilder {
         let mut states_count = 1;
         let mut properties_periods = Vec::with_capacity(self.properties.len());
 
-        for &(name, type_id, length) in &self.properties {
+        for &prop in &self.properties {
+            let length = prop.len();
             states_count *= length as usize;
-            properties_periods.push((name, type_id, length, 1usize));
+            properties_periods.push((prop, length, 1usize));
         }
 
         if *uid as usize + states_count > u16::MAX as usize {
@@ -269,11 +296,12 @@ impl BlockStateBuilder {
         let shared_states = &mut shared_data.states;
 
         let mut next_period = 1;
-        for (i, (name, type_id, length, period)) in properties_periods.iter_mut().enumerate().rev() {
+        for (i, (prop, length, period)) in properties_periods.iter_mut().enumerate().rev() {
+            let prop = *prop;
             *period = next_period;
             next_period *= *length as usize;
-            shared_properties.insert(*name, SharedProperty {
-                type_id: *type_id,
+            shared_properties.insert(prop.name(), SharedProperty {
+                prop,
                 index: i,
                 length: *length,
                 period: *period
@@ -284,7 +312,7 @@ impl BlockStateBuilder {
 
             let mut state_properties = Vec::with_capacity(properties_periods.len());
 
-            for (_, _, length, period) in properties_periods.iter() {
+            for (_, length, period) in properties_periods.iter() {
                 state_properties.push(((i / *period) % (*length as usize)) as u8);
             }
 
@@ -328,7 +356,7 @@ impl BlockState {
         let data = self.shared_data.upgrade().unwrap();
         let prop = data.properties.get(&property.name())?;
 
-        if prop.type_id == property.type_id() {
+        if prop.prop.type_id()  == property.type_id() {
             property.decode(self.properties[prop.index])
         } else {
             None
@@ -360,6 +388,34 @@ impl BlockState {
         let neighbor_index = (self.index as isize + value_diff * prop.period as isize) as usize;
 
         Some(Arc::clone(&data.states[neighbor_index]))
+
+    }
+
+}
+
+
+impl Debug for BlockState {
+
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+
+        let mut properties = HashMap::new();
+
+        let shared_data = self.shared_data.upgrade().unwrap();
+        for shared_prop in shared_data.properties.values() {
+            let prop = shared_prop.prop;
+            properties.insert(
+                prop.name(),
+                prop.prop_to_string(self.properties[shared_prop.index]).unwrap()
+            );
+        }
+
+        f.debug_struct("BlockState")
+            .field("uid", &self.uid)
+            .field("reg_tid", &self.reg_tid)
+            .field("index", &self.index)
+            .field("properties", &properties)
+            .field("raw_properties", &self.properties)
+            .finish()
 
     }
 

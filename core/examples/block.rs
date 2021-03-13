@@ -6,14 +6,14 @@ use std::time::Instant;
 fn main() {
 
     let start = Instant::now();
-
     let mut blocks = Blocks::new();
     blocks.register(&*VanillaBlocks);
+    println!("States computed in {}s", start.elapsed().as_secs_f32());
 
     let block = &VanillaBlocks.BREWING_STAND;
     let state = block.get_default_state();
 
-    println!("Block: {:#?}", block);
+    // println!("Block: {:#?}", block);
     println!("State: {:?}", state);
     println!("State with: {:?}", state.with(&PROP_HAS_BOTTLE_0, true));
     println!("State uid in reg: {}", blocks.get_state_uid(&*state));
@@ -23,7 +23,5 @@ fn main() {
     println!("State sizeof: {}", size_of::<Block>());
     println!("States count: {}", VanillaBlocks.get_last_uid());
     println!("Blocks count: {}", VanillaBlocks.get_block_count());
-
-    println!("Example {}s", start.elapsed().as_secs_f32());
 
 }
