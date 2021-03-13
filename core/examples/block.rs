@@ -1,7 +1,9 @@
-use mc_core::block::{Block, Blocks, StaticBlocks};
+use mc_core::block::{Block, Blocks, StaticBlocks, Property, PropertySerializable, BlockState};
 use mc_core::block::vanilla::*;
 use std::mem::size_of;
 use std::time::Instant;
+use std::sync::Arc;
+
 
 fn main() {
 
@@ -13,7 +15,9 @@ fn main() {
     let block = &VanillaBlocks.BREWING_STAND;
     let state = block.get_default_state();
 
-    // println!("Block: {:#?}", block);
+    println!("Duration 'with' (same): {}ns", time_average_with(&*state, &PROP_HAS_BOTTLE_0, false));
+    println!("Duration 'with' (diff): {}ns", time_average_with(&*state, &PROP_HAS_BOTTLE_0, true));
+
     println!("State: {:?}", state);
     println!("State with: {:?}", state.with(&PROP_HAS_BOTTLE_0, true));
     println!("State uid in reg: {}", blocks.get_state_uid(&*state));
@@ -23,5 +27,25 @@ fn main() {
     println!("State sizeof: {}", size_of::<Block>());
     println!("States count: {}", VanillaBlocks.get_last_uid());
     println!("Blocks count: {}", VanillaBlocks.get_block_count());
+
+}
+
+
+fn time_average_with<T, P>(state: &BlockState, prop: &P, value: T) -> u32
+where
+    T: PropertySerializable,
+    P: Property<T>
+{
+
+    let mut total_time = 0;
+    let total_count = 10000000;
+
+    for _ in 0..total_count {
+        let start = Instant::now();
+        state.with(prop, value);
+        total_time += start.elapsed().as_nanos();
+    }
+
+    (total_time / total_count) as u32
 
 }

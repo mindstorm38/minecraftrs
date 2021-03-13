@@ -372,6 +372,8 @@ impl BlockState {
         self.get(property).unwrap()
     }
 
+    /// Try to get this a neighbor with all the same properties excepts the given one with the given
+    /// value, if the property or its value is not valid for the block, None is returned.
     pub fn with<T, P>(&self, property: &P, value: T) -> Option<Arc<BlockState>>
         where
             T: PropertySerializable,
