@@ -289,6 +289,10 @@ impl BlockStateBuilder {
             BlockSharedData::new(self.properties.len(), states_count)
         );
 
+        // This doesn't work because the lifetime of this mutable borrow last for
+        //  the whole states loops, but we need to make immutable borrows in the loop:
+        // => let shared_data = Arc::get_mut(&mut shared_data_arc).unwrap();
+
         // SAFETY: Shared data can be mutated because at this point the data is not
         //   changed by shared cloned Arc in this method.
         let shared_data = unsafe { util::mutate_ref(&*shared_data_arc) };

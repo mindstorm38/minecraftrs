@@ -2,7 +2,6 @@ use mc_core::block::{Block, Blocks, StaticBlocks, Property, PropertySerializable
 use mc_core::block::vanilla::*;
 use std::mem::size_of;
 use std::time::Instant;
-use std::sync::Arc;
 
 
 fn main() {
