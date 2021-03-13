@@ -3,7 +3,10 @@ use std::any::{TypeId, Any};
 use std::sync::{Arc, Weak};
 
 mod state;
+mod property;
 pub use state::*;
+pub use property::*;
+
 pub mod vanilla;
 
 
