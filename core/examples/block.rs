@@ -10,10 +10,12 @@ fn main() {
     let mut blocks = Blocks::new();
     blocks.register(&*VanillaBlocks);
 
-    let block = &VanillaBlocks.NOTE_BLOCK;
+    let block = &VanillaBlocks.BREWING_STAND;
     let state = block.get_default_state();
 
+    println!("Block: {:#?}", block);
     println!("State: {:?}", state);
+    println!("State with: {:?}", state.with(&PROP_HAS_BOTTLE_0, true));
     println!("State uid in reg: {}", blocks.get_state_uid(&*state));
     println!("State with uid 1 in reg: {:?}", blocks.get_state(1));
     println!("State with uid 2 in reg: {:?}", blocks.get_state(2));

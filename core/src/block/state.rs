@@ -1,11 +1,9 @@
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::any::{Any, TypeId};
 use std::sync::{Weak, Arc};
 use std::str::FromStr;
-use std::time::Instant;
 
-use super::{Block, BlockSharedData};
+use super::BlockSharedData;
 use crate::util;
 
 
@@ -18,6 +16,7 @@ pub trait PropertySerializable: 'static + Copy {
 
 /// Trait for all properties stored in a block state.
 pub trait Property<T: PropertySerializable>: Any {
+    type Target: PropertySerializable;
     fn name(&self) -> &'static str;
     fn len(&self) -> u8;
     fn encode(&self, value: T) -> Option<u8>;
@@ -45,6 +44,8 @@ pub struct BoolProperty(pub &'static str);
 
 impl Property<bool> for BoolProperty {
 
+    type Target = bool;
+
     fn name(&self) -> &'static str {
         self.0
     }
@@ -67,6 +68,8 @@ impl Property<bool> for BoolProperty {
 pub struct IntProperty(pub &'static str, pub u8);
 
 impl Property<u8> for IntProperty {
+
+    type Target = u8;
 
     fn name(&self) -> &'static str {
         self.0
@@ -92,6 +95,7 @@ impl<T> Property<T> for EnumProperty<T>
 where
     T: PropertySerializable + Eq
 {
+    type Target = T;
 
     fn name(&self) -> &'static str {
         self.0
@@ -179,7 +183,7 @@ pub struct BlockState {
     index: usize,
     /// Array of property encoded values.
     properties: Vec<u8>,
-    ///
+    /// Shared data among all block states.
     shared_data: Weak<BlockSharedData>,
 }
 
@@ -189,7 +193,8 @@ pub struct BlockState {
 /// First register your properties using the `prop` then build the states vec
 /// using `build`.
 pub struct BlockStateBuilder {
-    properties: HashMap<&'static str, (TypeId, u8)>,
+    properties_names: HashSet<&'static str>,
+    properties: Vec<(&'static str, TypeId, u8)>
 }
 
 
@@ -197,7 +202,8 @@ impl BlockStateBuilder {
 
     pub fn new() -> Self {
         BlockStateBuilder {
-            properties: HashMap::new()
+            properties_names: HashSet::new(),
+            properties: Vec::new()
         }
     }
 
@@ -210,18 +216,18 @@ impl BlockStateBuilder {
             P: Property<T>
     {
 
-        match self.properties.entry(property.name()) {
-            Entry::Occupied(_) => panic!("Property '{}' already registered.", property.name()),
-            Entry::Vacant(v) => {
-                let len = property.len();
-                if len == 0 {
-                    panic!("Property '{}' length is 0.", property.name());
-                }
-                v.insert((property.type_id(), len));
+        if self.properties_names.contains(&property.name()) {
+            panic!("Property '{}' already registered.", property.name())
+        } else {
+            let len = property.len();
+            if len == 0 {
+                panic!("Property '{}' length is 0.", property.name());
+            } else {
+                self.properties_names.insert(property.name());
+                self.properties.push((property.name(), property.type_id(), len));
+                self
             }
         }
-
-        self
 
     }
 
@@ -242,7 +248,7 @@ impl BlockStateBuilder {
         let mut states_count = 1;
         let mut properties_periods = Vec::with_capacity(self.properties.len());
 
-        for (&name, &(type_id, length)) in &self.properties {
+        for &(name, type_id, length) in &self.properties {
             states_count *= length as usize;
             properties_periods.push((name, type_id, length, 1usize));
         }
@@ -344,14 +350,14 @@ impl BlockState {
             P: Property<T>
     {
 
-        // SAFETY: Shared data is weak, but we except it to exists.
+        // SAFETY: Shared data is weak, but we expect it to exist.
         let data = self.shared_data.upgrade().unwrap();
         let prop = data.properties.get(&property.name())?;
 
         let new_value = property.encode(value)? as isize;
         let current_value = self.properties[prop.index] as isize;
         let value_diff = new_value - current_value;
-        let neighbor_index = (self.index as isize + value_diff) as usize;
+        let neighbor_index = (self.index as isize + value_diff * prop.period as isize) as usize;
 
         Some(Arc::clone(&data.states[neighbor_index]))
 
