@@ -23,7 +23,8 @@ fn main() {
     println!("State with uid 1 in reg: {:?}", blocks.get_state(1));
     println!("State with uid 2 in reg: {:?}", blocks.get_state(2));
     println!("State with uid 54 in reg: {:?}", blocks.get_state(54));
-    println!("State sizeof: {}", size_of::<Block>());
+    println!("State sizeof: {}", size_of::<BlockState>());
+    println!("Block sizeof: {}", size_of::<Block>());
     println!("States count: {}", VanillaBlocks.get_last_uid());
     println!("Blocks count: {}", VanillaBlocks.get_block_count());
 
@@ -37,7 +38,7 @@ where
 {
 
     let mut total_time = 0;
-    let total_count = 10000000;
+    let total_count = 1000000;
 
     for _ in 0..total_count {
         let start = Instant::now();
