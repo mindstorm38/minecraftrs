@@ -18,6 +18,7 @@ pub fn initial_scramble(seed: i64) -> Wrapping<i64> {
 
 
 /// Generate a new seed in the same way as `java.util.Random` (same constants).
+#[allow(deprecated)] // Allow deprecated for "compare_and_swap" with nightly toolchain.
 pub fn gen_seed() -> i64 {
     static mut SEED: AtomicI64 = AtomicI64::new(8682522807148012);
     unsafe {

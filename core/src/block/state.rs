@@ -384,10 +384,16 @@ impl BlockState {
 
         let new_value = property.encode(value)? as isize;
         let current_value = self.properties[prop.index] as isize;
-        let value_diff = new_value - current_value;
-        let neighbor_index = (self.index as isize + value_diff * prop.period as isize) as usize;
 
-        Some(Arc::clone(&data.states[neighbor_index]))
+        let state = if new_value == current_value {
+            &data.states[self.index]
+        } else {
+            let value_diff = new_value - current_value;
+            let neighbor_index = (self.index as isize + value_diff * prop.period as isize) as usize;
+            &data.states[neighbor_index]
+        };
+
+        Some(Arc::clone(state))
 
     }
 
