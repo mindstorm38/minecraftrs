@@ -1,7 +1,11 @@
+use std::sync::{Arc, Weak, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::any::{TypeId, Any};
-use std::sync::{Arc, Weak};
 
+use crate::util::{OwnerRef, OwnerMut};
+
+use std::fmt::Debug;
 mod state;
 mod property;
 pub use state::*;
@@ -17,11 +21,17 @@ pub struct Block {
     shared_data: Arc<BlockSharedData>
 }
 
+/// Type alias for block's extension maps
+pub type BlockExtMap = HashMap<TypeId, Box<(dyn Any + Send + Sync)>>;
+
+/// Every block has a shared data structure, these data are also shared
+/// to its block states. States are also stored in this shared data.
 #[derive(Debug)]
 pub struct BlockSharedData {
     states: Vec<Arc<BlockState>>,
     default_state: Weak<BlockState>,
-    properties: HashMap<&'static str, SharedProperty>
+    properties: HashMap<&'static str, SharedProperty>,
+    extensions: RwLock<BlockExtMap>
 }
 
 impl Block {
@@ -46,6 +56,40 @@ impl Block {
         self.shared_data.default_state.upgrade().unwrap()
     }
 
+    pub fn add_extension<E: Any + Sync + Send>(&self, ext: E) {
+
+        let mut extensions = self.shared_data.extensions.write()
+            .expect("The block's extensions are being used, can't add an extension.");
+
+        match extensions.entry(ext.type_id()) {
+            Entry::Occupied(_) => println!("This type of extension already set for this block."),
+            Entry::Vacant(v) => { v.insert(Box::new(ext)); }
+        }
+
+    }
+
+    pub fn get_extension<E: Any + Sync + Send>(&self) -> Option<OwnerRef<RwLockReadGuard<BlockExtMap>, E>> {
+
+        let extensions = self.shared_data.extensions.read()
+            .expect("The block's extensions are being mutated, can't get any extension.");
+
+        let ext_box = extensions.get(&TypeId::of::<E>())?;
+        let ext = (&**ext_box).downcast_ref::<E>()? as *const E;
+        Some(OwnerRef::new_unchecked(extensions, ext))
+
+    }
+
+    pub fn get_extension_mut<E: Any + Sync + Send>(&self) -> Option<OwnerMut<RwLockWriteGuard<BlockExtMap>, E>> {
+
+        let mut extensions = self.shared_data.extensions.write()
+            .expect("The block's extensions are being mutated, can't get any extension.");
+
+        let ext_box = extensions.get_mut(&TypeId::of::<E>())?;
+        let ext = (&mut **ext_box).downcast_mut::<E>()? as *mut E;
+        Some(OwnerMut::new_unchecked(extensions, ext))
+
+    }
+
 }
 
 impl BlockSharedData {
@@ -54,7 +98,8 @@ impl BlockSharedData {
         BlockSharedData {
             states: Vec::with_capacity(states_count),
             default_state: Weak::new(),
-            properties: HashMap::with_capacity(properties_count)
+            properties: HashMap::with_capacity(properties_count),
+            extensions: RwLock::new(HashMap::new())
         }
     }
 

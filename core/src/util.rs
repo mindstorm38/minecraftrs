@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 
 /// Black magic used only by BlockStateBuilder.
 #[inline(always)]
@@ -44,4 +46,51 @@ pub enum DyeColor {
     Green,
     Red,
     Black
+}
+
+
+
+pub struct OwnerRef<O, V> {
+    #[allow(dead_code)]
+    owner: O,
+    ptr: *const V
+}
+
+impl<O, V> OwnerRef<O, V> {
+    pub fn new_unchecked(owner: O, ptr: *const V) -> OwnerRef<O, V> {
+        OwnerRef { owner, ptr }
+    }
+}
+
+impl<O, V> Deref for OwnerRef<O, V> {
+    type Target = V;
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.ptr }
+    }
+}
+
+
+pub struct OwnerMut<O, V> {
+    #[allow(dead_code)]
+    owner: O,
+    ptr: *mut V
+}
+
+impl<O, V> OwnerMut<O, V> {
+    pub fn new_unchecked(owner: O, ptr: *mut V) -> OwnerMut<O, V> {
+        OwnerMut { owner, ptr }
+    }
+}
+
+impl<O, V> Deref for OwnerMut<O, V> {
+    type Target = V;
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<O, V> DerefMut for OwnerMut<O, V> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.ptr }
+    }
 }
