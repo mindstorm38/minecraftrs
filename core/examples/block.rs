@@ -11,6 +11,12 @@ fn main() {
     blocks.register(&*VanillaBlocks);
     println!("States computed in {}s", start.elapsed().as_secs_f32());
 
+    let start = Instant::now();
+    VanillaBlocks.DIRT.add_ext(TestBlockExt {
+        dummy_property: 42
+    });
+    println!("Dirt ext added (in {}ns)", start.elapsed().as_nanos());
+
     let block = &VanillaBlocks.BREWING_STAND;
     let state = block.get_default_state();
 
@@ -27,6 +33,10 @@ fn main() {
     println!("Block sizeof: {}", size_of::<Block>());
     println!("States count: {}", VanillaBlocks.get_last_uid());
     println!("Blocks count: {}", VanillaBlocks.get_block_count());
+
+    let start = Instant::now();
+    let test = &*VanillaBlocks.DIRT.get_ext::<TestBlockExt>().unwrap();
+    println!("Dirt ext value: {} (in {}ns)", test.dummy_property, start.elapsed().as_nanos());
 
 }
 
@@ -48,4 +58,9 @@ where
 
     (total_time / total_count) as u32
 
+}
+
+
+struct TestBlockExt {
+    dummy_property: u32
 }

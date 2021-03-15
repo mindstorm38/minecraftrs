@@ -2,10 +2,10 @@ use std::sync::{Arc, Weak, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::any::{TypeId, Any};
-
-use crate::util::{OwnerRef, OwnerMut};
-
 use std::fmt::Debug;
+
+use crate::util::{OwnedRef, OwnedMut};
+
 mod state;
 mod property;
 pub use state::*;
@@ -21,7 +21,7 @@ pub struct Block {
     shared_data: Arc<BlockSharedData>
 }
 
-/// Type alias for block's extension maps
+/// Type alias for block's extension maps.
 pub type BlockExtMap = HashMap<TypeId, Box<(dyn Any + Send + Sync)>>;
 
 /// Every block has a shared data structure, these data are also shared
@@ -56,7 +56,7 @@ impl Block {
         self.shared_data.default_state.upgrade().unwrap()
     }
 
-    pub fn add_extension<E: Any + Sync + Send>(&self, ext: E) {
+    pub fn add_ext<E: Any + Sync + Send>(&self, ext: E) {
 
         let mut extensions = self.shared_data.extensions.write()
             .expect("The block's extensions are being used, can't add an extension.");
@@ -68,25 +68,37 @@ impl Block {
 
     }
 
-    pub fn get_extension<E: Any + Sync + Send>(&self) -> Option<OwnerRef<RwLockReadGuard<BlockExtMap>, E>> {
+    pub fn get_ext<E: Any + Sync + Send>(&self) -> Option<OwnedRef<RwLockReadGuard<BlockExtMap>, E>> {
 
-        let extensions = self.shared_data.extensions.read()
-            .expect("The block's extensions are being mutated, can't get any extension.");
-
+        let extensions = self.shared_data.extensions.read().unwrap();
         let ext_box = extensions.get(&TypeId::of::<E>())?;
-        let ext = (&**ext_box).downcast_ref::<E>()? as *const E;
-        Some(OwnerRef::new_unchecked(extensions, ext))
+
+        unsafe {
+
+            // SAFETY (1): This pointer is pointing to the heap, because extensions are
+            //   stored in boxes. We use "unwrap()" on "downcast_ref" because the type
+            //   returned by 'extensions' hashmap should be the right one.
+            // SAFETY (2): Because of the RwLock owning all the extensions' boxes, we can
+            //   return the ("downcast-ed") pointer together with the RwLock guard in an
+            //   OwnedRef. When the OwnedRef is dropped, the inner RwLock guard is dropped,
+            //   because of the inner pointer also being dropped, nothing is dangling.
+
+            let ext = (&**ext_box).downcast_ref::<E>().unwrap() as *const E;
+            Some(OwnedRef::new_unchecked(extensions, ext))
+
+        }
 
     }
 
-    pub fn get_extension_mut<E: Any + Sync + Send>(&self) -> Option<OwnerMut<RwLockWriteGuard<BlockExtMap>, E>> {
+    pub fn get_ext_mut<E: Any + Sync + Send>(&self) -> Option<OwnedMut<RwLockWriteGuard<BlockExtMap>, E>> {
 
-        let mut extensions = self.shared_data.extensions.write()
-            .expect("The block's extensions are being mutated, can't get any extension.");
-
+        let mut extensions = self.shared_data.extensions.write().unwrap();
         let ext_box = extensions.get_mut(&TypeId::of::<E>())?;
-        let ext = (&mut **ext_box).downcast_mut::<E>()? as *mut E;
-        Some(OwnerMut::new_unchecked(extensions, ext))
+
+        unsafe {
+            let ext = (&mut **ext_box).downcast_mut::<E>().unwrap() as *mut E;
+            Some(OwnedMut::new_unchecked(extensions, ext))
+        }
 
     }
 
