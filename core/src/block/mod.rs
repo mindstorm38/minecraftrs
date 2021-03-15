@@ -81,7 +81,10 @@ impl Block {
             // SAFETY (2): Because of the RwLock owning all the extensions' boxes, we can
             //   return the ("downcast-ed") pointer together with the RwLock guard in an
             //   OwnedRef. When the OwnedRef is dropped, the inner RwLock guard is dropped,
-            //   because of the inner pointer also being dropped, nothing is dangling.
+            //   because of the inner pointer also being dropped, nothing is dangling. While
+            //   the RwLock guard is not dropped, we can ensure that the extension pointer
+            //   is not dangling (removing an extension is currently impossible, and if
+            //   possible in the future this will require a "write" guard on the RwLock).
 
             let ext = (&**ext_box).downcast_ref::<E>().unwrap() as *const E;
             Some(OwnedRef::new_unchecked(extensions, ext))
