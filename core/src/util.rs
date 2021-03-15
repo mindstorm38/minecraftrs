@@ -49,7 +49,10 @@ pub enum DyeColor {
 }
 
 
-
+/// This structure holds a reference together with its owner.
+/// This is useful to return a safe reference to an owner that
+/// is normally temporary. This structure implements Deref to
+/// return the internal reference.
 pub struct OwnerRef<O, V> {
     #[allow(dead_code)]
     owner: O,
