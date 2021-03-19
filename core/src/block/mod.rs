@@ -24,6 +24,8 @@ pub struct Block {
 /// to its block states. States are also stored in this shared data.
 #[derive(Debug)]
 pub struct BlockSharedData {
+    /// Unique TypeId of the register this state belongs to.
+    pub(crate) reg_tid: TypeId,
     states: Vec<Arc<BlockState>>,
     default_state: Weak<BlockState>,
     properties: HashMap<&'static str, SharedProperty>,
@@ -31,6 +33,13 @@ pub struct BlockSharedData {
 }
 
 impl Block {
+
+    /*pub fn new_pined(name: &'static str, state_builder: BlockStateBuilder) -> Pin<Box<Block>> {
+        Box::pin(Block {
+            name,
+
+        })
+    }*/
 
     pub(crate) fn new(
         name: &'static str,
@@ -64,61 +73,13 @@ impl Block {
         self.shared_data.extensions.get_mut()
     }
 
-    /*pub fn add_ext<E: Any + Sync + Send>(&self, ext: E) {
-
-        let mut extensions = self.shared_data.extensions.write()
-            .expect("The block's extensions are being used, can't add an extension.");
-
-        match extensions.entry(ext.type_id()) {
-            Entry::Occupied(_) => println!("This type of extension already set for this block."),
-            Entry::Vacant(v) => { v.insert(Box::new(ext)); }
-        }
-
-    }
-
-    pub fn get_ext<E: Any + Sync + Send>(&self) -> Option<OwnedRef<RwLockReadGuard<BlockExtMap>, E>> {
-
-        let extensions = self.shared_data.extensions.read().unwrap();
-        let ext_box = extensions.get(&TypeId::of::<E>())?;
-
-        unsafe {
-
-            // SAFETY (1): This pointer is pointing to the heap, because extensions are
-            //   stored in boxes. We use "unwrap()" on "downcast_ref" because the type
-            //   returned by 'extensions' hashmap should be the right one.
-            // SAFETY (2): Because of the RwLock owning all the extensions' boxes, we can
-            //   return the ("downcast-ed") pointer together with the RwLock guard in an
-            //   OwnedRef. When the OwnedRef is dropped, the inner RwLock guard is dropped,
-            //   because of the inner pointer also being dropped, nothing is dangling. While
-            //   the RwLock guard is not dropped, we can ensure that the extension pointer
-            //   is not dangling (removing an extension is currently impossible, and if
-            //   possible in the future this will require a "write" guard on the RwLock).
-
-            let ext = (&**ext_box).downcast_ref::<E>().unwrap() as *const E;
-            Some(OwnedRef::new_unchecked(extensions, ext))
-
-        }
-
-    }
-
-    pub fn get_ext_mut<E: Any + Sync + Send>(&self) -> Option<OwnedMut<RwLockWriteGuard<BlockExtMap>, E>> {
-
-        let mut extensions = self.shared_data.extensions.write().unwrap();
-        let ext_box = extensions.get_mut(&TypeId::of::<E>())?;
-
-        unsafe {
-            let ext = (&mut **ext_box).downcast_mut::<E>().unwrap() as *mut E;
-            Some(OwnedMut::new_unchecked(extensions, ext))
-        }
-
-    }*/
-
 }
 
 impl BlockSharedData {
 
-    fn new(properties_count: usize, states_count: usize) -> Self {
+    fn new(reg_tid: TypeId, properties_count: usize, states_count: usize) -> Self {
         BlockSharedData {
+            reg_tid,
             states: Vec::with_capacity(states_count),
             default_state: Weak::new(),
             properties: HashMap::with_capacity(properties_count),
@@ -164,7 +125,7 @@ impl Blocks {
     }
 
     pub fn get_state_uid(&self, state: &BlockState) -> u16 {
-        if let Some(&offset) = self.uid_offset_by_reg_tid.get(&state.reg_tid) {
+        if let Some(&offset) = self.uid_offset_by_reg_tid.get(&state.shared_data.upgrade().unwrap().reg_tid) {
             offset + state.uid
         } else {
             panic!("This BlockState is not registered in this Blocks register, first register its static register.");

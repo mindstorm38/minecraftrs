@@ -24,14 +24,12 @@ pub(crate) struct SharedProperty {
 pub struct BlockState {
     /// Unique ID of this state within its register.
     pub(crate) uid: u16,
-    /// Unique TypeId of the register this state belongs to.
-    pub(crate) reg_tid: TypeId,
     /// The index of this state within the shared data's states vector.
     index: usize,
     /// Array of property encoded values.
     properties: Vec<u8>,
     /// Shared data among all block states.
-    shared_data: Weak<BlockSharedData>,
+    pub(crate) shared_data: Weak<BlockSharedData>,
 }
 
 
@@ -102,7 +100,7 @@ impl BlockStateBuilder {
 
         // We know that the states count is valid, so we allocate the block's shared data.
         let shared_data_arc = Arc::new(
-            BlockSharedData::new(self.properties.len(), states_count)
+            BlockSharedData::new(reg_tid, self.properties.len(), states_count)
         );
 
         // This doesn't work because the lifetime of this mutable borrow last for
@@ -138,7 +136,6 @@ impl BlockStateBuilder {
 
             let state = Arc::new(BlockState {
                 uid: *uid,
-                reg_tid,
                 index: i,
                 properties: state_properties,
                 shared_data: Arc::downgrade(&shared_data_arc)
@@ -239,7 +236,6 @@ impl Debug for BlockState {
 
         f.debug_struct("BlockState")
             .field("uid", &self.uid)
-            .field("reg_tid", &self.reg_tid)
             .field("index", &self.index)
             .field("properties", &properties)
             .field("raw_properties", &self.properties)
