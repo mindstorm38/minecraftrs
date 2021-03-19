@@ -1,10 +1,9 @@
-use std::sync::{Arc, Weak, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::any::{TypeId, Any};
+use std::sync::{Arc, Weak};
 use std::fmt::Debug;
 
-use crate::util::{OwnedRef, OwnedMut};
+use crate::generic::{RwGenericMap, GuardedRef, GuardedMut};
 
 mod state;
 mod property;
@@ -21,9 +20,6 @@ pub struct Block {
     shared_data: Arc<BlockSharedData>
 }
 
-/// Type alias for block's extension maps.
-pub type BlockExtMap = HashMap<TypeId, Box<(dyn Any + Send + Sync)>>;
-
 /// Every block has a shared data structure, these data are also shared
 /// to its block states. States are also stored in this shared data.
 #[derive(Debug)]
@@ -31,7 +27,7 @@ pub struct BlockSharedData {
     states: Vec<Arc<BlockState>>,
     default_state: Weak<BlockState>,
     properties: HashMap<&'static str, SharedProperty>,
-    extensions: RwLock<BlockExtMap>
+    extensions: RwGenericMap
 }
 
 impl Block {
@@ -57,6 +53,18 @@ impl Block {
     }
 
     pub fn add_ext<E: Any + Sync + Send>(&self, ext: E) {
+        self.shared_data.extensions.add(ext);
+    }
+
+    pub fn get_ext<E: Any + Sync + Send>(&self) -> Option<GuardedRef<E>> {
+        self.shared_data.extensions.get()
+    }
+
+    pub fn get_ext_mut<E: Any + Sync + Send>(&self) -> Option<GuardedMut<E>> {
+        self.shared_data.extensions.get_mut()
+    }
+
+    /*pub fn add_ext<E: Any + Sync + Send>(&self, ext: E) {
 
         let mut extensions = self.shared_data.extensions.write()
             .expect("The block's extensions are being used, can't add an extension.");
@@ -103,7 +111,7 @@ impl Block {
             Some(OwnedMut::new_unchecked(extensions, ext))
         }
 
-    }
+    }*/
 
 }
 
@@ -114,7 +122,7 @@ impl BlockSharedData {
             states: Vec::with_capacity(states_count),
             default_state: Weak::new(),
             properties: HashMap::with_capacity(properties_count),
-            extensions: RwLock::new(HashMap::new())
+            extensions: RwGenericMap::new()
         }
     }
 
