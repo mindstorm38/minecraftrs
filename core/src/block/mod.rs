@@ -113,6 +113,7 @@ impl Block {
 /// UID offset.
 pub trait StaticBlocks {
     fn iter_blocks<'a>(&'a self) -> Box<dyn Iterator<Item=&'a Pin<Box<Block>>> + 'a>;
+    fn blocks_count(&self) -> usize;
 }
 
 
@@ -225,6 +226,10 @@ macro_rules! blocks {
 
             fn iter_blocks<'a>(&'a self) -> Box<dyn Iterator<Item=&'a std::pin::Pin<Box<$crate::block::Block>>> + 'a> {
                 Box::new(self.blocks.iter().map(|ptr| unsafe { ptr.as_ref() }))
+            }
+
+            fn blocks_count(&self) -> usize {
+                self.blocks.len()
             }
 
         }

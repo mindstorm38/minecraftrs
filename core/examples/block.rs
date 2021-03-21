@@ -1,4 +1,4 @@
-use mc_core::block::{Block, WorkBlocks, Property, PropertySerializable, BlockState};
+use mc_core::block::{Block, WorkBlocks, Property, PropertySerializable, BlockState, StaticBlocks};
 use mc_core::block::vanilla::*;
 use std::mem::size_of;
 use std::time::Instant;
@@ -10,13 +10,13 @@ fn main() {
     for _ in 0..1000 {
         VanillaBlocksStruct::load();
     }
-    println!("States computed in {}s", start.elapsed().as_secs_f32() / 1000.0);
-    &*VanillaBlocks;
+    println!("States loaded in {}s", start.elapsed().as_secs_f32() / 1000.0);
 
     let start = Instant::now();
     let mut blocks = WorkBlocks::new();
     blocks.register_static(&*VanillaBlocks);
-    println!("Vanilla blocks register in {}ns", start.elapsed().as_nanos());
+    println!("Vanilla blocks registered in {}us", start.elapsed().as_micros());
+    println!("Vanilla blocks count: {}", VanillaBlocks.iter_blocks().count());
 
     let start = Instant::now();
     VanillaBlocks.DIRT.add_ext(TestBlockExt {
