@@ -184,7 +184,7 @@ macro_rules! blocks {
         }
 
         impl $struct_id {
-            fn load() -> std::pin::Pin<Box<Self>> {
+            pub fn load() -> std::pin::Pin<Box<Self>> {
 
                 use $crate::block::{Block, BlockStateBuilder};
                 use std::marker::PhantomPinned;
@@ -200,7 +200,8 @@ macro_rules! blocks {
                 let mut reg = Box::pin(Self {
                     $($block_id: inc(Block::new(
                         $block_name,
-                        BlockStateBuilder::new() $($( .prop(&$prop_const) )*)?
+                        BlockStateBuilder::with_capacity(0 $($(+ (1, &$prop_const).0)*)?)
+                            $($( .prop(&$prop_const) )*)?
                     ), &mut count),)*
                     blocks: Vec::with_capacity(count),
                     _marker: PhantomPinned

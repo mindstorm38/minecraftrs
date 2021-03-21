@@ -7,8 +7,11 @@ use std::time::Instant;
 fn main() {
 
     let start = Instant::now();
+    for _ in 0..1000 {
+        VanillaBlocksStruct::load();
+    }
+    println!("States computed in {}s", start.elapsed().as_secs_f32() / 1000.0);
     &*VanillaBlocks;
-    println!("States computed in {}s", start.elapsed().as_secs_f32());
 
     let start = Instant::now();
     let mut blocks = WorkBlocks::new();

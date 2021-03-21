@@ -39,7 +39,10 @@ pub struct BlockState {
 ///
 /// First register your properties using the `prop` then build the states vec
 /// using `build`.
-pub struct BlockStateBuilder {
+pub struct BlockStateBuilder(Option<BlockStateBuilderData>);
+
+/// Lazy internal data for BlockStateBuilder.
+struct BlockStateBuilderData {
     properties_names: HashSet<&'static str>,
     properties: Vec<&'static dyn UntypedProperty>
 }
@@ -48,29 +51,43 @@ pub struct BlockStateBuilder {
 impl BlockStateBuilder {
 
     pub fn new() -> Self {
-        BlockStateBuilder {
+        BlockStateBuilder(None)
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        BlockStateBuilder(if capacity == 0 {
+            None
+        } else {
+            Some(BlockStateBuilderData {
+                properties_names: HashSet::with_capacity(capacity),
+                properties: Vec::with_capacity(capacity)
+            })
+        })
+    }
+
+    fn get_data(&mut self) -> &mut BlockStateBuilderData {
+        self.0.get_or_insert_with(|| BlockStateBuilderData {
             properties_names: HashSet::new(),
             properties: Vec::new()
-        }
+        })
     }
 
     /// Register a property to add to the built states. Properties are indexed
     /// by their name, so this method will panic if you add properties with the
     /// same name.
     pub fn prop(mut self, property: &'static impl UntypedProperty) -> Self {
-
-        if self.properties_names.contains(&property.name()) {
+        let data = self.get_data();
+        if data.properties_names.contains(&property.name()) {
             panic!("Property '{}' already registered.", property.name())
         } else {
             if property.len() == 0 {
                 panic!("Property '{}' length is 0.", property.name());
             } else {
-                self.properties_names.insert(property.name());
-                self.properties.push(property);
+                data.properties_names.insert(property.name());
+                data.properties.push(property);
                 self
             }
         }
-
     }
 
     /// Build and resolve all combinations of property values as block states, all resolved
@@ -80,45 +97,66 @@ impl BlockStateBuilder {
     pub(super) fn build(self) -> (HashMap<&'static str, SharedProperty>, Vec<BlockState>) {
 
         let mut states_count = 1;
-        let mut properties_periods = Vec::with_capacity(self.properties.len());
 
-        for &prop in &self.properties {
-            let length = prop.len();
-            states_count *= length as usize;
-            properties_periods.push((prop, length, 1usize));
-        }
+        let (
+            properties_periods,
+            shared_properties
+        ) = if let Some(data) = self.0 {
 
-        if states_count > MAX_STATES_COUNT {
-            panic!("Too many properties for this state, the maximum number is {}.", MAX_STATES_COUNT);
-        }
+            let mut properties_periods = Vec::with_capacity(data.properties.len());
 
-        let mut shared_properties = HashMap::with_capacity(self.properties.len());
+            for &prop in &data.properties {
+                let length = prop.len();
+                states_count *= length as usize;
+                properties_periods.push((prop, length, 1usize));
+            }
+
+            if states_count > MAX_STATES_COUNT {
+                panic!("Too many properties for this state, the maximum number is {}.", MAX_STATES_COUNT);
+            }
+
+            let mut shared_properties = HashMap::with_capacity(data.properties.len());
+
+            let mut next_period = 1;
+            for (i, (prop, length, period)) in properties_periods.iter_mut().enumerate().rev() {
+                let prop = *prop;
+                *period = next_period;
+                next_period *= *length as usize;
+                shared_properties.insert(prop.name(), SharedProperty {
+                    prop,
+                    index: i,
+                    length: *length,
+                    period: *period
+                });
+            }
+
+            (Some(properties_periods), shared_properties)
+
+        } else {
+            (None, HashMap::with_capacity(0))
+        };
+
         let mut shared_states = Vec::with_capacity(states_count);
 
-        let mut next_period = 1;
-        for (i, (prop, length, period)) in properties_periods.iter_mut().enumerate().rev() {
-            let prop = *prop;
-            *period = next_period;
-            next_period *= *length as usize;
-            shared_properties.insert(prop.name(), SharedProperty {
-                prop,
-                index: i,
-                length: *length,
-                period: *period
-            });
-        }
-
         for i in 0..states_count {
-            let mut state_properties = Vec::with_capacity(properties_periods.len());
-            for (_, length, period) in properties_periods.iter() {
-                state_properties.push(((i / *period) % (*length as usize)) as u8);
-            }
+
+            let state_properties = if let Some(periods) = &properties_periods {
+                let mut props = Vec::with_capacity(periods.len());
+                for (_, length, period) in periods.iter() {
+                    props.push(((i / *period) % (*length as usize)) as u8);
+                }
+                props
+            } else {
+                Vec::with_capacity(0)
+            };
+
             shared_states.push(BlockState {
                 uid: i as u16,
                 index: i,
                 properties: state_properties,
                 block: NonNull::dangling()
             });
+
         }
 
         (shared_properties, shared_states)
