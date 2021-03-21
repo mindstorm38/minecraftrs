@@ -1,4 +1,4 @@
-use mc_core::block::{Block, Blocks, StaticBlocks, Property, PropertySerializable, BlockState};
+use mc_core::block::{Block, WorkBlocks, Property, PropertySerializable, BlockState};
 use mc_core::block::vanilla::*;
 use std::mem::size_of;
 use std::time::Instant;
@@ -7,9 +7,13 @@ use std::time::Instant;
 fn main() {
 
     let start = Instant::now();
-    let mut blocks = Blocks::new();
-    blocks.register(&*VanillaBlocks);
+    &*VanillaBlocks;
     println!("States computed in {}s", start.elapsed().as_secs_f32());
+
+    let start = Instant::now();
+    let mut blocks = WorkBlocks::new();
+    blocks.register_static(&*VanillaBlocks);
+    println!("Vanilla blocks register in {}ns", start.elapsed().as_nanos());
 
     let start = Instant::now();
     VanillaBlocks.DIRT.add_ext(TestBlockExt {
@@ -25,14 +29,14 @@ fn main() {
 
     println!("State: {:?}", state);
     println!("State with: {:?}", state.with(&PROP_HAS_BOTTLE_0, true));
-    println!("State uid in reg: {}", blocks.get_state_uid(&*state));
-    println!("State with uid 1 in reg: {:?}", blocks.get_state(1));
-    println!("State with uid 2 in reg: {:?}", blocks.get_state(2));
-    println!("State with uid 54 in reg: {:?}", blocks.get_state(54));
+    println!("State uid in reg: {:?}", blocks.get_uid_from_state(&*state));
+    println!("State with uid 1 in reg: {:?}", blocks.get_state_from_uid(1));
+    println!("State with uid 2 in reg: {:?}", blocks.get_state_from_uid(2));
+    println!("State with uid 54 in reg: {:?}", blocks.get_state_from_uid(54));
     println!("State sizeof: {}", size_of::<BlockState>());
     println!("Block sizeof: {}", size_of::<Block>());
-    println!("States count: {}", VanillaBlocks.get_last_uid());
-    println!("Blocks count: {}", VanillaBlocks.get_block_count());
+    //println!("States count: {}", VanillaBlocks.get_last_uid());
+    //println!("Blocks count: {}", VanillaBlocks.get_block_count());
 
     let start = Instant::now();
     let test = &*VanillaBlocks.DIRT.get_ext::<TestBlockExt>().unwrap();

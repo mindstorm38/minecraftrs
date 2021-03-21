@@ -1,7 +1,10 @@
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::marker::PhantomPinned;
 use std::collections::HashMap;
-use std::any::{TypeId, Any};
-use std::sync::{Arc, Weak};
+use std::ptr::NonNull;
 use std::fmt::Debug;
+use std::any::Any;
+use std::pin::Pin;
 
 use crate::generic::{RwGenericMap, GuardedRef, GuardedMut};
 
@@ -13,78 +16,92 @@ pub use property::*;
 pub mod vanilla;
 
 
-/// A basic block.
+/// A basic block defined by a name, its states, properties or extensions.
+///
+/// A Block can only live in heap memory through a pined box because its states
+/// contains a back reference to it. Block and BlockState must not be mutated,
+/// only extensions can be 'interior-mutated'.
 #[derive(Debug)]
 pub struct Block {
+    uid: u32,
     name: &'static str,
-    shared_data: Arc<BlockSharedData>
+    states: Vec<BlockState>,
+    properties: HashMap<&'static str, SharedProperty>,
+    extensions: RwGenericMap,
+    default_state_index: usize,
+    _marker: PhantomPinned
 }
 
-/// Every block has a shared data structure, these data are also shared
-/// to its block states. States are also stored in this shared data.
-#[derive(Debug)]
-pub struct BlockSharedData {
-    /// Unique TypeId of the register this state belongs to.
-    pub(crate) reg_tid: TypeId,
-    states: Vec<Arc<BlockState>>,
-    default_state: Weak<BlockState>,
-    properties: HashMap<&'static str, SharedProperty>,
-    extensions: RwGenericMap
-}
+// We enforce Send + Sync because we know that these pointers will never
+// be mutated but only immutably referenced.
+unsafe impl Send for Block {}
+unsafe impl Sync for Block {}
 
 impl Block {
 
-    /*pub fn new_pined(name: &'static str, state_builder: BlockStateBuilder) -> Pin<Box<Block>> {
-        Box::pin(Block {
+    pub fn new(name: &'static str, state_builder: BlockStateBuilder) -> Pin<Box<Block>> {
+
+        let (properties, states) = state_builder.build();
+
+        let mut block = Box::pin(Block {
+            uid: Self::gen_uid(),
             name,
+            states,
+            properties,
+            extensions: RwGenericMap::new(),
+            default_state_index: 0,
+            _marker: PhantomPinned
+        });
 
-        })
-    }*/
+        unsafe {
 
-    pub(crate) fn new(
-        name: &'static str,
-        state_builder: BlockStateBuilder,
-        reg_tid: TypeId,
-        uid: &mut u16,
-        states_by_uid: &mut HashMap<u16, Weak<BlockState>>
-    ) -> Self {
+            let block_ref = NonNull::from(&*block);
+            let block_mut = block.as_mut().get_unchecked_mut();
 
-        Block {
-            name,
-            shared_data: state_builder.build(reg_tid, uid, states_by_uid)
+            for state in &mut block_mut.states {
+                state.set_block(block_ref);
+            }
+
         }
+
+        block
 
     }
 
-    pub fn get_default_state(&self) -> Arc<BlockState> {
-        // SAFETY: Unwrap should never panic if the object is not dropped.
-        self.shared_data.default_state.upgrade().unwrap()
+    fn gen_uid() -> u32 {
+        // Do not use 0, it's a sentinel for overflow.
+        static BLOCK_ID: AtomicU32 = AtomicU32::new(1);
+        let ret = BLOCK_ID.fetch_add(1, Ordering::Relaxed);
+        if ret == 0 { panic!("Abnormal block count, the global UID overflowed (more than 4 billion).") }
+        ret
+    }
+
+    pub fn get_uid(&self) -> u32 {
+        self.uid
+    }
+
+    pub fn get_name(&self) -> &'static str {
+        self.name
+    }
+
+    pub fn get_default_state(&self) -> &BlockState {
+        &self.states[self.default_state_index]
+    }
+
+    pub fn get_states(&self) -> &[BlockState] {
+        &self.states[..]
     }
 
     pub fn add_ext<E: Any + Sync + Send>(&self, ext: E) {
-        self.shared_data.extensions.add(ext);
+        self.extensions.add(ext);
     }
 
     pub fn get_ext<E: Any + Sync + Send>(&self) -> Option<GuardedRef<E>> {
-        self.shared_data.extensions.get()
+        self.extensions.get()
     }
 
     pub fn get_ext_mut<E: Any + Sync + Send>(&self) -> Option<GuardedMut<E>> {
-        self.shared_data.extensions.get_mut()
-    }
-
-}
-
-impl BlockSharedData {
-
-    fn new(reg_tid: TypeId, properties_count: usize, states_count: usize) -> Self {
-        BlockSharedData {
-            reg_tid,
-            states: Vec::with_capacity(states_count),
-            default_state: Weak::new(),
-            properties: HashMap::with_capacity(properties_count),
-            extensions: RwGenericMap::new()
-        }
+        self.extensions.get_mut()
     }
 
 }
@@ -94,53 +111,57 @@ impl BlockSharedData {
 ///
 /// This requires the implementation of Any ('static) in order to use the TypeId to resolve
 /// UID offset.
-pub trait StaticBlocks: Any {
-    fn get_state(&self, uid: u16) -> Option<Arc<BlockState>>;
-    fn get_last_uid(&self) -> u16;
-    fn get_block_count(&self) -> u16;
+pub trait StaticBlocks {
+    fn iter_blocks<'a>(&'a self) -> Box<dyn Iterator<Item=&'a Pin<Box<Block>>> + 'a>;
 }
 
 
-/// Effective block register, can be composed of multiple static registers for use in worlds.
-pub struct Blocks {
-    uid_offset_and_reg: Vec<(u16, &'static dyn StaticBlocks)>,
-    uid_offset_by_reg_tid: HashMap<TypeId, u16>,
-    next_uid_offset: u16
+pub struct WorkBlocks<'a> {
+    next_uid_offset: u16, // 0 is reserved, like the null-ptr
+    uid_offsets: HashMap<u32, u16>,
+    states: Vec<&'a BlockState>
 }
 
-impl Blocks {
+impl<'a> WorkBlocks<'a> {
 
-    pub fn new() -> Blocks {
-        Blocks {
-            uid_offset_and_reg: Vec::new(),
-            uid_offset_by_reg_tid: HashMap::new(),
-            next_uid_offset: 1 // 0 is reserved, like the null-ptr
+    pub fn new() -> WorkBlocks<'a> {
+        WorkBlocks {
+            next_uid_offset: 1,
+            uid_offsets: HashMap::new(),
+            states: Vec::new()
         }
     }
 
-    pub fn register<B: StaticBlocks>(&mut self, reg: &'static B) {
-        self.uid_offset_and_reg.insert(0, (self.next_uid_offset, reg));
-        self.uid_offset_by_reg_tid.insert(reg.type_id(), self.next_uid_offset);
-        self.next_uid_offset += reg.get_last_uid() + 1;
-    }
-
-    pub fn get_state_uid(&self, state: &BlockState) -> u16 {
-        if let Some(&offset) = self.uid_offset_by_reg_tid.get(&state.shared_data.upgrade().unwrap().reg_tid) {
-            offset + state.uid
-        } else {
-            panic!("This BlockState is not registered in this Blocks register, first register its static register.");
+    pub fn register(&mut self, block: &'a Pin<Box<Block>>) {
+        let block = &**block;
+        let block_len = block.states.len();
+        let uid = self.next_uid_offset;
+        self.next_uid_offset = uid.checked_add(block_len as u16)
+            .expect("Too much block in this register.");
+        self.uid_offsets.insert(block.uid, uid);
+        self.states.reserve_exact(block_len);
+        for state in &block.states {
+            self.states.push(state);
         }
     }
 
-    pub fn get_state(&self, uid: u16) -> Option<Arc<BlockState>> {
-        if uid > 0 {
-            for &(uid_offset, reg) in &self.uid_offset_and_reg {
-                if uid >= uid_offset {
-                    return reg.get_state(uid - uid_offset);
-                }
-            }
+    pub fn register_static(&mut self, static_blocks: &'a Pin<Box<impl StaticBlocks>>) {
+        for block in static_blocks.iter_blocks() {
+            self.register(block);
         }
-        None
+    }
+
+    pub fn get_uid_from_state(&self, state: &BlockState) -> Option<u16> {
+        let block_uid = state.get_block().uid;
+        let block_offset = *self.uid_offsets.get(&block_uid)?;
+        Some(block_offset + state.get_uid())
+    }
+
+    pub fn get_state_from_uid(&self, uid: u16) -> Option<&'a BlockState> {
+        match uid {
+            0 => None,
+            _ => Some(*self.states.get((uid - 1) as usize)?)
+        }
     }
 
 }
@@ -157,62 +178,58 @@ macro_rules! blocks {
 
         #[allow(non_snake_case)]
         pub struct $struct_id {
-            states_by_uid: std::collections::HashMap<u16, std::sync::Weak<$crate::block::BlockState>>,
-            last_uid: u16,
-            block_count: u16,
-            $( pub $block_id: $crate::block::Block ),*
+            blocks: Vec<std::ptr::NonNull<std::pin::Pin<Box<$crate::block::Block>>>>,
+            $( pub $block_id: std::pin::Pin<Box<$crate::block::Block>>, )*
+            _marker: std::marker::PhantomPinned
         }
 
         impl $struct_id {
-            fn load() -> Self {
+            fn load() -> std::pin::Pin<Box<Self>> {
 
-                use std::collections::HashMap;
                 use $crate::block::{Block, BlockStateBuilder};
+                use std::marker::PhantomPinned;
+                use std::ptr::NonNull;
 
-                let mut uid = 0;
-                let tid = std::any::TypeId::of::<Self>();
-                let mut states_by_uid = HashMap::new();
-                let mut block_count = 0;
+                let mut count = 0;
 
-                fn increase_block_count(b: Block, c: &mut u16) -> Block {
+                fn inc<T>(v: T, c: &mut usize) -> T {
                     *c += 1;
-                    b
+                    v
                 }
 
-                Self {
-                    $( $block_id: increase_block_count(Block::new(
+                let mut reg = Box::pin(Self {
+                    $($block_id: inc(Block::new(
                         $block_name,
-                        BlockStateBuilder::new() $($( .prop(&$prop_const) )*)?,
-                        tid,
-                        &mut uid,
-                        &mut states_by_uid
-                    ), &mut block_count), )*
-                    block_count,
-                    last_uid: uid,
-                    states_by_uid
+                        BlockStateBuilder::new() $($( .prop(&$prop_const) )*)?
+                    ), &mut count),)*
+                    blocks: Vec::with_capacity(count),
+                    _marker: PhantomPinned
+                });
+
+                unsafe {
+                    let reg_mut = reg.as_mut().get_unchecked_mut();
+                    $(reg_mut.blocks.push(NonNull::from(&reg_mut.$block_id));)*
                 }
+
+                reg
 
             }
         }
 
+        // Enforce Send/Sync because NonNull are pointing to pined box content.
+        unsafe impl Send for $struct_id {}
+        unsafe impl Sync for $struct_id {}
+
         impl $crate::block::StaticBlocks for $struct_id {
 
-            fn get_state(&self, uid: u16) -> Option<std::sync::Arc<$crate::block::BlockState>> {
-                self.states_by_uid.get(&uid).map(|weak_state| weak_state.upgrade().unwrap())
-            }
-
-            fn get_last_uid(&self) -> u16 {
-                self.last_uid
-            }
-
-            fn get_block_count(&self) -> u16 {
-                self.block_count
+            fn iter_blocks<'a>(&'a self) -> Box<dyn Iterator<Item=&'a std::pin::Pin<Box<$crate::block::Block>>> + 'a> {
+                Box::new(self.blocks.iter().map(|ptr| unsafe { ptr.as_ref() }))
             }
 
         }
 
         #[allow(non_upper_case_globals)]
-        pub static $static_id: once_cell::sync::Lazy<$struct_id> = once_cell::sync::Lazy::new(|| $struct_id::load());
+        pub static $static_id: once_cell::sync::Lazy<std::pin::Pin<Box<$struct_id>>> = once_cell::sync::Lazy::new(|| $struct_id::load());
 
     };
 }

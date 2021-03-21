@@ -1,10 +1,12 @@
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::collections::{HashMap, HashSet};
-use std::sync::{Weak, Arc};
-use std::any::TypeId;
+use std::ptr::NonNull;
 
-use super::{BlockSharedData, UntypedProperty, Property, PropertySerializable};
-use crate::util;
+use super::{Block, UntypedProperty, Property, PropertySerializable};
+
+
+/// The maximum number of states for a single block.
+pub const MAX_STATES_COUNT: usize = 0x10000;
 
 
 #[derive(Debug)]
@@ -22,14 +24,14 @@ pub(crate) struct SharedProperty {
 /// To build states, use `BlockStateContainerBuilder` and add all wanted
 /// properties.
 pub struct BlockState {
-    /// Unique ID of this state within its register.
-    pub(crate) uid: u16,
+    /// Unique ID of this state within its block.
+    uid: u16,
     /// The index of this state within the shared data's states vector.
     index: usize,
     /// Array of property encoded values.
     properties: Vec<u8>,
-    /// Shared data among all block states.
-    pub(crate) shared_data: Weak<BlockSharedData>,
+    /// Circular reference back to the owner
+    block: NonNull<Block>
 }
 
 
@@ -74,16 +76,8 @@ impl BlockStateBuilder {
     /// Build and resolve all combinations of property values as block states, all resolved
     /// block states know their neighbors by property and values.
     ///
-    /// The given `reg_tid` (Register Type ID) must be the type id of the structure that will hold
-    /// the block for these states. The passed UID is the next uid to set and increment for
-    /// each state (pass 0 for the first state builder, then the first state will have uid 0).
-    ///
-    /// The method will panic if the UID overflow the max for `u16`.
-    pub(crate) fn build(self,
-                        reg_tid: TypeId,
-                        uid: &mut u16,
-                        states_by_uid: &mut HashMap<u16, Weak<BlockState>>
-    ) -> Arc<BlockSharedData> {
+    /// The method will panic if the UID overflow the
+    pub(super) fn build(self) -> (HashMap<&'static str, SharedProperty>, Vec<BlockState>) {
 
         let mut states_count = 1;
         let mut properties_periods = Vec::with_capacity(self.properties.len());
@@ -94,24 +88,12 @@ impl BlockStateBuilder {
             properties_periods.push((prop, length, 1usize));
         }
 
-        if *uid as usize + states_count > u16::MAX as usize {
-            panic!("Not enough states UIDs to store these block states.");
+        if states_count > MAX_STATES_COUNT {
+            panic!("Too many properties for this state, the maximum number is {}.", MAX_STATES_COUNT);
         }
 
-        // We know that the states count is valid, so we allocate the block's shared data.
-        let shared_data_arc = Arc::new(
-            BlockSharedData::new(reg_tid, self.properties.len(), states_count)
-        );
-
-        // This doesn't work because the lifetime of this mutable borrow last for
-        //  the whole states loops, but we need to make immutable borrows in the loop:
-        // => let shared_data = Arc::get_mut(&mut shared_data_arc).unwrap();
-
-        // SAFETY: Shared data can be mutated because at this point the data is not
-        //   changed by shared cloned Arc in this method.
-        let shared_data = unsafe { util::mutate_ref(&*shared_data_arc) };
-        let shared_properties = &mut shared_data.properties;
-        let shared_states = &mut shared_data.states;
+        let mut shared_properties = HashMap::with_capacity(self.properties.len());
+        let mut shared_states = Vec::with_capacity(states_count);
 
         let mut next_period = 1;
         for (i, (prop, length, period)) in properties_periods.iter_mut().enumerate().rev() {
@@ -127,30 +109,19 @@ impl BlockStateBuilder {
         }
 
         for i in 0..states_count {
-
             let mut state_properties = Vec::with_capacity(properties_periods.len());
-
             for (_, length, period) in properties_periods.iter() {
                 state_properties.push(((i / *period) % (*length as usize)) as u8);
             }
-
-            let state = Arc::new(BlockState {
-                uid: *uid,
+            shared_states.push(BlockState {
+                uid: i as u16,
                 index: i,
                 properties: state_properties,
-                shared_data: Arc::downgrade(&shared_data_arc)
+                block: NonNull::dangling()
             });
-
-            states_by_uid.insert(state.uid, Arc::downgrade(&state));
-            shared_states.push(state);
-
-            *uid += 1;
-
         }
 
-        shared_data.default_state = Arc::downgrade(&shared_states[0]);
-
-        shared_data_arc
+        (shared_properties, shared_states)
 
     }
 
@@ -163,6 +134,18 @@ impl BlockState {
         self.uid
     }
 
+    pub fn get_block(&self) -> &Block {
+        // SAFETY: This pointer is always valid since:
+        //  - block state must be owned by a Block, and this Block must be pined in a box
+        //  - this function is not called before the pointer initialization (before set_block)
+        unsafe { self.block.as_ref() }
+    }
+
+    pub(super) fn set_block(&mut self, block: NonNull<Block>) {
+        // This method is called once in the Block constructor.
+        self.block = block;
+    }
+
     /// Get a block state property value if the property exists.
     pub fn get<T, P>(&self, property: &P) -> Option<T>
         where
@@ -170,8 +153,7 @@ impl BlockState {
             P: Property<T>
     {
 
-        let data = self.shared_data.upgrade().unwrap();
-        let prop = data.properties.get(&property.name())?;
+        let prop = self.get_block().properties.get(&property.name())?;
 
         if prop.prop.type_id()  == property.type_id() {
             property.decode(self.properties[prop.index])
@@ -191,28 +173,25 @@ impl BlockState {
 
     /// Try to get this a neighbor with all the same properties excepts the given one with the given
     /// value, if the property or its value is not valid for the block, None is returned.
-    pub fn with<T, P>(&self, property: &P, value: T) -> Option<Arc<BlockState>>
+    pub fn with<T, P>(&self, property: &P, value: T) -> Option<&BlockState>
         where
             T: PropertySerializable,
             P: Property<T>
     {
 
-        // SAFETY: Shared data is weak, but we expect it to exist.
-        let data = self.shared_data.upgrade().unwrap();
-        let prop = data.properties.get(&property.name())?;
+        let block = self.get_block();
+        let prop = block.properties.get(&property.name())?;
 
         let new_value = property.encode(value)? as isize;
         let current_value = self.properties[prop.index] as isize;
 
-        let state = if new_value == current_value {
-            &data.states[self.index]
+        Some(if new_value == current_value {
+            &block.states[self.index]
         } else {
             let value_diff = new_value - current_value;
             let neighbor_index = (self.index as isize + value_diff * prop.period as isize) as usize;
-            &data.states[neighbor_index]
-        };
-
-        Some(Arc::clone(state))
+            &block.states[neighbor_index]
+        })
 
     }
 
@@ -225,8 +204,7 @@ impl Debug for BlockState {
 
         let mut properties = HashMap::new();
 
-        let shared_data = self.shared_data.upgrade().unwrap();
-        for shared_prop in shared_data.properties.values() {
+        for shared_prop in self.get_block().properties.values() {
             let prop = shared_prop.prop;
             properties.insert(
                 prop.name(),
@@ -235,6 +213,7 @@ impl Debug for BlockState {
         }
 
         f.debug_struct("BlockState")
+            .field("block", &self.get_block().get_name())
             .field("uid", &self.uid)
             .field("index", &self.index)
             .field("properties", &properties)
