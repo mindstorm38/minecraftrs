@@ -184,6 +184,8 @@ properties! {
         Compare, Subtract
     ]);
 
+
+    // TODO: Separate overworld/nether woods
     pub PROP_WOOD_TYPE: enum<WoodType>("wood_type", WOOD_TYPE, [
         Oak, Spruce, Birch, Jungle, Acacia, DarkOak, Crimson, Warped
     ]);

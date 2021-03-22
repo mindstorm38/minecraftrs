@@ -1,5 +1,6 @@
 use mc_core::block::{Block, WorkBlocks, Property, PropertySerializable, BlockState};
 use mc_core::block::vanilla::*;
+use mc_core::block::legacy::setup_legacy_ids;
 use std::mem::size_of;
 use std::time::Instant;
 
@@ -11,6 +12,8 @@ fn main() {
         VanillaBlocksStruct::load();
     }
     println!("States loaded in {}s", start.elapsed().as_secs_f32() / 1000.0);
+
+    setup_legacy_ids();
 
     let start = Instant::now();
     let mut blocks = WorkBlocks::new();

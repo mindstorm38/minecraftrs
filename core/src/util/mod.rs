@@ -58,6 +58,7 @@ pub enum Axis {
 
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
 pub enum DyeColor {
     White,
     Orange,
@@ -75,4 +76,10 @@ pub enum DyeColor {
     Green,
     Red,
     Black
+}
+
+impl DyeColor {
+    pub fn get_index(self) -> u8 {
+        unsafe { std::mem::transmute(self) }
+    }
 }

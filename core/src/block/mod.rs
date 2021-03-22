@@ -14,6 +14,7 @@ pub use state::*;
 pub use property::*;
 
 pub mod vanilla;
+pub mod legacy;
 
 
 /// A basic block defined by a name, its states, properties or extensions.

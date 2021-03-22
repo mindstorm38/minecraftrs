@@ -147,20 +147,20 @@ impl Debug for dyn UntypedProperty {
 macro_rules! properties {
     ($v:vis $id:ident: int($name:literal, $count:expr); $($t:tt)*) => {
         $v static $id: $crate::block::IntProperty = $crate::block::IntProperty($name, $count);
-        properties!($($t)*);
+        $crate::properties!($($t)*);
     };
     ($v:vis $id:ident: bool($name:literal); $($t:tt)*) => {
         $v static $id: $crate::block::BoolProperty = $crate::block::BoolProperty($name);
-        properties!($($t)*);
+        $crate::properties!($($t)*);
     };
     ($v:vis $id:ident: enum<$enum_type:ty>($name:literal, $values_id:ident, [$($value:ident),+]); $($t:tt)*) => {
         static $values_id: [$enum_type; 0 $(+ (1, <$enum_type>::$value).0)+] = [$(<$enum_type>::$value),+];
         $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
-        properties!($($t)*);
+        $crate::properties!($($t)*);
     };
     ($v:vis $id:ident: enum<$enum_type:ty>($name:literal, $values_id:ident); $($t:tt)*) => {
         $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
-        properties!($($t)*);
+        $crate::properties!($($t)*);
     };
     () => {}
 }
