@@ -1,5 +1,4 @@
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::collections::HashMap;
 
 pub mod generic;
 pub mod version;
