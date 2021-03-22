@@ -5,6 +5,8 @@ use std::any::Any;
 use crate::util::generic::{RwGenericMap, GuardedRef, GuardedMut};
 use crate::util::UidGenerator;
 
+pub mod vanilla;
+
 
 /// A basic biome structure. Allow extensions for modifying.
 pub struct Biome {
@@ -117,7 +119,7 @@ macro_rules! biomes {
         #[allow(non_snake_case)]
         pub struct $struct_id {
             biomes: Vec<std::ptr::NonNull<$crate::biome::Biome>>,
-            $( pub $block_id: $crate::biome::Biome, )*
+            $( pub $biome_id: $crate::biome::Biome, )*
             _marker: std::marker::PhantomPinned
         }
 
@@ -150,6 +152,25 @@ macro_rules! biomes {
 
             }
         }
+
+        // Enforce Send/Sync because NonNull are pointing to pined box content.
+        unsafe impl Send for $struct_id {}
+        unsafe impl Sync for $struct_id {}
+
+        impl $crate::biome::StaticBiomes for $struct_id {
+
+            fn iter_biomes<'a>(&'a self) -> Box<dyn Iterator<Item=&'a $crate::biome::Biome> + 'a> {
+                Box::new(self.biomes.iter().map(|ptr| unsafe { ptr.as_ref() }))
+            }
+
+            fn biomes_count(&self) -> usize {
+                self.biomes.len()
+            }
+
+        }
+
+        #[allow(non_upper_case_globals)]
+        pub static $static_id: once_cell::sync::Lazy<std::pin::Pin<Box<$struct_id>>> = once_cell::sync::Lazy::new(|| $struct_id::load());
 
     };
 }
