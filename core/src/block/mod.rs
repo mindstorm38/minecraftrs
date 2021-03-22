@@ -118,10 +118,12 @@ pub trait StaticBlocks {
 }
 
 
+/// Working blocks registry, use this structure to add individual blocks to the register.
+/// This is the only way to get usable block states UIDs.
 pub struct WorkBlocks<'a> {
     next_uid_offset: u16, // 0 is reserved, like the null-ptr
-    uid_offsets: HashMap<u32, u16>,
-    states: Vec<&'a BlockState>
+    blocks_to_uid: HashMap<u32, u16>,
+    uid_to_states: Vec<&'a BlockState>
 }
 
 impl<'a> WorkBlocks<'a> {
@@ -129,8 +131,8 @@ impl<'a> WorkBlocks<'a> {
     pub fn new() -> WorkBlocks<'a> {
         WorkBlocks {
             next_uid_offset: 1,
-            uid_offsets: HashMap::new(),
-            states: Vec::new()
+            blocks_to_uid: HashMap::new(),
+            uid_to_states: Vec::new()
         }
     }
 
@@ -140,16 +142,16 @@ impl<'a> WorkBlocks<'a> {
         let uid = self.next_uid_offset;
         self.next_uid_offset = uid.checked_add(block_len as u16)
             .expect("Too much block in this register.");
-        self.uid_offsets.insert(block.uid, uid);
-        self.states.reserve(block_len);
+        self.blocks_to_uid.insert(block.uid, uid);
+        self.uid_to_states.reserve(block_len);
         for state in &block.states {
-            self.states.push(state);
+            self.uid_to_states.push(state);
         }
     }
 
     pub fn register_static(&mut self, static_blocks: &'a Pin<Box<impl StaticBlocks>>) {
-        self.uid_offsets.reserve(static_blocks.blocks_count());
-        self.states.reserve(static_blocks.states_count());
+        self.blocks_to_uid.reserve(static_blocks.blocks_count());
+        self.uid_to_states.reserve(static_blocks.states_count());
         for block in static_blocks.iter_blocks() {
             self.register(block);
         }
@@ -157,15 +159,23 @@ impl<'a> WorkBlocks<'a> {
 
     pub fn get_uid_from_state(&self, state: &BlockState) -> Option<u16> {
         let block_uid = state.get_block().uid;
-        let block_offset = *self.uid_offsets.get(&block_uid)?;
+        let block_offset = *self.blocks_to_uid.get(&block_uid)?;
         Some(block_offset + state.get_uid())
     }
 
     pub fn get_state_from_uid(&self, uid: u16) -> Option<&'a BlockState> {
         match uid {
             0 => None,
-            _ => Some(*self.states.get((uid - 1) as usize)?)
+            _ => Some(*self.uid_to_states.get((uid - 1) as usize)?)
         }
+    }
+
+    fn blocks_count(&self) -> usize {
+        self.blocks_to_uid.len()
+    }
+
+    fn states_count(&self) -> usize {
+        self.uid_to_states.len()
     }
 
 }
