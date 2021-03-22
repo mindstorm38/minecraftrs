@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::marker::PhantomPinned;
 use std::collections::HashMap;
 use std::ptr::NonNull;
@@ -6,8 +5,8 @@ use std::fmt::Debug;
 use std::any::Any;
 use std::pin::Pin;
 
-use crate::generic::{RwGenericMap, GuardedRef, GuardedMut};
-use crate::util::StaticUidGenerator;
+use crate::util::generic::{RwGenericMap, GuardedRef, GuardedMut};
+use crate::util::UidGenerator;
 
 mod state;
 mod property;
@@ -42,7 +41,7 @@ impl Block {
 
     pub fn new(name: &'static str, state_builder: BlockStateBuilder) -> Pin<Box<Block>> {
 
-        static UID: StaticUidGenerator = StaticUidGenerator::new();
+        static UID: UidGenerator = UidGenerator::new();
 
         let (properties, states) = state_builder.build();
 
@@ -71,6 +70,9 @@ impl Block {
 
     }
 
+    /// Get the unique ID of this block, this is unique for the process.
+    /// This UID is not used for any save operation, for saving purpose,
+    /// use `WorkBlocks`.
     pub fn get_uid(&self) -> u32 {
         self.uid
     }
@@ -113,64 +115,64 @@ pub trait StaticBlocks {
 }
 
 
-/// Working blocks registry, use this structure to add individual blocks to the register.
-/// This is the only way to get usable block states UIDs.
+/// Working blocks' registry, use this structure to add individual blocks to the register.
+/// This registry maps unique blocks and block states IDs to save IDs (SID).
 pub struct WorkBlocks<'a> {
-    next_uid: u16, // 0 is reserved, like the null-ptr
-    blocks_to_uid: HashMap<u32, u16>,
-    uid_to_states: Vec<&'a BlockState>
+    next_sid: u16, // 0 is reserved, like the null-ptr
+    blocks_to_sid: HashMap<u32, u16>,
+    sid_to_states: Vec<&'a BlockState>
 }
 
 impl<'a> WorkBlocks<'a> {
 
     pub fn new() -> WorkBlocks<'a> {
         WorkBlocks {
-            next_uid: 1,
-            blocks_to_uid: HashMap::new(),
-            uid_to_states: Vec::new()
+            next_sid: 1,
+            blocks_to_sid: HashMap::new(),
+            sid_to_states: Vec::new()
         }
     }
 
     pub fn register(&mut self, block: &'a Pin<Box<Block>>) {
         let block = &**block;
         let block_len = block.states.len();
-        let uid = self.next_uid;
-        self.next_uid = uid.checked_add(block_len as u16)
+        let uid = self.next_sid;
+        self.next_sid = uid.checked_add(block_len as u16)
             .expect("Too much block in this register.");
-        self.blocks_to_uid.insert(block.uid, uid);
-        self.uid_to_states.reserve(block_len);
+        self.blocks_to_sid.insert(block.uid, uid);
+        self.sid_to_states.reserve(block_len);
         for state in &block.states {
-            self.uid_to_states.push(state);
+            self.sid_to_states.push(state);
         }
     }
 
     pub fn register_static(&mut self, static_blocks: &'a Pin<Box<impl StaticBlocks>>) {
-        self.blocks_to_uid.reserve(static_blocks.blocks_count());
-        self.uid_to_states.reserve(static_blocks.states_count());
+        self.blocks_to_sid.reserve(static_blocks.blocks_count());
+        self.sid_to_states.reserve(static_blocks.states_count());
         for block in static_blocks.iter_blocks() {
             self.register(block);
         }
     }
 
-    pub fn get_uid_from_state(&self, state: &BlockState) -> Option<u16> {
-        let block_uid = state.get_block().uid;
-        let block_offset = *self.blocks_to_uid.get(&block_uid)?;
+    pub fn get_uid_from(&self, state: &BlockState) -> Option<u16> {
+        let block_uid = state.get_block().get_uid();
+        let block_offset = *self.blocks_to_sid.get(&block_uid)?;
         Some(block_offset + state.get_uid())
     }
 
-    pub fn get_state_from_uid(&self, uid: u16) -> Option<&'a BlockState> {
+    pub fn get_state_from(&self, uid: u16) -> Option<&'a BlockState> {
         match uid {
             0 => None,
-            _ => Some(*self.uid_to_states.get((uid - 1) as usize)?)
+            _ => Some(*self.sid_to_states.get((uid - 1) as usize)?)
         }
     }
 
-    fn blocks_count(&self) -> usize {
-        self.blocks_to_uid.len()
+    pub fn blocks_count(&self) -> usize {
+        self.blocks_to_sid.len()
     }
 
-    fn states_count(&self) -> usize {
-        self.uid_to_states.len()
+    pub fn states_count(&self) -> usize {
+        self.sid_to_states.len()
     }
 
 }
@@ -199,11 +201,12 @@ macro_rules! blocks {
                 use $crate::block::{Block, BlockStateBuilder};
                 use std::marker::PhantomPinned;
                 use std::ptr::NonNull;
+                use std::pin::Pin;
 
                 let mut blocks_count = 0;
                 let mut states_count = 0;
 
-                fn inc(b: Block, bc: &mut usize, sc: &mut usize) -> Block {
+                fn inc(b: Pin<Box<Block>>, bc: &mut usize, sc: &mut usize) -> Pin<Box<Block>> {
                     *bc += 1;
                     *sc += b.get_states().len();
                     b

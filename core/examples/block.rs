@@ -1,4 +1,4 @@
-use mc_core::block::{Block, WorkBlocks, Property, PropertySerializable, BlockState, StaticBlocks};
+use mc_core::block::{Block, WorkBlocks, Property, PropertySerializable, BlockState};
 use mc_core::block::vanilla::*;
 use std::mem::size_of;
 use std::time::Instant;
@@ -16,7 +16,8 @@ fn main() {
     let mut blocks = WorkBlocks::new();
     blocks.register_static(&*VanillaBlocks);
     println!("Vanilla blocks registered in {}us", start.elapsed().as_micros());
-    println!("Vanilla blocks count: {}", VanillaBlocks.iter_blocks().count());
+    println!("Vanilla blocks count: {}", blocks.blocks_count());
+    println!("Vanilla states count: {}", blocks.states_count());
 
     let start = Instant::now();
     VanillaBlocks.DIRT.add_ext(TestBlockExt {
@@ -32,10 +33,10 @@ fn main() {
 
     println!("State: {:?}", state);
     println!("State with: {:?}", state.with(&PROP_HAS_BOTTLE_0, true));
-    println!("State uid in reg: {:?}", blocks.get_uid_from_state(&*state));
-    println!("State with uid 1 in reg: {:?}", blocks.get_state_from_uid(1));
-    println!("State with uid 2 in reg: {:?}", blocks.get_state_from_uid(2));
-    println!("State with uid 54 in reg: {:?}", blocks.get_state_from_uid(54));
+    println!("State uid in reg: {:?}", blocks.get_uid_from(&*state));
+    println!("State with uid 1 in reg: {:?}", blocks.get_state_from(1));
+    println!("State with uid 2 in reg: {:?}", blocks.get_state_from(2));
+    println!("State with uid 54 in reg: {:?}", blocks.get_state_from(54));
     println!("State sizeof: {}", size_of::<BlockState>());
     println!("Block sizeof: {}", size_of::<Block>());
     //println!("States count: {}", VanillaBlocks.get_last_uid());

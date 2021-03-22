@@ -1,8 +1,9 @@
-use std::sync::atomic::{AtomicU32, Ordering};
-
-use crate::util::StaticUidGenerator;
-use crate::generic::RwGenericMap;
 use std::collections::HashMap;
+use std::pin::Pin;
+use std::any::Any;
+
+use crate::util::generic::{RwGenericMap, GuardedRef, GuardedMut};
+use crate::util::UidGenerator;
 
 
 /// A basic biome structure. Allow extensions for modifying.
@@ -15,32 +16,94 @@ pub struct Biome {
 impl Biome {
 
     pub fn new(name: &'static str) -> Biome {
-
-        static UID: StaticUidGenerator = StaticUidGenerator::new();
-
+        static UID: UidGenerator = UidGenerator::new();
         Biome {
             uid: UID.next(),
             name,
             extensions: RwGenericMap::new()
         }
+    }
 
+    pub fn get_uid(&self) -> u32 {
+        self.uid
+    }
+
+    pub fn get_name(&self) -> &'static str {
+        self.name
+    }
+
+    pub fn add_ext<E: Any + Sync + Send>(&self, ext: E) {
+        self.extensions.add(ext);
+    }
+
+    pub fn get_ext<E: Any + Sync + Send>(&self) -> Option<GuardedRef<E>> {
+        self.extensions.get()
+    }
+
+    pub fn get_ext_mut<E: Any + Sync + Send>(&self) -> Option<GuardedMut<E>> {
+        self.extensions.get_mut()
     }
 
 }
 
 
-
 /// Trait to implement for all biomes registers, automatically implemented with the `biomes!` macro.
 pub trait StaticBiomes {
-    fn iter_blocks<'a>(&'a self) -> Box<dyn Iterator<Item=&'a Biome> + 'a>;
+    fn iter_biomes<'a>(&'a self) -> Box<dyn Iterator<Item=&'a Biome> + 'a>;
+    fn biomes_count(&self) -> usize;
 }
 
 
-/// A working biomes registry giving effective UIDs to registered biomes.
+/// A working biomes' registry mapping unique biomes IDs to save IDs (SID).
 pub struct WorkBiomes<'a> {
-    next_uid: u8, // 0 is reserved, like the null-ptr
-    biomes_to_uid: HashMap<u32, u8>,
+    next_sid: u16, // 0 is reserved, like the null-ptr
+    biomes_to_uid: HashMap<u32, u16>,
     uid_to_biomes: Vec<&'a Biome>
+}
+
+impl<'a> WorkBiomes<'a> {
+
+    pub fn new() -> WorkBiomes<'a> {
+        WorkBiomes {
+            next_sid: 1,
+            biomes_to_uid: HashMap::new(),
+            uid_to_biomes: Vec::new()
+        }
+    }
+
+    pub fn register(&mut self, biome: &'a Biome) {
+        let uid = self.next_sid;
+        self.next_sid = uid.checked_add(1).expect("Too much biomes in this register.");
+        self.biomes_to_uid.insert(biome.uid, uid);
+        self.uid_to_biomes.push(biome);
+    }
+
+    pub fn register_static(&mut self, static_biomes: &'a Pin<Box<impl StaticBiomes>>) {
+        let count = static_biomes.biomes_count();
+        self.biomes_to_uid.reserve(count);
+        self.uid_to_biomes.reserve(count);
+        for biome in static_biomes.iter_biomes() {
+            self.register(biome);
+        }
+    }
+
+    pub fn get_uid_from(&self, biome: &Biome) -> Option<u16> {
+        let biome_uid = biome.uid;
+        let biome_offset = *self.biomes_to_uid.get(&biome_uid)?;
+        Some(biome_offset)
+    }
+
+    pub fn get_biome_from(&self, uid: u16) -> Option<&'a Biome> {
+        match uid {
+            0 => None,
+            _ => Some(*self.uid_to_biomes.get((uid - 1) as usize)?)
+        }
+    }
+
+    pub fn biomes_count(&self) -> usize {
+        self.uid_to_biomes.len()
+    }
+
 }
 
 

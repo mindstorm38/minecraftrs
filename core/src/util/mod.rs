@@ -1,15 +1,33 @@
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::collections::HashMap;
+
+pub mod generic;
+pub mod version;
 
 
 /// A static thread-safe unique 32 bits identifier generate.
-pub struct StaticUidGenerator(AtomicU32);
+/// This structure is made for static constants and will be
+/// interior mutated when retrieving the next UID.
+///
+/// The actual maximum of different UIDs is <code>2<sup>32</sup>-1</code>
+/// because of the sentinel value `0` for the overflow detection.
+pub struct UidGenerator(AtomicU32);
 
-impl StaticUidGenerator {
+impl UidGenerator {
 
+    /// Create a new static UID generator, this method can be called in
+    /// to define a static constant.
+    /// Example:
+    /// ```
+    /// use mc_core::util::UidGenerator;
+    /// static UID: UidGenerator = UidGenerator::new();
+    /// ```
     pub const fn new() -> Self {
         Self(AtomicU32::new(1))
     }
 
+    /// Get the next UID, thread-safely. If the UID overflows the maximum
+    /// UID <code>2<sup>32</sup>-1</code>, the function panics.
     pub fn next(&self) -> u32 {
         match self.0.fetch_add(1, Ordering::Relaxed) {
             0 => panic!("Abnormal block count, the global UID overflowed (more than 4 billion)."),
