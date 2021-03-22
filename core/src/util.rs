@@ -1,8 +1,22 @@
+use std::sync::atomic::{AtomicU32, Ordering};
 
-/// Black magic used only by BlockStateBuilder.
-#[inline(always)]
-pub unsafe fn mutate_ref<T>(from: &T) -> &mut T {
-    &mut *(from as *const T as *mut T)
+
+/// A static thread-safe unique 32 bits identifier generate.
+pub struct StaticUidGenerator(AtomicU32);
+
+impl StaticUidGenerator {
+
+    pub const fn new() -> Self {
+        Self(AtomicU32::new(1))
+    }
+
+    pub fn next(&self) -> u32 {
+        match self.0.fetch_add(1, Ordering::Relaxed) {
+            0 => panic!("Abnormal block count, the global UID overflowed (more than 4 billion)."),
+            uid => uid
+        }
+    }
+
 }
 
 

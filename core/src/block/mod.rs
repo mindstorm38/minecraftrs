@@ -7,6 +7,7 @@ use std::any::Any;
 use std::pin::Pin;
 
 use crate::generic::{RwGenericMap, GuardedRef, GuardedMut};
+use crate::util::StaticUidGenerator;
 
 mod state;
 mod property;
@@ -41,10 +42,12 @@ impl Block {
 
     pub fn new(name: &'static str, state_builder: BlockStateBuilder) -> Pin<Box<Block>> {
 
+        static UID: StaticUidGenerator = StaticUidGenerator::new();
+
         let (properties, states) = state_builder.build();
 
         let mut block = Box::pin(Block {
-            uid: Self::gen_uid(),
+            uid: UID.next(),
             name,
             states,
             properties,
@@ -66,14 +69,6 @@ impl Block {
 
         block
 
-    }
-
-    fn gen_uid() -> u32 {
-        // Do not use 0, it's a sentinel for overflow.
-        static BLOCK_ID: AtomicU32 = AtomicU32::new(1);
-        let ret = BLOCK_ID.fetch_add(1, Ordering::Relaxed);
-        if ret == 0 { panic!("Abnormal block count, the global UID overflowed (more than 4 billion).") }
-        ret
     }
 
     pub fn get_uid(&self) -> u32 {
@@ -121,7 +116,7 @@ pub trait StaticBlocks {
 /// Working blocks registry, use this structure to add individual blocks to the register.
 /// This is the only way to get usable block states UIDs.
 pub struct WorkBlocks<'a> {
-    next_uid_offset: u16, // 0 is reserved, like the null-ptr
+    next_uid: u16, // 0 is reserved, like the null-ptr
     blocks_to_uid: HashMap<u32, u16>,
     uid_to_states: Vec<&'a BlockState>
 }
@@ -130,7 +125,7 @@ impl<'a> WorkBlocks<'a> {
 
     pub fn new() -> WorkBlocks<'a> {
         WorkBlocks {
-            next_uid_offset: 1,
+            next_uid: 1,
             blocks_to_uid: HashMap::new(),
             uid_to_states: Vec::new()
         }
@@ -139,8 +134,8 @@ impl<'a> WorkBlocks<'a> {
     pub fn register(&mut self, block: &'a Pin<Box<Block>>) {
         let block = &**block;
         let block_len = block.states.len();
-        let uid = self.next_uid_offset;
-        self.next_uid_offset = uid.checked_add(block_len as u16)
+        let uid = self.next_uid;
+        self.next_uid = uid.checked_add(block_len as u16)
             .expect("Too much block in this register.");
         self.blocks_to_uid.insert(block.uid, uid);
         self.uid_to_states.reserve(block_len);
@@ -211,7 +206,7 @@ macro_rules! blocks {
                 fn inc(b: Block, bc: &mut usize, sc: &mut usize) -> Block {
                     *bc += 1;
                     *sc += b.get_states().len();
-                    v
+                    b
                 }
 
                 let mut reg = Box::pin(Self {
