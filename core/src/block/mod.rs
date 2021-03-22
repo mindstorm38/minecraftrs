@@ -114,6 +114,7 @@ impl Block {
 pub trait StaticBlocks {
     fn iter_blocks<'a>(&'a self) -> Box<dyn Iterator<Item=&'a Pin<Box<Block>>> + 'a>;
     fn blocks_count(&self) -> usize;
+    fn states_count(&self) -> usize;
 }
 
 
@@ -140,13 +141,15 @@ impl<'a> WorkBlocks<'a> {
         self.next_uid_offset = uid.checked_add(block_len as u16)
             .expect("Too much block in this register.");
         self.uid_offsets.insert(block.uid, uid);
-        self.states.reserve_exact(block_len);
+        self.states.reserve(block_len);
         for state in &block.states {
             self.states.push(state);
         }
     }
 
     pub fn register_static(&mut self, static_blocks: &'a Pin<Box<impl StaticBlocks>>) {
+        self.uid_offsets.reserve(static_blocks.blocks_count());
+        self.states.reserve(static_blocks.states_count());
         for block in static_blocks.iter_blocks() {
             self.register(block);
         }
@@ -180,6 +183,7 @@ macro_rules! blocks {
         #[allow(non_snake_case)]
         pub struct $struct_id {
             blocks: Vec<std::ptr::NonNull<std::pin::Pin<Box<$crate::block::Block>>>>,
+            states_count: usize,
             $( pub $block_id: std::pin::Pin<Box<$crate::block::Block>>, )*
             _marker: std::marker::PhantomPinned
         }
@@ -191,10 +195,12 @@ macro_rules! blocks {
                 use std::marker::PhantomPinned;
                 use std::ptr::NonNull;
 
-                let mut count = 0;
+                let mut blocks_count = 0;
+                let mut states_count = 0;
 
-                fn inc<T>(v: T, c: &mut usize) -> T {
-                    *c += 1;
+                fn inc(b: Block, bc: &mut usize, sc: &mut usize) -> Block {
+                    *bc += 1;
+                    *sc += b.get_states().len();
                     v
                 }
 
@@ -203,8 +209,9 @@ macro_rules! blocks {
                         $block_name,
                         BlockStateBuilder::with_capacity(0 $($(+ (1, &$prop_const).0)*)?)
                             $($( .prop(&$prop_const) )*)?
-                    ), &mut count),)*
-                    blocks: Vec::with_capacity(count),
+                    ), &mut blocks_count, &mut states_count),)*
+                    blocks: Vec::with_capacity(blocks_count),
+                    states_count,
                     _marker: PhantomPinned
                 });
 
@@ -230,6 +237,10 @@ macro_rules! blocks {
 
             fn blocks_count(&self) -> usize {
                 self.blocks.len()
+            }
+
+            fn states_count(&self) -> usize {
+                self.states_count
             }
 
         }
