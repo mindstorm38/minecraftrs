@@ -22,11 +22,11 @@ macro_rules! legacy {
         VanillaBlocks.$block_id.add_ext(LegacyId::Dynamic($legacy_supplier));
         legacy!($($t)*);
     };
-    (($legacy_id:expr) $block_id:ident; $($t:tt)*) => {
+    ($legacy_id:expr => $block_id:ident; $($t:tt)*) => {
         VanillaBlocks.$block_id.add_ext(LegacyId::Simple($legacy_id, 0));
         legacy!($($t)*);
     };
-    (($legacy_id:expr, $legacy_meta:expr) $block_id:ident; $($t:tt)*) => {
+    ($legacy_id:expr, $legacy_meta:expr => $block_id:ident; $($t:tt)*) => {
         VanillaBlocks.$block_id.add_ext(LegacyId::Simple($legacy_id, $legacy_meta));
         legacy!($($t)*);
     };
@@ -37,25 +37,25 @@ macro_rules! legacy {
 pub fn setup_legacy_ids() {
     legacy! {
         // New syntax:
-        1, 0 = STONE;
-        1, 1 = GRANITE;
-        1, 2 = POLISHED_GRANITE;
-        1, 3 = DIORITE;
-        1, 4 = POLISHED_DIORITE;
-        1, 5 = ANDESITE;
-        1, 6 = POLISHED_ANDESITE;
-        2 = GRASS_BLOCK;
-        3, 0 = DIRT;
-        3, 1 = COARSE_DIRT;
-        3, 2 = PODZOL;
-        4 = COBBLESTONE;
-        5 = PLANKS; // TODO
-        6 = SAPLING; // TODO
-        7 = BEDROCK;
+        1, 0  => STONE;
+        1, 1  => GRANITE;
+        1, 2  => POLISHED_GRANITE;
+        1, 3  => DIORITE;
+        1, 4  => POLISHED_DIORITE;
+        1, 5  => ANDESITE;
+        1, 6  => POLISHED_ANDESITE;
+        2     => GRASS_BLOCK;
+        3, 0  => DIRT;
+        3, 1  => COARSE_DIRT;
+        3, 2  => PODZOL;
+        4     => COBBLESTONE;
+        5     => PLANKS; // TODO
+        6     => SAPLING; // TODO
+        7     => BEDROCK;
         // TODO: Water / Lava
-        12, 0 = SAND;
-        12, 1 = RED_SAND;
-        13 = GRAVEL;
+        12, 0 => SAND;
+        12, 1 => RED_SAND;
+        13    => GRAVEL;
 
         // Old syntax:
         COAL_ORE = 16;
