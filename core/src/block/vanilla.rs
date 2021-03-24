@@ -1,5 +1,6 @@
-use crate::util::{Direction, Axis, DyeColor};
 use crate::{blocks, properties, impl_enum_serializable};
+use crate::util::{Direction, Axis, DyeColor};
+use crate::block::UntypedProperty;
 
 
 impl_enum_serializable!(Direction {
@@ -39,7 +40,8 @@ impl_enum_serializable!(DyeColor {
 });
 
 
-static REDSTONE_WIRE_MODE: [RedstoneWireMode; 3] = [RedstoneWireMode::None, RedstoneWireMode::Side, RedstoneWireMode::Up];
+static REDSTONE_MODE: [RedstoneWireMode; 3] = [RedstoneWireMode::None, RedstoneWireMode::Side, RedstoneWireMode::Up];
+static WALL_SIDE: [WallSide; 3] = [WallSide::None, WallSide::Low, WallSide::Tall];
 
 
 properties! {
@@ -94,6 +96,7 @@ properties! {
     pub PROP_LIQUID_LEVEL: int("level", 8);
     pub PROP_LIQUID_FALLING: bool("falling");
     pub PROP_IN_WALL: bool("in_wall");
+    pub PROP_CONDITIONAL: bool("conditional");
 
     pub PROP_DOWN: bool("down");
     pub PROP_EAST: bool("east");
@@ -184,25 +187,75 @@ properties! {
         Compare, Subtract
     ]);
 
+    pub PROP_OVERWORLD_WOOD_TYPE: enum<WoodType>("wood_type", OVERWORLD_WOOD_TYPE, [
+        Oak, Spruce, Birch, Jungle, Acacia, DarkOak //, Crimson, Warped
+    ]);
 
-    // TODO: Separate overworld/nether woods
-    pub PROP_WOOD_TYPE: enum<WoodType>("wood_type", WOOD_TYPE, [
+    pub PROP_NETHER_WOOD_TYPE: enum<WoodType>("wood_type", NETHER_WOOD_TYPE, [
+        Crimson, Warped
+    ]);
+
+    pub PROP_ALL_WOOD_TYPE: enum<WoodType>("wood_type", ALL_WOOD_TYPE, [
         Oak, Spruce, Birch, Jungle, Acacia, DarkOak, Crimson, Warped
     ]);
 
-    pub PROP_NETHER_WOOD_TYPE: enum<NetherWoodType>("wood_type", NETHER_WOOD_TYPE, [
-        Crimson,  Warped
-    ]);
+    pub PROP_REDSTONE_EAST: enum<RedstoneWireMode>("east", REDSTONE_MODE);
+    pub PROP_REDSTONE_NORTH: enum<RedstoneWireMode>("north", REDSTONE_MODE);
+    pub PROP_REDSTONE_SOUTH: enum<RedstoneWireMode>("south", REDSTONE_MODE);
+    pub PROP_REDSTONE_WEST: enum<RedstoneWireMode>("west", REDSTONE_MODE);
 
-    pub PROP_REDSTONE_WIRE_EAST: enum<RedstoneWireMode>("east", REDSTONE_WIRE_MODE);
-    pub PROP_REDSTONE_WIRE_NORTH: enum<RedstoneWireMode>("north", REDSTONE_WIRE_MODE);
-    pub PROP_REDSTONE_WIRE_SOUTH: enum<RedstoneWireMode>("south", REDSTONE_WIRE_MODE);
-    pub PROP_REDSTONE_WIRE_WEST: enum<RedstoneWireMode>("west", REDSTONE_WIRE_MODE);
+    pub PROP_WALL_EAST: enum<WallSide>("east", WALL_SIDE);
+    pub PROP_WALL_NORTH: enum<WallSide>("north", WALL_SIDE);
+    pub PROP_WALL_SOUTH: enum<WallSide>("south", WALL_SIDE);
+    pub PROP_WALL_WEST: enum<WallSide>("west", WALL_SIDE);
 
     pub PROP_CHEST_TYPE: enum<ChestType>("type", CHEST_TYPE, [Single, Left, Right]);
 
     pub PROP_STAIRS_SHAPE: enum<StairsShape>("shape", STAIRS_SHAPE, [
         Straight, InnerLeft, InnerRight, OuterLeft, OuterRight
+    ]);
+
+    pub PROP_POT_CONTENT: enum<PotContent>("content", POT_CONTENT, [
+        None,
+        OakSapling,
+        SpruceSapling,
+        BirchSapling,
+        JungleSapling,
+        AcaciaSapling,
+        DarkOakSapling,
+        Fern,
+        Dandelion,
+        Poppy,
+        BlueOrchid,
+        Allium,
+        AzureBluet,
+        RedTulip,
+        OrangeTulip,
+        WhiteTulip,
+        PinkTulip,
+        OxeyeDaisy,
+        Cornflower,
+        LilyOfTheValley,
+        WitherRose,
+        RedMushroom,
+        BrownMushroom,
+        DeadBush,
+        Cactus
+    ]);
+
+    pub PROP_SKULL_TYPE: enum<SkullType>("type", SKULL_TYPE, [
+        Skeleton,
+        WitherSkeleton,
+        Zombie,
+        Creeper,
+        Dragon,
+        Player
+    ]);
+
+    pub PROP_SLAB_TYPE: enum<SlabType>("type", SLAB_TYPE, [
+        Top,
+        Bottom,
+        Double
     ]);
 
 }
@@ -221,7 +274,7 @@ properties! {
 //  - Glazed Terracotta
 //  - Jigsaw Block
 //  - Large Flowers
-//  - Fluids
+//  [OK] Fluids
 //  [OK] Logs
 //  - Mob heads
 //  [OK] Mushroom Blocks
@@ -239,6 +292,9 @@ properties! {
 
 
 // Same order as defined in MC code
+// Some block has been merged to avoid defining dozen of wooden variations
+// for example, for compatibility with Minecraft these blocks may need
+// extensions or a specified module for the conversion.
 blocks!(VanillaBlocksStruct VanillaBlocks [
     STONE "stone",
     GRANITE "granite",
@@ -252,10 +308,13 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     DIRT "dirt",
     COARSE_DIRT "coarse_dirt",
     COBBLESTONE "cobblestone",
-    PLANKS "planks"                 [PROP_WOOD_TYPE], // Merged
-    SAPLING "sapling"               [PROP_WOOD_TYPE], // Merged
+    PLANKS "planks"                 [PROP_ALL_WOOD_TYPE], // Merged
+    SAPLING "sapling"               [PROP_OVERWORLD_WOOD_TYPE], // Merged
     BEDROCK "bedrock",
-    // Here: WATER/LAVA
+    WATER "water"                   [PROP_LIQUID_FALLING],
+    FLOWING_WATER "flowing_water"   [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL],
+    LAVA "lava"                     [PROP_LIQUID_FALLING],
+    FLOWING_LAVA "flowing_lava"     [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL],
     SAND "sand",
     RED_SAND "red_sand",
     GRAVEL "gravel",
@@ -263,11 +322,11 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     IRON_ORE "iron_ore",
     COAL_ORE "coal_ore",
     NETHER_GOLD_ORE "nether_gold_ore",
-    LOG "log"                       [PROP_WOOD_TYPE], // Merged
-    STRIPPED_LOG "stripped_log"     [PROP_WOOD_TYPE], // Merged
-    WOOD "wood"                     [PROP_WOOD_TYPE], // Merged
-    STRIPPED_WOOD "stripped_wood"   [PROP_WOOD_TYPE], // Merged
-    LEAVES "leaves"                 [PROP_WOOD_TYPE], // Merged
+    LOG "log"                       [PROP_OVERWORLD_WOOD_TYPE], // Merged
+    STRIPPED_LOG "stripped_log"     [PROP_OVERWORLD_WOOD_TYPE], // Merged
+    WOOD "wood"                     [PROP_OVERWORLD_WOOD_TYPE], // Merged
+    STRIPPED_WOOD "stripped_wood"   [PROP_OVERWORLD_WOOD_TYPE], // Merged
+    LEAVES "leaves"                 [PROP_OVERWORLD_WOOD_TYPE], // Merged
     SPONGE "sponge",
     WET_SPONGE "wet_sponge",
     GLASS "glass",
@@ -290,7 +349,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     SEAGRASS "seagrass",
     TALL_SEAGRASS "tall_seagrass"   [PROP_DOUBLE_BLOCK_HALF],
     WOOL "wool"                     [PROP_COLOR],
-    // Here: MOVING_PISTON
+    // Here: MOVING_PISTON (block 36)
     DANDELION "dandelion",
     POPPY "poppy",
     BLUE_ORCHID "blue_orchid",
@@ -318,25 +377,25 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     FIRE "fire"                     [PROP_AGE_16, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST, PROP_UP],
     SOUL_FIRE "fire"                [PROP_AGE_16, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST, PROP_UP],
     SPAWNER "spawner",
-    WOODEN_STAIRS "wooden_stairs"   [PROP_WOOD_TYPE, PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED], // Merged
+    WOODEN_STAIRS "wooden_stairs"   [PROP_ALL_WOOD_TYPE, PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED], // Merged
     CHEST "chest"                   [PROP_FACING, PROP_CHEST_TYPE, PROP_WATERLOGGED],
-    REDSTONE_WIRE "redstone_wire"   [PROP_REDSTONE_POWER, PROP_REDSTONE_WIRE_EAST, PROP_REDSTONE_WIRE_NORTH, PROP_REDSTONE_WIRE_SOUTH, PROP_REDSTONE_WIRE_WEST],
+    REDSTONE_WIRE "redstone_wire"   [PROP_REDSTONE_POWER, PROP_REDSTONE_EAST, PROP_REDSTONE_NORTH, PROP_REDSTONE_SOUTH, PROP_REDSTONE_WEST],
     DIAMOND_ORE "diamond_ore",
     DIAMOND_BLOCK "diamond_block",
     CRAFTING_TABLE "crafting_table",
     WHEAT "wheat"                   [PROP_AGE_8],
     FARMLAND "farmland"             [PROP_FARMLAND_MOISTURE],
     FURNACE "furnace"               [PROP_FACING, PROP_LIT],
-    SIGN "sign"                     [PROP_WOOD_TYPE, PROP_ROTATION, PROP_WATERLOGGED],
-    WOODEN_DOOR "wooden_door"       [PROP_WOOD_TYPE, PROP_DOUBLE_BLOCK_HALF, PROP_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED], // Merged
+    SIGN "sign"                     [PROP_ALL_WOOD_TYPE, PROP_ROTATION, PROP_WATERLOGGED],
+    WOODEN_DOOR "wooden_door"       [PROP_ALL_WOOD_TYPE, PROP_DOUBLE_BLOCK_HALF, PROP_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED], // Merged
     LADDER "ladder"                 [PROP_FACING, PROP_WATERLOGGED],
     RAIL "rail"                     [PROP_RAIL_SHAPE],
     COBBLESTONE_STAIRS "cobblestone_stairs" [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
-    WOODEN_WALL_SIGN "wooden_wall_sign"     [PROP_WOOD_TYPE, PROP_FACING, PROP_WATERLOGGED], // Merged
+    WALL_SIGN "wooden_wall_sign"    [PROP_ALL_WOOD_TYPE, PROP_FACING, PROP_WATERLOGGED], // Merged
     LEVER "lever"                   [PROP_FACE, PROP_FACING, PROP_POWERED],
     STONE_PRESSURE_PLATE "stone_pressure_plate" [PROP_POWERED],
-    IRON_DOOR "iron_door"           [PROP_WOOD_TYPE, PROP_DOUBLE_BLOCK_HALF, PROP_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED],
-    WOODEN_PRESSURE_PLATE "wooden_pressure_plate" [PROP_WOOD_TYPE, PROP_POWERED], // Merged
+    IRON_DOOR "iron_door"           [PROP_DOUBLE_BLOCK_HALF, PROP_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED],
+    WOODEN_PRESSURE_PLATE "wooden_pressure_plate" [PROP_ALL_WOOD_TYPE, PROP_POWERED], // Merged
     REDSTONE_ORE "redstone_ore"     [PROP_LIT],
     REDSTONE_TORCH "redstone_torch" [PROP_LIT],
     REDSTONE_WALL_TORCH "redstone_wall_torch" [PROP_FACING, PROP_LIT],
@@ -348,7 +407,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     CLAY "clay",
     SUGAR_CANE "sugar_cane"         [PROP_AGE_16],
     JUKEBOX "jukebox"               [PROP_HAS_RECORD],
-    WOODEN_FENCE "wooden_fence"     [PROP_WOOD_TYPE, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED], // Merged
+    WOODEN_FENCE "wooden_fence"     [PROP_ALL_WOOD_TYPE, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED], // Merged
     PUMPKIN "pumpkin",
     NETHERRACK "netherrack",
     SOUL_SAND "soul_sand",
@@ -364,7 +423,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     CAKE "cake"                     [PROP_CAKE_BITES],
     REPEATER "repeater"             [PROP_REPEATER_DELAY, PROP_FACING, PROP_LOCKED, PROP_POWERED],
     STAINED_GLASS "stained_glass"   [PROP_COLOR],
-    WOODEN_TRAPDOOR "wooden_trapdoor" [PROP_WOOD_TYPE, PROP_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED], // Merged
+    WOODEN_TRAPDOOR "wooden_trapdoor" [PROP_ALL_WOOD_TYPE, PROP_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED], // Merged
     STONE_BRICKS "stone_bricks",
     MOSSY_STONE_BRICKS "mossy_stone_bricks",
     CRACKED_STONE_BRICKS "cracked_stone_bricks",
@@ -376,25 +435,25 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     INFESTED_CRACKED_STONE_BRICKS "infested_cracked_stone_bricks",
     INFESTED_CHISELED_STONE_BRICKS "infested_chiseled_stone_bricks",
     BROWN_MUSHROOM_BLOCK "brown_mushroom_block" [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST],
-    RED_MUSHROOM_BLOCK "red_mushroom_block"     [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST],
-    MUSHROOM_STEM "mushroom_stem"               [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST],
+    RED_MUSHROOM_BLOCK "red_mushroom_block" [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST],
+    MUSHROOM_STEM "mushroom_stem"   [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST],
     IRON_BARS "iron_bars"           [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED],
     CHAIN "chain"                   [PROP_WATERLOGGED, PROP_AXIS],
     GLASS_PANE "glass_pane"         [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED],
     MELON "melon",
-    ATTACHED_PUMPKIN_STEM "attached_pumpkin_stem"   [PROP_FACING],
-    ATTACHED_MELON_STEM "attached_melon_stem"       [PROP_FACING],
-    PUMPKIN_STEM "pumpkin_stem"                     [PROP_AGE_8],
-    MELON_STEM "melon_stem"                         [PROP_AGE_8],
+    ATTACHED_PUMPKIN_STEM "attached_pumpkin_stem" [PROP_FACING],
+    ATTACHED_MELON_STEM "attached_melon_stem" [PROP_FACING],
+    PUMPKIN_STEM "pumpkin_stem"     [PROP_AGE_8],
+    MELON_STEM "melon_stem"         [PROP_AGE_8],
     VINE "vine"                     [PROP_UP, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST],
-    WOODEN_FENCE_GATE "fence_gate"  [PROP_WOOD_TYPE, PROP_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL], // Merged
-    BRICK_STAIRS "brick_stairs"                 [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
-    STONE_BRICK_STAIRS "stone_brick_stairs"     [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
-    MYCELIUM "mycelium"                         [PROP_SNOWY],
+    WOODEN_FENCE_GATE "fence_gate"  [PROP_ALL_WOOD_TYPE, PROP_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL], // Merged
+    BRICK_STAIRS "brick_stairs"     [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
+    STONE_BRICK_STAIRS "stone_brick_stairs" [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
+    MYCELIUM "mycelium"             [PROP_SNOWY],
     LILY_PAD "lily_pad",
     NETHER_BRICKS "nether_bricks",
-    NETHER_BRICK_FENCE "nether_brick_fence"     [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED],
-    NETHER_BRICK_STAIRS "nether_brick_stairs"   [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
+    NETHER_BRICK_FENCE "nether_brick_fence" [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED],
+    NETHER_BRICK_STAIRS "nether_brick_stairs" [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
     NETHER_WART "nether_wart"       [PROP_AGE_4],
     ENCHANTING_TABLE "enchanting_table",
     BREWING_STAND "brewing_stand"   [PROP_HAS_BOTTLE_0, PROP_HAS_BOTTLE_1, PROP_HAS_BOTTLE_2],
@@ -411,15 +470,57 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     TRIPWIRE_HOOK "tripwire_hook"   [PROP_ATTACHED, PROP_FACING, PROP_POWERED],
     TRIPWIRE "tripwire"             [PROP_ATTACHED, PROP_DISARMED, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_WEST, PROP_POWERED],
     EMERALD_BLOCK "emerald_block",
-    // Here: COMMAND_BLOCK
+    COMMAND_BLOCK "command_block"   [PROP_FACING, PROP_CONDITIONAL],
     BEACON "beacon",
-    COBBLESTONE_WALL "cobblestone_wall" [PROP_UP], // TODO: Finish, line 524 in Blocks.java
-
+    COBBLESTONE_WALL "cobblestone_wall" [PROP_UP, PROP_WALL_EAST, PROP_WALL_NORTH, PROP_WALL_SOUTH, PROP_WALL_WEST, PROP_WATERLOGGED],
+    MOSSY_COBBLESTONE_WALL "mossy_cobblestone_wall" [PROP_UP, PROP_WALL_EAST, PROP_WALL_NORTH, PROP_WALL_SOUTH, PROP_WALL_WEST, PROP_WATERLOGGED],
+    FLOWER_POT "flower_pot"         [PROP_POT_CONTENT], // Merged
+    CARROTS "carrots"               [PROP_AGE_8],
+    POTATOES "potatoes"             [PROP_AGE_8],
+    WOODEN_BUTTON "wooden_button"   [PROP_ALL_WOOD_TYPE],
+    SKULL "skull"                   [PROP_SKULL_TYPE, PROP_ROTATION],
+    WALL_SKULL "skull"              [PROP_SKULL_TYPE, PROP_FACING],
+    ANVIL "anvil"                   [PROP_FACING],
+    CHIPPED_ANVIL "chipped_anvil"   [PROP_FACING],
+    DAMAGED_ANVIL "damaged_anvil"   [PROP_FACING],
+    TRAPPED_CHEST "trapped_chest"   [PROP_FACING, PROP_CHEST_TYPE, PROP_WATERLOGGED],
+    LIGHT_WEIGHTED_PRESSURE_PLATE "light_weighted_pressure_plate" [PROP_REDSTONE_POWER],
+    HEAVY_WEIGHTED_PRESSURE_PLATE "heavy_weighted_pressure_plate" [PROP_REDSTONE_POWER],
+    COMPARATOR "comparator"         [PROP_FACING, PROP_COMPARATOR_MODE, PROP_POWERED],
+    DAYLIGHT_DETECTOR "daylight_detector" [PROP_INVERTED, PROP_REDSTONE_POWER],
+    REDSTONE_BLOCK "redstone_block",
+    NETHER_QUARTZ_ORE "nether_quartz_ore",
+    HOPPER "hopper"                 [PROP_FACING, PROP_ENABLED],
+    QUARTZ_BLOCK "quartz_block",
+    CHISELED_QUARTZ_BLOCK "chiseled_quartz_block",
+    QUARTZ_PILLAR "quartz_pillar"   [PROP_AXIS],
+    QUARTZ_STAIRS "quartz_stairs"   [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
+    ACTIVATOR_RAIL "activator_rail" [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
+    DROPPER "dropper"               [PROP_FACING_ALL, PROP_TRIGGERED],
+    TERRACOTTA "terracotta",
+    COLORED_TERRACOTTA "colored_terracotta" [PROP_COLOR], // Merged
+    STAINED_GLASS_PANE "stained_glass_pane" [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED, PROP_COLOR], // Merged
+    SLIME_BLOCK "slime_block",
+    BARRIER "barrier",
+    IRON_TRAPDOOR "iron_trapdoor"   [PROP_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED],
+    PRISMARINE "prismarine",
+    PRISMARINE_BRICKS "prismarine_bricks",
+    DARK_PRISMARINE "dark_prismarine",
+    PRISMARINE_STAIRS "prismarine_stairs" [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
+    PRISMARINE_BRICK_STAIRS "prismarine_brick_stairs" [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
+    DARK_PRISMARINE_STAIRS "dark_prismarine_stairs" [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED],
+    PRISMARINE_SLAB "prismarine_slab" [PROP_SLAB_TYPE],
+    PRISMARINE_BRICK_SLAB "prismarine_brick_slab" [PROP_SLAB_TYPE],
+    DARK_PRISMARINE_SLAB "dark_prismarine_slab" [PROP_SLAB_TYPE],
+    SEA_LANTERN "sea_lantern",
+    HAY_BLOCK "hay_block"           [PROP_AXIS],
+    CARPET "carpet"                 [PROP_COLOR], // Merged
+    COAL_BLOCK "coal_block",
+    PACKED_ICE "packed_ice",
+    // Blocks.java:655
 
     BAMBOO "bamboo"                 [PROP_BAMBOO_AGE, PROP_BAMBOO_LEAVES, PROP_BAMBOO_STAGE],
-    CARROTS "carrots"               [PROP_AGE_8],
     BEETROOTS "beetroots"           [PROP_AGE_4],
-    ANVIL "anvil"                   [PROP_FACING],
     BARREL "barrel"                 [PROP_FACING_ALL, PROP_OPEN],
     BEEHIVE "beehive"               [PROP_FACING, PROP_HONEY_LEVEL],
     BEE_NEST "bee_nest"             [PROP_FACING, PROP_HONEY_LEVEL],
@@ -431,26 +532,16 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     CHORUS_PLANT "chorus_plant"     [PROP_DOWN, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_UP, PROP_WEST],
     COMPOSTER "composter"           [PROP_COMPOSTER_LEVEL],
     CONDUIT "conduit"               [PROP_WATERLOGGED],
-    DAYLIGHT_DETECTOR "daylight_detector" [PROP_INVERTED, PROP_REDSTONE_POWER],
-    DROPPER "dropper"               [PROP_FACING_ALL, PROP_TRIGGERED],
     END_ROD "end_rod"               [PROP_FACING_ALL],
     FROSTED_ICE "frosted_ice"       [PROP_AGE_4],
     GRINDSTONE "grindstone"         [PROP_FACE, PROP_FACING],
-    HAY_BLOCK "hay_block"           [PROP_AXIS],
-    HOPPER "hopper"                 [PROP_ENABLED, PROP_FACING],
     KELP "kelp"                     [PROP_AGE_26],
     LANTERN "lantern"               [PROP_HANGING],
     LECTERN "lectern"               [PROP_FACING, PROP_HAS_BOOK, PROP_POWERED],
     LOOM "loom"                     [PROP_FACING],
     OBSERVER "observer"             [PROP_FACING, PROP_POWERED],
-    POTATOES "potatoes"             [PROP_AGE_8],
     POLISHED_BLACKSTONE_PRESSURE_PLATE "polished_blackstone_pressure_plate" [PROP_POWERED],
-    LIGHT_WEIGHTED_PRESSURE_PLATE "light_weighted_pressure_plate" [PROP_REDSTONE_POWER],
-    HEAVY_WEIGHTED_PRESSURE_PLATE "heavy_weighted_pressure_plate" [PROP_REDSTONE_POWER],
     PURPUR_PILLAR "purpur_pillar"   [PROP_AXIS],
-    QUARTZ_PILLAR "quartz_pillar"   [PROP_AXIS],
-    ACTIVATOR_RAIL "activator_rail" [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
-    COMPARATOR "comparator"         [PROP_FACING, PROP_COMPARATOR_MODE, PROP_POWERED],
     RESPAWN_ANCHOR "respawn_anchor" [PROP_CHARGES],
     SCAFFOLDING "scaffolding"       [PROP_BOTTOM, PROP_SCAFFOLDING_DISTANCE, PROP_WATERLOGGED],
     SEA_PICKLE "sea_pickle"         [PROP_PICKLES, PROP_WATERLOGGED],
@@ -458,8 +549,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     STONECUTTER "stonecutter"       [PROP_FACING],
     SWEET_BERRY_BUSH "sweet_berry_bush" [PROP_AGE_4],
     TURTLE_EGG "turtle_egg"         [PROP_EGGS, PROP_HATCH],
-    WATER "water"                   [PROP_LIQUID_FALLING],
-    FLOWING_WATER "flowing_water"   [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL]
 ]);
 
 
@@ -662,18 +751,6 @@ impl_enum_serializable!(WoodType {
 
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum NetherWoodType {
-    Crimson,
-    Warped
-}
-
-impl_enum_serializable!(NetherWoodType {
-    Crimson: "crimson",
-    Warped: "warped"
-});
-
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ChestType {
     Single,
     Left,
@@ -703,4 +780,110 @@ impl_enum_serializable!(StairsShape {
     InnerRight: "inner_right",
     OuterLeft: "outer_left",
     OuterRight: "outer_right"
+});
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum WallSide {
+    None,
+    Low,
+    Tall
+}
+
+impl_enum_serializable!(WallSide {
+    None: "none",
+    Low: "low",
+    Tall: "tall"
+});
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PotContent {
+    None,
+    OakSapling,
+    SpruceSapling,
+    BirchSapling,
+    JungleSapling,
+    AcaciaSapling,
+    DarkOakSapling,
+    Fern,
+    Dandelion,
+    Poppy,
+    BlueOrchid,
+    Allium,
+    AzureBluet,
+    RedTulip,
+    OrangeTulip,
+    WhiteTulip,
+    PinkTulip,
+    OxeyeDaisy,
+    Cornflower,
+    LilyOfTheValley,
+    WitherRose,
+    RedMushroom,
+    BrownMushroom,
+    DeadBush,
+    Cactus
+}
+
+impl_enum_serializable!(PotContent {
+    None: "none",
+    OakSapling: "oak_sapling",
+    SpruceSapling: "spruce_sapling",
+    BirchSapling: "birch_sapling",
+    JungleSapling: "jungle_sapling",
+    AcaciaSapling: "acacia_sapling",
+    DarkOakSapling: "dark_oak_sapling",
+    Fern: "fern",
+    Dandelion: "dandelion",
+    Poppy: "poppy",
+    BlueOrchid: "blue_orchid",
+    Allium: "allium",
+    AzureBluet: "azure_bluet",
+    RedTulip: "red_tulip",
+    OrangeTulip: "orange_tulip",
+    WhiteTulip: "white_tulip",
+    PinkTulip: "pink_tulip",
+    OxeyeDaisy: "oxeye_daisy",
+    Cornflower: "cornflower",
+    LilyOfTheValley: "lily_of_the_valley",
+    WitherRose: "wither_rose",
+    RedMushroom: "red_mushroom",
+    BrownMushroom: "brown_mushroom",
+    DeadBush: "dead_bush",
+    Cactus: "cactus"
+});
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SkullType {
+    Skeleton,
+    WitherSkeleton,
+    Zombie,
+    Creeper,
+    Dragon,
+    Player
+}
+
+impl_enum_serializable!(SkullType {
+    Skeleton: "skeleton",
+    WitherSkeleton: "wither_skeleton",
+    Zombie: "zombie",
+    Creeper: "creeper",
+    Dragon: "dragon",
+    Player: "player"
+});
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SlabType {
+    Top,
+    Bottom,
+    Double
+}
+
+impl_enum_serializable!(SlabType {
+    Top: "top",
+    Bottom: "bottom",
+    Double: "double"
 });

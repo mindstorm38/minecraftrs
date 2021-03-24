@@ -21,7 +21,7 @@ biomes!(VanillaBiomesStruct VanillaBiomes [
     DESERT "desert",
     DESERT_HILLS "desert_hills",
     DESERT_LAKES "desert_lakes",
-    DRIPSTONE_CAVES "dripstone_caves",
+    DRIPSTONE_CAVES "dripstone_caves", // 1.17
     END_BARRENS "end_barrens",
     END_MIDLANDS "end_midlands",
     END_HIGHLANDS "end_highlands",
