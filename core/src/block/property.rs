@@ -143,15 +143,25 @@ impl Debug for dyn UntypedProperty {
 }
 
 
+/// A Sync-able pointer container used for the `properties_groups!` macro.
+pub struct StaticPropertyPointer(pub *const dyn UntypedProperty);
+unsafe impl Sync for StaticPropertyPointer {}
+impl StaticPropertyPointer {
+    pub fn get_prop(&self) -> &'static dyn UntypedProperty {
+        unsafe { self.0.as_ref().unwrap() }
+    }
+}
+
+
 #[macro_export]
 macro_rules! properties {
     ($($v:vis $id:ident: $type_token:tt $params_token:tt;)*) => {
-        $($crate::properties_inner!($v $id: $type_token $params_token);)*
+        $($crate::inner_property!($v $id: $type_token $params_token);)*
     };
 }
 
 #[macro_export]
-macro_rules! properties_inner {
+macro_rules! inner_property {
     ($v:vis $id:ident: int($name:literal, $count:literal)) => {
         $v static $id: $crate::block::IntProperty = $crate::block::IntProperty($name, $count);
     };
@@ -159,11 +169,23 @@ macro_rules! properties_inner {
         $v static $id: $crate::block::BoolProperty = $crate::block::BoolProperty($name);
     };
     ($v:vis $id:ident: enum($name:literal, $enum_type:ty, $values_id:ident, [$($value:ident),+])) => {
-        static $values_id: [$enum_type; 0 $(+ (1, <$enum_type>::$value).0)+] = [$(<$enum_type>::$value),+];
+        static $values_id: [$enum_type; $crate::count!($($value)+)] = [$(<$enum_type>::$value),+];
         $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
     };
     ($v:vis $id:ident: enum($name:literal, $enum_type:ty, $values_id:ident)) => {
         $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
+    };
+}
+
+
+#[macro_export]
+macro_rules! properties_groups {
+    ($($v:vis $id:ident: [$($prop_const:ident),+];)*) => {
+        $(
+            $v static $id: [$crate::block::StaticPropertyPointer; $crate::count!($($prop_const)+)] = [
+                $($crate::block::StaticPropertyPointer(&$prop_const as *const dyn $crate::block::UntypedProperty)),+
+            ];
+        )*
     };
 }
 

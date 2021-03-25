@@ -75,7 +75,7 @@ impl BlockStateBuilder {
     /// Register a property to add to the built states. Properties are indexed
     /// by their name, so this method will panic if you add properties with the
     /// same name.
-    pub fn prop(mut self, property: &'static impl UntypedProperty) -> Self {
+    pub fn prop(mut self, property: &'static dyn UntypedProperty) -> Self {
         let data = self.get_data();
         if data.properties_names.contains(&property.name()) {
             panic!("Property '{}' already registered.", property.name())

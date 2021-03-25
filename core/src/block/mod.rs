@@ -180,10 +180,22 @@ impl<'a> WorkBlocks<'a> {
 
 
 #[macro_export]
+macro_rules! inner_blocks_prop {
+    ($state_builder:ident, $prop_const:ident) => {
+        $state_builder = $state_builder.prop(&$prop_const);
+    };
+    ($state_builder:ident, (...$props_group:ident)) => {
+        for ptr in &$props_group {
+            $state_builder = $state_builder.prop(ptr.get_prop());
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! blocks {
     ($struct_id:ident $static_id:ident [
         $(
-            $block_id:ident $block_name:literal $([ $($prop_const:ident),* ])?
+            $block_id:ident $block_name:literal $([ $($prop:tt),* ])?
         ),*
         $(,)?
     ]) => {
@@ -216,8 +228,11 @@ macro_rules! blocks {
                 let mut reg = Box::pin(Self {
                     $($block_id: inc(Block::new(
                         $block_name,
-                        BlockStateBuilder::with_capacity(0 $($(+ (1, &$prop_const).0)*)?)
-                            $($( .prop(&$prop_const) )*)?
+                        #[allow(unused_mut)] {
+                            let mut b = BlockStateBuilder::with_capacity($crate::count!($($($prop)*)?));
+                            $($($crate::inner_blocks_prop!(b, $prop);)*)?
+                            b
+                        }
                     )),)*
                     blocks: Vec::with_capacity(blocks_count),
                     states_count,

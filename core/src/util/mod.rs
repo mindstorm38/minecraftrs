@@ -83,3 +83,10 @@ impl DyeColor {
         unsafe { std::mem::transmute(self) }
     }
 }
+
+
+#[macro_export]
+macro_rules! count {
+    () => (0usize);
+    ( $x:tt $($xs:tt)* ) => (1usize + $crate::count!($($xs)*));
+}
