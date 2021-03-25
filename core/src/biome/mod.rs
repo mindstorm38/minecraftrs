@@ -132,13 +132,13 @@ macro_rules! biomes {
 
                 let mut biomes_count = 0;
 
-                fn inc(b: Biome, bc: &mut usize) -> Biome {
-                    *bc += 1;
+                let mut inc = |b: Biome| {
+                    biomes_count += 1;
                     b
-                }
+                };
 
                 let mut reg = Box::pin(Self {
-                    $($biome_id: inc(Biome::new($biome_name), &mut biomes_count),)*
+                    $($biome_id: inc(Biome::new($biome_name)),)*
                     biomes: Vec::with_capacity(biomes_count),
                     _marker: PhantomPinned
                 });

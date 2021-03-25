@@ -207,18 +207,18 @@ macro_rules! blocks {
                 let mut blocks_count = 0;
                 let mut states_count = 0;
 
-                fn inc(b: Pin<Box<Block>>, bc: &mut usize, sc: &mut usize) -> Pin<Box<Block>> {
-                    *bc += 1;
-                    *sc += b.get_states().len();
+                let mut inc = |b: Pin<Box<Block>>| {
+                    blocks_count += 1;
+                    states_count += b.get_states().len();
                     b
-                }
+                };
 
                 let mut reg = Box::pin(Self {
                     $($block_id: inc(Block::new(
                         $block_name,
                         BlockStateBuilder::with_capacity(0 $($(+ (1, &$prop_const).0)*)?)
                             $($( .prop(&$prop_const) )*)?
-                    ), &mut blocks_count, &mut states_count),)*
+                    )),)*
                     blocks: Vec::with_capacity(blocks_count),
                     states_count,
                     _marker: PhantomPinned

@@ -1,6 +1,5 @@
 use crate::{blocks, properties, impl_enum_serializable};
 use crate::util::{Direction, Axis, DyeColor};
-use crate::block::UntypedProperty;
 
 
 impl_enum_serializable!(Direction {
