@@ -352,7 +352,8 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     POWERED_RAIL "powered_rail"     [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
     DETECTOR_RAIL "detector_rail"   [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
     PISTON "piston"                 [PROP_STICKY, PROP_FACING_ALL, PROP_EXTENDED], // Merged the two piston type into one using a property "sticky".
-    PISTON_HEAD "piston_head"       [PROP_FACING_ALL, PROP_STICKY, PROP_SHORT],
+    PISTON_HEAD "piston_head"       [PROP_FACING_ALL, PROP_STICKY, PROP_SHORT], // 'sticky' property instead of 'type'
+    MOVING_PISTON "moving_piston"   [PROP_FACING_ALL, PROP_STICKY], // 'sticky' property instead of 'type'
     COBWEB "cobweb",
     GRASS "grass",
     FERN "fern",
@@ -360,7 +361,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     SEAGRASS "seagrass",
     TALL_SEAGRASS "tall_seagrass"   [(...PROPS_DOUBLE_PLANTS)],
     WOOL "wool"                     [PROP_COLOR],
-    // TODO: MOVING_PISTON (block 36)
     DANDELION "dandelion",
     POPPY "poppy",
     BLUE_ORCHID "blue_orchid",
