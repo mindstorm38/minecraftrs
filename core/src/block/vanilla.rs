@@ -385,8 +385,8 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     OBSIDIAN "obsidian",
     TORCH "torch",
     WALL_TORCH "wall_torch"         [PROP_FACING],
-    FIRE "fire"                     [(...PROPS_FIRE)], //[PROP_AGE_16, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST, PROP_UP],
-    SOUL_FIRE "fire"                [(...PROPS_FIRE)], //[PROP_AGE_16, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST, PROP_UP],
+    FIRE "fire"                     [(...PROPS_FIRE)],
+    SOUL_FIRE "fire"                [(...PROPS_FIRE)],
     SPAWNER "spawner",
     WOODEN_STAIRS "wooden_stairs"   [PROP_ALL_WOOD_TYPE, (...PROPS_STAIRS)], // Merged
     CHEST "chest"                   [(...PROPS_CESTS)],
