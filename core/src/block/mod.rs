@@ -125,7 +125,7 @@ impl Block {
                         state.set_block(block_ref);
                     }
                     if let Some(default_supplier) = default_supplier {
-                         *default_state_index = default_supplier(&states[0]).get_index();
+                         *default_state_index = default_supplier(&states[0]).get_index() as usize;
                     }
                 }
             }
@@ -264,7 +264,7 @@ impl<'a> WorkBlocks<'a> {
     pub fn get_uid_from(&self, state: &BlockState) -> Option<u16> {
         let block_uid = state.get_block().get_uid();
         let block_offset = *self.blocks_to_sid.get(&block_uid)?;
-        Some(block_offset + state.get_uid())
+        Some(block_offset + state.get_index())
     }
 
     pub fn get_state_from(&self, uid: u16) -> Option<&'a BlockState> {

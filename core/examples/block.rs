@@ -1,17 +1,21 @@
 use mc_core::block::{Block, WorkBlocks, Property, PropertySerializable, BlockState};
 use mc_core::block::vanilla::*;
 use mc_core::block::legacy::setup_legacy_ids;
-use std::mem::size_of;
 use std::time::Instant;
+use std::mem::size_of;
 
 
 fn main() {
 
-    let start = Instant::now();
+    /*let start = Instant::now();
     for _ in 0..1000 {
         VanillaBlocksStruct::load();
     }
-    println!("States loaded in {}s", start.elapsed().as_secs_f32() / 1000.0);
+    println!("States loaded in {}s", start.elapsed().as_secs_f32() / 1000.0);*/
+
+    let start = Instant::now();
+    &*VanillaBlocks;
+    println!("States loaded in {}ms", start.elapsed().as_secs_f32() * 1000.0);
 
     setup_legacy_ids();
 
@@ -49,13 +53,15 @@ fn main() {
     let test = &*VanillaBlocks.DIRT.get_ext::<TestBlockExt>().unwrap();
     println!("Dirt ext value: {} (in {}ns)", test.dummy_property, start.elapsed().as_nanos());
 
+
+
 }
 
 
 fn time_average_with<T, P>(state: &BlockState, prop: &P, value: T) -> u32
-where
-    T: PropertySerializable,
-    P: Property<T>
+    where
+        T: PropertySerializable,
+        P: Property<T>
 {
 
     let mut total_time = 0;

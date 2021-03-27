@@ -24,30 +24,33 @@ pub(crate) struct SharedProperty {
 /// To build states, use `BlockStateContainerBuilder` and add all wanted
 /// properties.
 pub struct BlockState {
-    /// Unique ID of this state within its block.
-    uid: u16,
-    /// Optional properties, must be `Some` if the state is in a block with properties.
-    properties: Option<BlockStateProperties>,
+    // /// Unique ID of this state within its block.
+    // uid: u16,
+    /// The index of this state within the shared data's states vector.
+    index: u16,
+    /// Array of property encoded values.
+    properties: Vec<u8>,
     /// Circular reference back to the owner
     block: NonNull<Block>
 }
 
 
-/// Internal storage for state's properties, if some.
+/*/// Internal storage for state's properties, if some.
 struct BlockStateProperties {
     /// Array of property encoded values.
     values: Vec<u8>,
     /// The index of this state within the shared data's states vector.
     index: usize
-}
+}*/
 
 
 impl BlockState {
 
     pub(crate) fn build_singleton() -> BlockState {
         BlockState {
-            uid: 0,
-            properties: None,
+            // uid: 0,
+            index: 0,
+            properties: Vec::new(),
             block: NonNull::dangling()
         }
     }
@@ -94,11 +97,8 @@ impl BlockState {
             }
 
             shared_states.push(BlockState {
-                uid: i as u16,
-                properties: Some(BlockStateProperties {
-                    index: i,
-                    values: state_properties
-                }),
+                index: i as u16,
+                properties: state_properties,
                 block: NonNull::dangling()
             });
 
@@ -108,8 +108,12 @@ impl BlockState {
 
     }
 
-    pub fn get_uid(&self) -> u16 {
+    /*pub fn get_uid(&self) -> u16 {
         self.uid
+    }*/
+
+    pub fn get_index(&self) -> u16 {
+        self.index
     }
 
     pub fn get_block(&self) -> &Block {
@@ -125,13 +129,6 @@ impl BlockState {
         self.block = block;
     }
 
-    pub(super) fn get_index(&self) -> usize {
-        match &self.properties {
-            None => 0,
-            Some(props) => props.index
-        }
-    }
-
     /// Get a block state property value if the property exists.
     pub fn get<T, P>(&self, property: &P) -> Option<T>
         where
@@ -139,10 +136,9 @@ impl BlockState {
             P: Property<T>
     {
 
-        let properties = self.properties.as_ref()?;
         let prop = self.get_block().get_shared_prop(&property.name())?;
         if prop.prop.type_id() == property.type_id() {
-            property.decode(properties.values[prop.index])
+            property.decode(self.properties[prop.index])
         } else {
             None
         }
@@ -165,19 +161,17 @@ impl BlockState {
             P: Property<T>
     {
 
-        let properties = self.properties.as_ref()?;
-
         let block = self.get_block();
         let prop = block.get_shared_prop(&property.name())?;
 
         let new_value = property.encode(value)? as isize;
-        let current_value = properties.values[prop.index] as isize;
+        let current_value = self.properties[prop.index] as isize;
 
         Some(if new_value == current_value {
             self
         } else {
             let value_diff = new_value - current_value;
-            let neighbor_index = (properties.index as isize + value_diff * prop.period as isize) as usize;
+            let neighbor_index = (self.index as isize + value_diff * prop.period as isize) as usize;
             block.get_state_unchecked(neighbor_index)
         })
 
@@ -190,7 +184,7 @@ impl Debug for BlockState {
 
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
 
-        let reprs = match (self.get_block().get_shared_props(), &self.properties) {
+        /*let reprs = match (self.get_block().get_shared_props(), &self.properties) {
             (Some(shared_properties), Some(properties)) => {
                 let mut reprs = HashMap::new();
                 for shared_prop in shared_properties.values() {
@@ -203,11 +197,13 @@ impl Debug for BlockState {
                 Some(reprs)
             },
             _ => None
-        };
+        };*/
+
+        let reprs: Option<bool> = None;
 
         f.debug_struct("BlockState")
             .field("block", &self.get_block().get_name())
-            .field("uid", &self.uid)
+            .field("index", &self.index)
             .field("properties", &reprs)
             //.field("index", &self.index)
             //.field("properties", &properties)
