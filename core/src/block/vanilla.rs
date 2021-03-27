@@ -1,4 +1,4 @@
-use crate::{blocks, properties, properties_groups, impl_enum_serializable};
+use crate::{blocks, properties, blocks_specs, impl_enum_serializable};
 use crate::util::{Direction, Axis, DyeColor};
 
 
@@ -106,15 +106,16 @@ properties! {
     pub PROP_WEST: bool("west");
     pub PROP_BOTTOM: bool("bottom");
 
-    pub PROP_FACING: enum("facing", Direction, FACING, [
+    pub PROP_HORIZONTAL_FACING: enum("facing", Direction, HORIZONTAL_FACING, [
         East, North, South, West
     ]);
 
-    pub PROP_FACING_ALL: enum("facing", Direction, FACING_ALL, [
+    pub PROP_FACING: enum("facing", Direction, FACING, [
         Down, East, North, South, Up, West
     ]);
 
     pub PROP_AXIS: enum("axis", Axis, AXIS, [X, Y, Z]);
+    pub PROP_HORIZONTAL_AXIS: enum("axis", Axis, HORIZONTAL_AXIS, [X, Z]);
 
     pub PROP_BAMBOO_LEAVES: enum("leaves", BambooLeaves, BAMBOO_LEAVES, [Large, None, Small]);
     pub PROP_BED_PART: enum("part", BedPart, BED_PART, [Foot, Head]);
@@ -261,15 +262,6 @@ properties! {
         WarpedRoots
     ]);
 
-    pub PROP_SKULL_TYPE: enum("type", SkullType, SKULL_TYPE, [
-        Skeleton,
-        WitherSkeleton,
-        Zombie,
-        Creeper,
-        Dragon,
-        Player
-    ]);
-
     pub PROP_JIGSAW_ORIENTATION: enum("orientation", FrontAndTop, JIGSAW_ORIENTATION, [
         DownEast,
         DownNorth,
@@ -287,18 +279,137 @@ properties! {
 
 }
 
-properties_groups! {
+/*properties_groups! {
     pub PROPS_FIRE: [PROP_AGE_16, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST, PROP_UP];
-    pub PROPS_STAIRS: [PROP_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
+    pub PROPS_STAIRS: [PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
     pub PROPS_WALLS: [PROP_UP, PROP_WALL_EAST, PROP_WALL_NORTH, PROP_WALL_SOUTH, PROP_WALL_WEST, PROP_WATERLOGGED];
     pub PROPS_MUSHROOM_BLOCKS: [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
     pub PROPS_BARS: [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
-    pub PROPS_CESTS: [PROP_FACING, PROP_CHEST_TYPE, PROP_WATERLOGGED];
-    pub PROPS_FENCE_GATES: [PROP_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
-    pub PROPS_TRAPDOORS: [PROP_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
-    pub PROPS_DOORS: [PROP_DOUBLE_BLOCK_HALF, PROP_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED];
+    pub PROPS_CESTS: [PROP_HORIZONTAL_FACING, PROP_CHEST_TYPE, PROP_WATERLOGGED];
+    pub PROPS_FENCE_GATES: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
+    pub PROPS_TRAPDOORS: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
+    pub PROPS_DOORS: [PROP_DOUBLE_BLOCK_HALF, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED];
     pub PROPS_DOUBLE_PLANTS: [PROP_DOUBLE_BLOCK_HALF];
-    pub PROPS_BUTTONS: [PROP_FACING, PROP_POWERED, PROP_FACE];
+    pub PROPS_BUTTONS: [PROP_HORIZONTAL_FACING, PROP_POWERED, PROP_FACE];
+}*/
+
+blocks_specs! {
+
+    pub SPEC_GRASS: [PROP_SNOWY];
+    pub SPEC_PLANKS: [PROP_ALL_WOOD_TYPE];
+    pub SPEC_FARMLAND: [PROP_FARMLAND_MOISTURE];
+    pub SPEC_SNOW: [PROP_SNOW_LAYERS];
+    pub SPEC_MUSHROOM_BLOCK: [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
+    pub SPEC_VINE: [PROP_UP, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
+    pub SPEC_CHORUS_PLANT: [PROP_DOWN, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_UP, PROP_WEST];
+    pub SPEC_CORAL: [PROP_CORAL_TYPE];
+    pub SPEC_SEA_PICKLE: [PROP_PICKLES, PROP_WATERLOGGED];
+    pub SPEC_BAMBOO: [PROP_BAMBOO_AGE, PROP_BAMBOO_LEAVES, PROP_BAMBOO_STAGE];
+
+    pub SPEC_CROP: [PROP_AGE_8];
+    pub SPEC_BEETROOTS: [PROP_AGE_4];
+    pub SPEC_CACTUS: [PROP_AGE_16];
+    pub SPEC_SUGAR_CANE: [PROP_AGE_16];
+    pub SPEC_NETHER_WART: [PROP_AGE_4];
+    pub SPEC_COCOA: [PROP_AGE_3, PROP_HORIZONTAL_FACING];
+    pub SPEC_DOUBLE_PLANT: [PROP_DOUBLE_BLOCK_HALF];
+    pub SPEC_CHORUS_FLOWER: [PROP_AGE_6];
+    pub SPEC_KELP: [PROP_AGE_26];
+    pub SPEC_NETHER_VINE: [PROP_AGE_26];
+    pub SPEC_SWEET_BERRY_BUSH: [PROP_AGE_4];
+
+    pub SPEC_STATIC_LIQUID: [PROP_LIQUID_FALLING];
+    pub SPEC_FLOWING_LIQUID: [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL];
+
+    pub SPEC_DISPENSER: [PROP_FACING, PROP_TRIGGERED];
+    pub SPEC_DROPPER: [PROP_FACING, PROP_TRIGGERED];
+    pub SPEC_OBSERVER: [PROP_FACING, PROP_POWERED];
+    pub SPEC_FURNACE_LIKE: [PROP_HORIZONTAL_FACING, PROP_LIT];
+    pub SPEC_BARREL: [PROP_FACING, PROP_OPEN];
+    pub SPEC_NOTE_BLOCK: [PROP_INSTRUMENT, PROP_NOTE, PROP_POWERED];
+    pub SPEC_BED: [PROP_COLOR, PROP_HORIZONTAL_FACING, PROP_BED_PART, PROP_OCCUPIED];
+    pub SPEC_BREWING_STAND: [PROP_HAS_BOTTLE_0, PROP_HAS_BOTTLE_1, PROP_HAS_BOTTLE_2];
+    pub SPEC_BUTTON: [PROP_HORIZONTAL_FACING, PROP_POWERED, PROP_FACE];
+    pub SPEC_WOODEN_BUTTON: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_POWERED, PROP_FACE];
+    pub SPEC_CHEST: [PROP_HORIZONTAL_FACING, PROP_CHEST_TYPE, PROP_WATERLOGGED];
+    pub SPEC_ENDER_CHEST: [PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
+    pub SPEC_REDSTONE_WIRE: [PROP_REDSTONE_POWER, PROP_REDSTONE_EAST, PROP_REDSTONE_NORTH, PROP_REDSTONE_SOUTH, PROP_REDSTONE_WEST];
+    pub SPEC_LEVER: [PROP_FACE, PROP_HORIZONTAL_FACING, PROP_POWERED];
+    pub SPEC_PRESSURE_PLATE: [PROP_POWERED];
+    pub SPEC_WOODEN_PRESSURE_PLATE: [PROP_ALL_WOOD_TYPE, PROP_POWERED];
+    pub SPEC_DOOR: [PROP_DOUBLE_BLOCK_HALF, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED];
+    pub SPEC_WOODEN_DOOR: [PROP_ALL_WOOD_TYPE, PROP_DOUBLE_BLOCK_HALF, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED];
+    pub SPEC_WALL_REDSTONE_TORCH: [PROP_HORIZONTAL_FACING, PROP_LIT];
+    pub SPEC_JUKEBOX: [PROP_HAS_RECORD];
+    pub SPEC_REPEATER: [PROP_REPEATER_DELAY, PROP_HORIZONTAL_FACING, PROP_LOCKED, PROP_POWERED];
+    pub SPEC_TRAPDOOR: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
+    pub SPEC_WOODEN_TRAPDOOR: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
+    pub SPEC_CAULDRON: [PROP_CAULDRON_LEVEL];
+    pub SPEC_TRIPWIRE_HOOK: [PROP_ATTACHED, PROP_HORIZONTAL_FACING, PROP_POWERED];
+    pub SPEC_TRIPWIRE: [PROP_ATTACHED, PROP_DISARMED, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_WEST, PROP_POWERED];
+    pub SPEC_COMMAND_BLOCK: [PROP_COMMAND_BLOCK_TYPE, PROP_HORIZONTAL_FACING, PROP_CONDITIONAL];
+    pub SPEC_COMPARATOR: [PROP_HORIZONTAL_FACING, PROP_COMPARATOR_MODE, PROP_POWERED];
+    pub SPEC_DAYLIGHT_DETECTOR: [PROP_INVERTED, PROP_REDSTONE_POWER];
+    pub SPEC_HOPPER: [PROP_HORIZONTAL_FACING, PROP_ENABLED];
+    pub SPEC_SHULKER_BOX: [PROP_FACING];
+    pub SPEC_COLORED_SHULKER_BOX: [PROP_FACING, PROP_COLOR];
+    pub SPEC_TURTLE_EGG: [PROP_EGGS, PROP_HATCH];
+    pub SPEC_GRINDSTONE: [PROP_FACE, PROP_HORIZONTAL_FACING];
+    pub SPEC_LECTERN: [PROP_HORIZONTAL_FACING, PROP_HAS_BOOK, PROP_POWERED];
+    pub SPEC_BELL: [PROP_BELL_ATTACHMENT, PROP_HORIZONTAL_FACING, PROP_POWERED];
+    pub SPEC_RESPAWN_ANCHOR: [PROP_CHARGES];
+    pub SPEC_COMPOSTER: [PROP_COMPOSTER_LEVEL];
+    pub SPEC_STRUCTURE_BLOCK: [PROP_STRUCTURE_MODE];
+    pub SPEC_JIGSAW: [PROP_JIGSAW_ORIENTATION];
+
+    pub SPEC_RAIL_SPECIAL: [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED];
+    pub SPEC_RAIL: [PROP_RAIL_SHAPE];
+
+    pub SPEC_PISTON: [PROP_STICKY, PROP_FACING, PROP_EXTENDED];
+    pub SPEC_PISTON_HEAD: [PROP_FACING, PROP_STICKY, PROP_SHORT];
+    pub SPEC_MOVING_PISTON: [PROP_FACING, PROP_STICKY];
+
+    pub SPEC_TNT: [PROP_UNSTABLE];
+    pub SPEC_WALL_TORCH: [PROP_HORIZONTAL_FACING];
+    pub SPEC_FIRE: [PROP_AGE_16, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST, PROP_UP];
+    pub SPEC_STAIRS: [PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
+    pub SPEC_WOODEN_STAIRS: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
+    pub SPEC_SLAB: [PROP_SLAB_TYPE];
+    pub SPEC_WOODEN_SLAB: [PROP_ALL_WOOD_TYPE, PROP_SLAB_TYPE];
+    pub SPEC_SIGN: [PROP_ALL_WOOD_TYPE, PROP_ROTATION, PROP_WATERLOGGED];
+    pub SPEC_WALL_SIGN: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
+    pub SPEC_LADDER: [PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
+    pub SPEC_NETHER_PORTAL: [PROP_HORIZONTAL_AXIS];
+    pub SPEC_CAKE: [PROP_CAKE_BITES];
+    pub SPEC_BARS: [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
+    pub SPEC_BARS_COLORED: [PROP_COLOR, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
+    pub SPEC_WOODEN_FENCE: [PROP_ALL_WOOD_TYPE, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
+    pub SPEC_WALL: [PROP_UP, PROP_WALL_EAST, PROP_WALL_NORTH, PROP_WALL_SOUTH, PROP_WALL_WEST, PROP_WATERLOGGED];
+    pub SPEC_WOODEN_FENCE_GATE: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
+    pub SPEC_END_PORTAL: [PROP_END_PORTAL_EYE, PROP_HORIZONTAL_FACING];
+    pub SPEC_SKULL: [PROP_ROTATION];
+    pub SPEC_WALL_SKULL: [PROP_HORIZONTAL_FACING];
+    pub SPEC_BANNER: [PROP_ROTATION, PROP_COLOR];
+    pub SPEC_WALL_BANNER: [PROP_HORIZONTAL_FACING, PROP_COLOR];
+    pub SPEC_FROSTED_ICE: [PROP_AGE_4];
+    pub SPEC_BUBBLE_COLUMN: [PROP_DRAG];
+    pub SPEC_SCAFFOLDING: [PROP_BOTTOM, PROP_SCAFFOLDING_DISTANCE, PROP_WATERLOGGED];
+    pub SPEC_LANTERN: [PROP_HANGING];
+    pub SPEC_CAMPFIRE: [PROP_HORIZONTAL_FACING, PROP_LIT, PROP_SIGNAL_FIRE, PROP_WATERLOGGED];
+    pub SPEC_BEEHIVE: [PROP_HORIZONTAL_FACING, PROP_HONEY_LEVEL];
+    pub SPEC_GLAZED_TERRACOTA: [PROP_COLOR, PROP_HORIZONTAL_FACING];
+
+    pub SPEC_COLORED: [PROP_COLOR];
+    pub SPEC_AXIS: [PROP_AXIS];
+    pub SPEC_HORIZONTAL_FACING: [PROP_HORIZONTAL_FACING];
+    pub SPEC_FACING: [PROP_FACING];
+    pub SPEC_AXIS_WATERLOGGED: [PROP_AXIS, PROP_WATERLOGGED];
+    pub SPEC_LIT: [PROP_LIT];
+    pub SPEC_WATERLOGGED: [PROP_WATERLOGGED];
+    pub SPEC_REDSTONE_POWER: [PROP_REDSTONE_POWER];
+    pub SPEC_NETHER_WOOD_TYPE: [PROP_NETHER_WOOD_TYPE];
+    pub SPEC_OVERWORLD_WOOD_TYPE : [PROP_OVERWORLD_WOOD_TYPE];
+
 }
 
 
@@ -314,18 +425,18 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     POLISHED_DIORITE "polished_diorite",
     ANDESITE "andesite",
     POLISHED_ANDESITE "polished_andesite",
-    GRASS_BLOCK "grass_block"       [PROP_SNOWY],
-    PODZOL "podzol"                 [PROP_SNOWY],
+    GRASS_BLOCK "grass_block" SPEC_GRASS,
+    PODZOL "podzol" SPEC_GRASS,
     DIRT "dirt",
     COARSE_DIRT "coarse_dirt",
     COBBLESTONE "cobblestone",
-    PLANKS "planks"                 [PROP_ALL_WOOD_TYPE], // Merged
-    SAPLING "sapling"               [PROP_OVERWORLD_WOOD_TYPE], // Merged
+    PLANKS "planks" SPEC_PLANKS, // Merged
+    SAPLING "sapling" SPEC_OVERWORLD_WOOD_TYPE, // Merged
     BEDROCK "bedrock",
-    WATER "water"                   [PROP_LIQUID_FALLING],
-    FLOWING_WATER "flowing_water"   [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL],
-    LAVA "lava"                     [PROP_LIQUID_FALLING],
-    FLOWING_LAVA "flowing_lava"     [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL],
+    WATER "water" SPEC_STATIC_LIQUID,
+    FLOWING_WATER "flowing_water" SPEC_FLOWING_LIQUID,
+    LAVA "lava" SPEC_STATIC_LIQUID,
+    FLOWING_LAVA "flowing_lava" SPEC_FLOWING_LIQUID,
     SAND "sand",
     RED_SAND "red_sand",
     GRAVEL "gravel",
@@ -333,34 +444,34 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     IRON_ORE "iron_ore",
     COAL_ORE "coal_ore",
     NETHER_GOLD_ORE "nether_gold_ore",
-    LOG "log"                       [PROP_OVERWORLD_WOOD_TYPE], // Merged
-    STRIPPED_LOG "stripped_log"     [PROP_OVERWORLD_WOOD_TYPE], // Merged
-    WOOD "wood"                     [PROP_OVERWORLD_WOOD_TYPE], // Merged
-    STRIPPED_WOOD "stripped_wood"   [PROP_OVERWORLD_WOOD_TYPE], // Merged
-    LEAVES "leaves"                 [PROP_OVERWORLD_WOOD_TYPE], // Merged
+    LOG "log" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+    STRIPPED_LOG "stripped_log" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+    WOOD "wood" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+    STRIPPED_WOOD "stripped_wood" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+    LEAVES "leaves" SPEC_OVERWORLD_WOOD_TYPE, // Merged
     SPONGE "sponge",
     WET_SPONGE "wet_sponge",
     GLASS "glass",
     LAPIS_ORE "lapis_ore",
     LAPIS_BLOCK "lapis_block",
-    DISPENSER "dispenser"           [PROP_FACING_ALL, PROP_TRIGGERED],
+    DISPENSER "dispenser" SPEC_DISPENSER,
     SANDSTONE "sandstone",
     CHISELED_SANDSTONE "chiseled_sandstone",
     CUT_SANDSTONE "cut_sandstone",
-    NOTE_BLOCK "note_block"         [PROP_INSTRUMENT, PROP_NOTE, PROP_POWERED],
-    BED "bed"                       [PROP_COLOR, PROP_FACING, PROP_BED_PART, PROP_OCCUPIED],
-    POWERED_RAIL "powered_rail"     [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
-    DETECTOR_RAIL "detector_rail"   [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
-    PISTON "piston"                 [PROP_STICKY, PROP_FACING_ALL, PROP_EXTENDED], // Merged the two piston type into one using a property "sticky".
-    PISTON_HEAD "piston_head"       [PROP_FACING_ALL, PROP_STICKY, PROP_SHORT], // 'sticky' property instead of 'type'
-    MOVING_PISTON "moving_piston"   [PROP_FACING_ALL, PROP_STICKY], // 'sticky' property instead of 'type'
+    NOTE_BLOCK "note_block" SPEC_NOTE_BLOCK,
+    BED "bed" SPEC_BED,
+    POWERED_RAIL "powered_rail" SPEC_RAIL_SPECIAL,
+    DETECTOR_RAIL "detector_rail" SPEC_RAIL_SPECIAL,
+    PISTON "piston" SPEC_PISTON, // Merged the two piston type into one using a property "sticky".
+    PISTON_HEAD "piston_head" SPEC_PISTON_HEAD, // 'sticky' property instead of 'type'
+    MOVING_PISTON "moving_piston" SPEC_MOVING_PISTON, // 'sticky' property instead of 'type'
     COBWEB "cobweb",
     GRASS "grass",
     FERN "fern",
     DEAD_BUSH "dead_bush",
     SEAGRASS "seagrass",
-    TALL_SEAGRASS "tall_seagrass"   [(...PROPS_DOUBLE_PLANTS)],
-    WOOL "wool"                     [PROP_COLOR],
+    TALL_SEAGRASS "tall_seagrass" SPEC_DOUBLE_PLANT,
+    WOOL "wool" SPEC_COLORED,
     DANDELION "dandelion",
     POPPY "poppy",
     BLUE_ORCHID "blue_orchid",
@@ -379,60 +490,60 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     GOLD_BLOCK "gold_block",
     IRON_BLOCK "iron_block",
     BRICKS "bricks",
-    TNT "tnt"                       [PROP_UNSTABLE],
+    TNT "tnt" SPEC_TNT,
     BOOKSHELF "bookshelf",
     MOSSY_COBBLESTONE "mossy_cobblestone",
     OBSIDIAN "obsidian",
     TORCH "torch",
-    WALL_TORCH "wall_torch"         [PROP_FACING],
-    FIRE "fire"                     [(...PROPS_FIRE)],
-    SOUL_FIRE "fire"                [(...PROPS_FIRE)],
+    WALL_TORCH "wall_torch" SPEC_WALL_TORCH,
+    FIRE "fire" SPEC_FIRE,
+    SOUL_FIRE "fire" SPEC_FIRE,
     SPAWNER "spawner",
-    WOODEN_STAIRS "wooden_stairs"   [PROP_ALL_WOOD_TYPE, (...PROPS_STAIRS)], // Merged
-    CHEST "chest"                   [(...PROPS_CESTS)],
-    REDSTONE_WIRE "redstone_wire"   [PROP_REDSTONE_POWER, PROP_REDSTONE_EAST, PROP_REDSTONE_NORTH, PROP_REDSTONE_SOUTH, PROP_REDSTONE_WEST],
+    WOODEN_STAIRS "wooden_stairs" SPEC_WOODEN_STAIRS, // Merged
+    CHEST "chest" SPEC_CHEST,
+    REDSTONE_WIRE "redstone_wire" SPEC_REDSTONE_WIRE,
     DIAMOND_ORE "diamond_ore",
     DIAMOND_BLOCK "diamond_block",
     CRAFTING_TABLE "crafting_table",
-    WHEAT "wheat"                   [PROP_AGE_8],
-    FARMLAND "farmland"             [PROP_FARMLAND_MOISTURE],
-    FURNACE "furnace"               [PROP_FACING, PROP_LIT],
-    SIGN "sign"                     [PROP_ALL_WOOD_TYPE, PROP_ROTATION, PROP_WATERLOGGED],
-    LADDER "ladder"                 [PROP_FACING, PROP_WATERLOGGED],
-    RAIL "rail"                     [PROP_RAIL_SHAPE],
-    COBBLESTONE_STAIRS "cobblestone_stairs" [(...PROPS_STAIRS)],
-    WALL_SIGN "wooden_wall_sign"    [PROP_ALL_WOOD_TYPE, PROP_FACING, PROP_WATERLOGGED], // Merged
-    LEVER "lever"                   [PROP_FACE, PROP_FACING, PROP_POWERED],
-    STONE_PRESSURE_PLATE "stone_pressure_plate" [PROP_POWERED],
-    IRON_DOOR "iron_door"           [(...PROPS_DOORS)],
-    WOODEN_PRESSURE_PLATE "wooden_pressure_plate" [PROP_ALL_WOOD_TYPE, PROP_POWERED], // Merged
-    REDSTONE_ORE "redstone_ore"     [PROP_LIT],
-    REDSTONE_TORCH "redstone_torch" [PROP_LIT],
-    REDSTONE_WALL_TORCH "redstone_wall_torch" [PROP_FACING, PROP_LIT],
-    STONE_BUTTON "stone_button"     [(...PROPS_BUTTONS)],
-    SNOW "snow"                     [PROP_SNOW_LAYERS],
+    WHEAT "wheat" SPEC_CROP,
+    FARMLAND "farmland" SPEC_FARMLAND,
+    FURNACE "furnace" SPEC_FURNACE_LIKE,
+    SIGN "sign" SPEC_SIGN,
+    LADDER "ladder" SPEC_LADDER,
+    RAIL "rail" SPEC_RAIL,
+    COBBLESTONE_STAIRS "cobblestone_stairs" SPEC_STAIRS,
+    WALL_SIGN "wall_sign" SPEC_WALL_SIGN, // Merged
+    LEVER "lever" SPEC_LEVER,
+    STONE_PRESSURE_PLATE "stone_pressure_plate" SPEC_PRESSURE_PLATE,
+    IRON_DOOR "iron_door" SPEC_DOOR,
+    WOODEN_PRESSURE_PLATE "wooden_pressure_plate" SPEC_WOODEN_PRESSURE_PLATE, // Merged
+    REDSTONE_ORE "redstone_ore" SPEC_LIT,
+    REDSTONE_TORCH "redstone_torch" SPEC_LIT,
+    REDSTONE_WALL_TORCH "redstone_wall_torch" SPEC_WALL_REDSTONE_TORCH,
+    STONE_BUTTON "stone_button" SPEC_BUTTON,
+    SNOW "snow" SPEC_SNOW,
     ICE "ice",
     SNOW_BLOCK "snow_block",
-    CACTUS "cactus"                 [PROP_AGE_16],
+    CACTUS "cactus" SPEC_CACTUS,
     CLAY "clay",
-    SUGAR_CANE "sugar_cane"         [PROP_AGE_16],
-    JUKEBOX "jukebox"               [PROP_HAS_RECORD],
+    SUGAR_CANE "sugar_cane" SPEC_SUGAR_CANE,
+    JUKEBOX "jukebox" SPEC_JUKEBOX,
     PUMPKIN "pumpkin",
     NETHERRACK "netherrack",
     SOUL_SAND "soul_sand",
     SOUL_SOIL "soul_soil",
-    BASALT "basalt"                 [PROP_AXIS],
-    POLISHED_BASALT "polished_basalt" [PROP_AXIS],
+    BASALT "basalt" SPEC_AXIS,
+    POLISHED_BASALT "polished_basalt" SPEC_AXIS,
     SOUL_TORCH "soul_torch",
-    SOUL_WALL_TORCH "soul_wall_torch" [PROP_FACING],
+    SOUL_WALL_TORCH "soul_wall_torch" SPEC_WALL_TORCH,
     GLOWSTONE "glowstone",
-    NETHER_PORTAL "nether_portal"   [PROP_AXIS],
-    CARVED_PUMPKIN "carved_pumpkin" [PROP_FACING],
-    JACK_O_LANTERN "jack_o_lantern" [PROP_FACING],
-    CAKE "cake"                     [PROP_CAKE_BITES],
-    REPEATER "repeater"             [PROP_REPEATER_DELAY, PROP_FACING, PROP_LOCKED, PROP_POWERED],
-    STAINED_GLASS "stained_glass"   [PROP_COLOR],
-    WOODEN_TRAPDOOR "wooden_trapdoor" [PROP_ALL_WOOD_TYPE, (...PROPS_TRAPDOORS)], // Merged
+    NETHER_PORTAL "nether_portal" SPEC_NETHER_PORTAL,
+    CARVED_PUMPKIN "carved_pumpkin" SPEC_HORIZONTAL_FACING,
+    JACK_O_LANTERN "jack_o_lantern" SPEC_HORIZONTAL_FACING,
+    CAKE "cake" SPEC_CAKE,
+    REPEATER "repeater" SPEC_REPEATER,
+    STAINED_GLASS "stained_glass" SPEC_COLORED,
+    WOODEN_TRAPDOOR "wooden_trapdoor" SPEC_WOODEN_TRAPDOOR, // Merged
     STONE_BRICKS "stone_bricks",
     MOSSY_STONE_BRICKS "mossy_stone_bricks",
     CRACKED_STONE_BRICKS "cracked_stone_bricks",
@@ -443,259 +554,271 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     INFESTED_MOSSY_STONE_BRICKS "infested_mossy_stone_bricks",
     INFESTED_CRACKED_STONE_BRICKS "infested_cracked_stone_bricks",
     INFESTED_CHISELED_STONE_BRICKS "infested_chiseled_stone_bricks",
-    BROWN_MUSHROOM_BLOCK "brown_mushroom_block" [(...PROPS_MUSHROOM_BLOCKS)],
-    RED_MUSHROOM_BLOCK "red_mushroom_block" [(...PROPS_MUSHROOM_BLOCKS)],
-    MUSHROOM_STEM "mushroom_stem"   [(...PROPS_MUSHROOM_BLOCKS)],
-    IRON_BARS "iron_bars"           [(...PROPS_BARS)],
-    CHAIN "chain"                   [PROP_WATERLOGGED, PROP_AXIS],
-    GLASS_PANE "glass_pane"         [(...PROPS_BARS)],
+    BROWN_MUSHROOM_BLOCK "brown_mushroom_block" SPEC_MUSHROOM_BLOCK,
+    RED_MUSHROOM_BLOCK "red_mushroom_block" SPEC_MUSHROOM_BLOCK,
+    MUSHROOM_STEM "mushroom_stem" SPEC_MUSHROOM_BLOCK,
+    IRON_BARS "iron_bars" SPEC_BARS,
+    CHAIN "chain" SPEC_AXIS_WATERLOGGED,
+    GLASS_PANE "glass_pane" SPEC_BARS,
     MELON "melon",
-    ATTACHED_PUMPKIN_STEM "attached_pumpkin_stem" [PROP_FACING],
-    ATTACHED_MELON_STEM "attached_melon_stem" [PROP_FACING],
-    PUMPKIN_STEM "pumpkin_stem"     [PROP_AGE_8],
-    MELON_STEM "melon_stem"         [PROP_AGE_8],
-    VINE "vine"                     [PROP_UP, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST],
-    BRICK_STAIRS "brick_stairs"     [(...PROPS_STAIRS)],
-    STONE_BRICK_STAIRS "stone_brick_stairs" [(...PROPS_STAIRS)],
-    MYCELIUM "mycelium"             [PROP_SNOWY],
+    ATTACHED_PUMPKIN_STEM "attached_pumpkin_stem" SPEC_HORIZONTAL_FACING,
+    ATTACHED_MELON_STEM "attached_melon_stem" SPEC_HORIZONTAL_FACING,
+    PUMPKIN_STEM "pumpkin_stem" SPEC_CROP,
+    MELON_STEM "melon_stem" SPEC_CROP,
+    VINE "vine" SPEC_VINE,
+    BRICK_STAIRS "brick_stairs" SPEC_STAIRS,
+    STONE_BRICK_STAIRS "stone_brick_stairs" SPEC_STAIRS,
+    MYCELIUM "mycelium" SPEC_GRASS,
     LILY_PAD "lily_pad",
     NETHER_BRICKS "nether_bricks",
-    NETHER_BRICK_FENCE "nether_brick_fence" [(...PROPS_BARS)],
-    NETHER_BRICK_STAIRS "nether_brick_stairs" [(...PROPS_STAIRS)],
-    NETHER_WART "nether_wart"       [PROP_AGE_4],
+    NETHER_BRICK_FENCE "nether_brick_fence" SPEC_BARS,
+    NETHER_BRICK_STAIRS "nether_brick_stairs" SPEC_STAIRS,
+    NETHER_WART "nether_wart" SPEC_NETHER_WART,
     ENCHANTING_TABLE "enchanting_table",
-    BREWING_STAND "brewing_stand"   [PROP_HAS_BOTTLE_0, PROP_HAS_BOTTLE_1, PROP_HAS_BOTTLE_2],
-    CAULDRON "cauldron"             [PROP_CAULDRON_LEVEL],
+    BREWING_STAND "brewing_stand" SPEC_BREWING_STAND,
+    CAULDRON "cauldron" SPEC_CAULDRON,
     END_PORTAL "end_portal",
-    END_PORTAL_FRAME "end_portal_frame" [PROP_END_PORTAL_EYE, PROP_FACING],
+    END_PORTAL_FRAME "end_portal_frame" SPEC_END_PORTAL,
     END_STONE "end_stone",
     DRAGON_EGG "dragon_egg",
-    REDSTONE_LAMP "redstone_lamp"   [PROP_LIT],
-    COCOA "cocoa"                   [PROP_AGE_3, PROP_FACING],
-    SANDSTONE_STAIRS "sandstone_stairs" [(...PROPS_STAIRS)],
+    REDSTONE_LAMP "redstone_lamp" SPEC_LIT,
+    COCOA "cocoa" SPEC_COCOA,
+    SANDSTONE_STAIRS "sandstone_stairs" SPEC_STAIRS,
     EMERALD_ORE "emerald_ore",
-    ENDER_CHEST "ender_chest"       [PROP_FACING, PROP_WATERLOGGED],
-    TRIPWIRE_HOOK "tripwire_hook"   [PROP_ATTACHED, PROP_FACING, PROP_POWERED],
-    TRIPWIRE "tripwire"             [PROP_ATTACHED, PROP_DISARMED, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_WEST, PROP_POWERED],
+    ENDER_CHEST "ender_chest" SPEC_ENDER_CHEST,
+    TRIPWIRE_HOOK "tripwire_hook" SPEC_TRIPWIRE_HOOK,
+    TRIPWIRE "tripwire" SPEC_TRIPWIRE,
     EMERALD_BLOCK "emerald_block",
-    COMMAND_BLOCK "command_block"   [PROP_COMMAND_BLOCK_TYPE, PROP_FACING, PROP_CONDITIONAL], // Merged
+    COMMAND_BLOCK "command_block" SPEC_COMMAND_BLOCK, // Merged
     BEACON "beacon",
-    COBBLESTONE_WALL "cobblestone_wall" [(...PROPS_WALLS)],
-    MOSSY_COBBLESTONE_WALL "mossy_cobblestone_wall" [(...PROPS_WALLS)],
-    FLOWER_POT "flower_pot"         [PROP_POT_CONTENT], // Merged
-    CARROTS "carrots"               [PROP_AGE_8],
-    POTATOES "potatoes"             [PROP_AGE_8],
-    WOODEN_BUTTON "wooden_button"   [PROP_ALL_WOOD_TYPE, (...PROPS_BUTTONS)],
-    SKULL "skull"                   [PROP_SKULL_TYPE, PROP_ROTATION],
-    WALL_SKULL "skull"              [PROP_SKULL_TYPE, PROP_FACING],
-    ANVIL "anvil"                   [PROP_FACING],
-    CHIPPED_ANVIL "chipped_anvil"   [PROP_FACING],
-    DAMAGED_ANVIL "damaged_anvil"   [PROP_FACING],
-    TRAPPED_CHEST "trapped_chest"   [(...PROPS_CESTS)],
-    LIGHT_WEIGHTED_PRESSURE_PLATE "light_weighted_pressure_plate" [PROP_REDSTONE_POWER],
-    HEAVY_WEIGHTED_PRESSURE_PLATE "heavy_weighted_pressure_plate" [PROP_REDSTONE_POWER],
-    COMPARATOR "comparator"         [PROP_FACING, PROP_COMPARATOR_MODE, PROP_POWERED],
-    DAYLIGHT_DETECTOR "daylight_detector" [PROP_INVERTED, PROP_REDSTONE_POWER],
+    COBBLESTONE_WALL "cobblestone_wall" SPEC_WALL,
+    MOSSY_COBBLESTONE_WALL "mossy_cobblestone_wall" SPEC_WALL,
+    // FLOWER_POT "flower_pot"         [PROP_POT_CONTENT], // Merged TODO
+    CARROTS "carrots" SPEC_CROP,
+    POTATOES "potatoes" SPEC_CROP,
+    WOODEN_BUTTON "wooden_button" SPEC_WOODEN_BUTTON,
+    // Skulls
+    SKELETON_SKULL "skeleton_skull" SPEC_SKULL,
+    SKELETON_WALL_SKULL "skeleton_wall_skull" SPEC_WALL_SKULL,
+    WITHER_SKELETON_SKULL "wither_skeleton_skull" SPEC_SKULL,
+    WITHER_SKELETON_WALL_SKULL "wither_skeleton_wall_skull" SPEC_WALL_SKULL,
+    ZOMBIE_HEAD "zombie_head" SPEC_SKULL,
+    ZOMBIE_WALL_HEAD "zombie_wall_head" SPEC_WALL_SKULL,
+    PLAYER_HEAD "player_head" SPEC_SKULL,
+    PLAYER_WALL_HEAD "player_wall_head" SPEC_WALL_SKULL,
+    CREEPER_HEAD "creeper_head" SPEC_SKULL,
+    CREEPER_WALL_HEAD "creeper_wall_head" SPEC_WALL_SKULL,
+    DRAGON_HEAD "dragon_head" SPEC_SKULL,
+    DRAGON_WALL_HEAD "dragon_wall_head" SPEC_WALL_SKULL,
+    // Anvils
+    ANVIL "anvil" SPEC_HORIZONTAL_FACING,
+    CHIPPED_ANVIL "chipped_anvil" SPEC_HORIZONTAL_FACING,
+    DAMAGED_ANVIL "damaged_anvil" SPEC_HORIZONTAL_FACING,
+    TRAPPED_CHEST "trapped_chest" SPEC_CHEST,
+    LIGHT_WEIGHTED_PRESSURE_PLATE "light_weighted_pressure_plate" SPEC_REDSTONE_POWER,
+    HEAVY_WEIGHTED_PRESSURE_PLATE "heavy_weighted_pressure_plate" SPEC_REDSTONE_POWER,
+    COMPARATOR "comparator" SPEC_COMPARATOR,
+    DAYLIGHT_DETECTOR "daylight_detector" SPEC_DAYLIGHT_DETECTOR,
     REDSTONE_BLOCK "redstone_block",
     NETHER_QUARTZ_ORE "nether_quartz_ore",
-    HOPPER "hopper"                 [PROP_FACING, PROP_ENABLED],
+    HOPPER "hopper" SPEC_HOPPER,
     QUARTZ_BLOCK "quartz_block",
     CHISELED_QUARTZ_BLOCK "chiseled_quartz_block",
-    QUARTZ_PILLAR "quartz_pillar"   [PROP_AXIS],
-    QUARTZ_STAIRS "quartz_stairs"   [(...PROPS_STAIRS)],
-    ACTIVATOR_RAIL "activator_rail" [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED],
-    DROPPER "dropper"               [PROP_FACING_ALL, PROP_TRIGGERED],
+    QUARTZ_PILLAR "quartz_pillar" SPEC_AXIS,
+    QUARTZ_STAIRS "quartz_stairs" SPEC_STAIRS,
+    ACTIVATOR_RAIL "activator_rail" SPEC_RAIL_SPECIAL,
+    DROPPER "dropper" SPEC_DROPPER,
     TERRACOTTA "terracotta",
-    COLORED_TERRACOTTA "colored_terracotta" [PROP_COLOR], // Merged
-    STAINED_GLASS_PANE "stained_glass_pane" [(...PROPS_BARS), PROP_COLOR], // Merged
+    COLORED_TERRACOTTA "colored_terracotta" SPEC_COLORED, // Merged
+    STAINED_GLASS_PANE "stained_glass_pane" SPEC_BARS_COLORED, // Merged
     SLIME_BLOCK "slime_block",
     BARRIER "barrier",
-    IRON_TRAPDOOR "iron_trapdoor"   [(...PROPS_TRAPDOORS)],
+    IRON_TRAPDOOR "iron_trapdoor" SPEC_TRAPDOOR,
     PRISMARINE "prismarine",
     PRISMARINE_BRICKS "prismarine_bricks",
     DARK_PRISMARINE "dark_prismarine",
-    PRISMARINE_STAIRS "prismarine_stairs" [(...PROPS_STAIRS)],
-    PRISMARINE_BRICK_STAIRS "prismarine_brick_stairs" [(...PROPS_STAIRS)],
-    DARK_PRISMARINE_STAIRS "dark_prismarine_stairs" [(...PROPS_STAIRS)],
-    PRISMARINE_SLAB "prismarine_slab" [PROP_SLAB_TYPE],
-    PRISMARINE_BRICK_SLAB "prismarine_brick_slab" [PROP_SLAB_TYPE],
-    DARK_PRISMARINE_SLAB "dark_prismarine_slab" [PROP_SLAB_TYPE],
+    PRISMARINE_STAIRS "prismarine_stairs" SPEC_STAIRS,
+    PRISMARINE_BRICK_STAIRS "prismarine_brick_stairs" SPEC_STAIRS,
+    DARK_PRISMARINE_STAIRS "dark_prismarine_stairs" SPEC_STAIRS,
+    PRISMARINE_SLAB "prismarine_slab" SPEC_SLAB,
+    PRISMARINE_BRICK_SLAB "prismarine_brick_slab" SPEC_SLAB,
+    DARK_PRISMARINE_SLAB "dark_prismarine_slab" SPEC_SLAB,
     SEA_LANTERN "sea_lantern",
-    HAY_BLOCK "hay_block"           [PROP_AXIS],
-    CARPET "carpet"                 [PROP_COLOR], // Merged
+    HAY_BLOCK "hay_block" SPEC_AXIS,
+    CARPET "carpet" SPEC_COLORED, // Merged
     COAL_BLOCK "coal_block",
     PACKED_ICE "packed_ice",
-    SUNFLOWER "sunflower"           [(...PROPS_DOUBLE_PLANTS)],
-    LILAC "lilac"                   [(...PROPS_DOUBLE_PLANTS)],
-    ROSE_BUSH "rose_bush"           [(...PROPS_DOUBLE_PLANTS)],
-    PEONY "peony"                   [(...PROPS_DOUBLE_PLANTS)],
-    TALL_GRASS "tall_grass"         [(...PROPS_DOUBLE_PLANTS)],
-    LARGE_FERN "large_fern"         [(...PROPS_DOUBLE_PLANTS)],
-    BANNER "banner"                 [PROP_ROTATION, PROP_COLOR], // Merged
-    WALL_BANNER "wall_banner"       [PROP_FACING, PROP_COLOR], // Merged
+    SUNFLOWER "sunflower" SPEC_DOUBLE_PLANT,
+    LILAC "lilac" SPEC_DOUBLE_PLANT,
+    ROSE_BUSH "rose_bush" SPEC_DOUBLE_PLANT,
+    PEONY "peony" SPEC_DOUBLE_PLANT,
+    TALL_GRASS "tall_grass" SPEC_DOUBLE_PLANT,
+    LARGE_FERN "large_fern" SPEC_DOUBLE_PLANT,
+    BANNER "banner" SPEC_BANNER, // Merged
+    WALL_BANNER "wall_banner" SPEC_WALL_BANNER, // Merged
     RED_SANDSTONE "red_sandstone",
     CHISELED_RED_SANDSTONE "chiseled_red_sandstone",
     CUT_RED_SANDSTONE "cut_red_sandstone",
-    RED_SANDSTONE_STAIRS "red_sandstone_stairs" [(...PROPS_STAIRS)],
-    WOODEN_SLAB "wooden_slab"       [PROP_ALL_WOOD_TYPE, PROP_SLAB_TYPE], // Merged
-    STONE_SLAB "stone_slab"         [PROP_SLAB_TYPE],
-    SMOOTH_STONE_SLAB "smooth_stone_slab" [PROP_SLAB_TYPE],
-    SANDSTONE_SLAB "sandstone_slab" [PROP_SLAB_TYPE],
-    CUT_SANDSTONE_SLAB "cut_sandstone_slab" [PROP_SLAB_TYPE],
-    PETRIFIED_OAK_SLAB "petrified_oak_slab" [PROP_SLAB_TYPE],
-    COBBLESTONE_SLAB "cobblestone_slab" [PROP_SLAB_TYPE],
-    BRICK_SLAB "brick_slab"         [PROP_SLAB_TYPE],
-    STONE_BRICK_SLAB "stone_brick_slab" [PROP_SLAB_TYPE],
-    NETHER_BRICK_SLAB "nether_brick_slab" [PROP_SLAB_TYPE],
-    QUARTZ_SLAB "quartz_slab"       [PROP_SLAB_TYPE],
-    RED_SANDSTONE_SLAB "red_sandstone_slab" [PROP_SLAB_TYPE],
-    CUT_RED_SANDSTONE_SLAB "cut_red_sandstone_slab" [PROP_SLAB_TYPE],
-    PURPUR_SLAB "purpur_slab"       [PROP_SLAB_TYPE],
+    RED_SANDSTONE_STAIRS "red_sandstone_stairs" SPEC_STAIRS,
+    WOODEN_SLAB "wooden_slab" SPEC_WOODEN_SLAB, // Merged
+    STONE_SLAB "stone_slab" SPEC_SLAB,
+    SMOOTH_STONE_SLAB "smooth_stone_slab" SPEC_SLAB,
+    SANDSTONE_SLAB "sandstone_slab" SPEC_SLAB,
+    CUT_SANDSTONE_SLAB "cut_sandstone_slab" SPEC_SLAB,
+    PETRIFIED_OAK_SLAB "petrified_oak_slab" SPEC_SLAB,
+    COBBLESTONE_SLAB "cobblestone_slab" SPEC_SLAB,
+    BRICK_SLAB "brick_slab" SPEC_SLAB,
+    STONE_BRICK_SLAB "stone_brick_slab" SPEC_SLAB,
+    NETHER_BRICK_SLAB "nether_brick_slab" SPEC_SLAB,
+    QUARTZ_SLAB "quartz_slab" SPEC_SLAB,
+    RED_SANDSTONE_SLAB "red_sandstone_slab" SPEC_SLAB,
+    CUT_RED_SANDSTONE_SLAB "cut_red_sandstone_slab" SPEC_SLAB,
+    PURPUR_SLAB "purpur_slab" SPEC_SLAB,
     SMOOTH_STONE "smooth_stone",
     SMOOTH_SANDSTONE "smooth_sandstone",
     SMOOTH_QUARTZ "smooth_quartz",
     SMOOTH_RED_SANDSTONE "smooth_red_sandstone",
-    WOODEN_FENCE_GATE "wooden_fence_gate" [PROP_ALL_WOOD_TYPE, (...PROPS_FENCE_GATES)], // Merged
-    WOODEN_FENCE "wooden_fence"     [PROP_ALL_WOOD_TYPE, (...PROPS_BARS)], // Merged
-    WOODEN_DOOR "wooden_door"       [PROP_ALL_WOOD_TYPE, (...PROPS_DOORS)], // Merged
-    END_ROD "end_rod"               [PROP_FACING_ALL],
-    CHORUS_PLANT "chorus_plant"     [PROP_DOWN, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_UP, PROP_WEST],
-    CHORUS_FLOWER "chorus_flower"   [PROP_AGE_6],
+    WOODEN_FENCE_GATE "wooden_fence_gate" SPEC_WOODEN_FENCE_GATE, // Merged
+    WOODEN_FENCE "wooden_fence" SPEC_WOODEN_FENCE, // Merged
+    WOODEN_DOOR "wooden_door" SPEC_WOODEN_DOOR, // Merged
+    END_ROD "end_rod" SPEC_FACING,
+    CHORUS_PLANT "chorus_plant" SPEC_CHORUS_PLANT,
+    CHORUS_FLOWER "chorus_flower" SPEC_CHORUS_FLOWER,
     PURPUR_BLOCK "purpur_block",
-    PURPUR_PILLAR "purpur_pillar"   [PROP_AXIS],
-    PURPUR_STAIRS "purpur_stairs"   [(...PROPS_STAIRS)],
+    PURPUR_PILLAR "purpur_pillar" SPEC_AXIS,
+    PURPUR_STAIRS "purpur_stairs" SPEC_STAIRS,
     END_STONE_BRICKS "end_stone_bricks",
-    BEETROOTS "beetroots"           [PROP_AGE_4],
+    BEETROOTS "beetroots" SPEC_BEETROOTS,
     GRASS_PATH "grass_path",
     END_GATEWAY "end_gateway",
-    FROSTED_ICE "frosted_ice"       [PROP_AGE_4],
+    FROSTED_ICE "frosted_ice" SPEC_FROSTED_ICE,
     MAGMA_BLOCK "magma_block",
     NETHER_WART_BLOCK "nether_wart_block",
     RED_NETHER_BRICKS "red_nether_bricks",
-    BONE_BLOCK "bone_block"         [PROP_AXIS],
+    BONE_BLOCK "bone_block" SPEC_AXIS,
     STRUCTURE_VOID "structure_void",
-    OBSERVER "observer"             [PROP_FACING_ALL, PROP_POWERED],
-    SHULKER_BOX "shulker_box"       [PROP_FACING_ALL],
-    COLORED_SHULKER_BOX "colored_shulker_box" [PROP_FACING_ALL], // Merged
-    GLAZED_TERRACOTTA "glazed_terracotta" [PROP_COLOR, PROP_FACING],
-    CONCRETE "concrete"             [PROP_COLOR],
-    CONCRETE_POWDER "concrete_powder" [PROP_COLOR],
-    KELP "kelp"                     [PROP_AGE_26],
+    OBSERVER "observer" SPEC_OBSERVER,
+    SHULKER_BOX "shulker_box" SPEC_SHULKER_BOX,
+    COLORED_SHULKER_BOX "colored_shulker_box" SPEC_COLORED_SHULKER_BOX, // Merged
+    GLAZED_TERRACOTTA "glazed_terracotta" SPEC_GLAZED_TERRACOTA,
+    CONCRETE "concrete" SPEC_COLORED,
+    CONCRETE_POWDER "concrete_powder" SPEC_COLORED,
+    KELP "kelp" SPEC_KELP,
     KELP_PLANT "kelp_plant",
     DRIED_KELP_BLOCK "dried_kelp_block",
-    TURTLE_EGG "turtle_egg"         [PROP_EGGS, PROP_HATCH],
-    CORAL_BLOCK "coral_block"       [PROP_CORAL_TYPE], // Merged
-    DEAD_CORAL_BLOCK "dead_coral_block" [PROP_CORAL_TYPE], // Merged
-    CORAL "coral"                   [PROP_CORAL_TYPE], // Merged
-    DEAD_CORAL "dead_coral"         [PROP_CORAL_TYPE], // Merged
-    CORAL_FAN "coral_fan"           [PROP_CORAL_TYPE], // Merged
-    DEAD_CORAL_FAN "dead_coral_fan" [PROP_CORAL_TYPE], // Merged
-    SEA_PICKLE "sea_pickle"         [PROP_PICKLES, PROP_WATERLOGGED],
+    TURTLE_EGG "turtle_egg" SPEC_TURTLE_EGG,
+    CORAL_BLOCK "coral_block" SPEC_CORAL, // Merged
+    DEAD_CORAL_BLOCK "dead_coral_block" SPEC_CORAL, // Merged
+    CORAL "coral" SPEC_CORAL, // Merged
+    DEAD_CORAL "dead_coral" SPEC_CORAL, // Merged
+    CORAL_FAN "coral_fan" SPEC_CORAL, // Merged
+    DEAD_CORAL_FAN "dead_coral_fan" SPEC_CORAL, // Merged
+    SEA_PICKLE "sea_pickle" SPEC_SEA_PICKLE,
     BLUE_ICE "blue_ice",
-    CONDUIT "conduit"               [PROP_WATERLOGGED],
+    CONDUIT "conduit" SPEC_WATERLOGGED,
     BAMBOO_SAPLING "bamboo_sapling",
-    BAMBOO "bamboo"                 [PROP_BAMBOO_AGE, PROP_BAMBOO_LEAVES, PROP_BAMBOO_STAGE],
+    BAMBOO "bamboo" SPEC_BAMBOO,
     // TODO: VOID_AIR, CAVE_AIR (skip them?)
-    BUBBLE_COLUMN "bubble_column"   [PROP_DRAG],
-    POLISHED_GRANITE_STAIRS "polished_granite_stairs" [(...PROPS_STAIRS)],
-    SMOOTH_RED_SANDSTONE_STAIRS "smooth_red_sandstone_stairs" [(...PROPS_STAIRS)],
-    MOSSY_STONE_BRICK_STAIRS "mossy_stone_brick_stairs" [(...PROPS_STAIRS)],
-    POLISHED_DIORITE_STAIRS "polished_diorite_stairs" [(...PROPS_STAIRS)],
-    MOSSY_COBBLESTONE_STAIRS "mossy_cobblestone_stairs" [(...PROPS_STAIRS)],
-    END_STONE_BRICK_STAIRS "end_stone_brick_stairs" [(...PROPS_STAIRS)],
-    STONE_STAIRS "stone_stairs"     [(...PROPS_STAIRS)],
-    SMOOTH_SANDSTONE_STAIRS "smooth_sandstone_stairs" [(...PROPS_STAIRS)],
-    SMOOTH_QUARTZ_STAIRS "smooth_quartz_stairs" [(...PROPS_STAIRS)],
-    GRANITE_STAIRS "granite_stairs" [(...PROPS_STAIRS)],
-    ANDESITE_STAIRS "andesite_stairs" [(...PROPS_STAIRS)],
-    RED_NETHER_BRICK_STAIRS "red_nether_brick_stairs" [(...PROPS_STAIRS)],
-    POLISHED_ANDESITE_STAIRS "polished_andesite_stairs" [(...PROPS_STAIRS)],
-    DIORITE_STAIRS "diorite_stairs" [(...PROPS_STAIRS)],
-    POLISHED_GRANITE_SLAB "polished_granite_slab" [PROP_SLAB_TYPE],
-    SMOOTH_RED_SANDSTONE_SLAB "smooth_red_sandstone_slab" [PROP_SLAB_TYPE],
-    MOSSY_STONE_BRICK_SLAB "mossy_stone_brick_slab" [PROP_SLAB_TYPE],
-    POLISHED_DIORITE_SLAB "polished_diorite_slab" [PROP_SLAB_TYPE],
-    MOSSY_COBBLESTONE_SLAB "mossy_cobblestone_slab" [PROP_SLAB_TYPE],
-    END_STONE_BRICK_SLAB "end_stone_brick_slab" [PROP_SLAB_TYPE],
-    SMOOTH_SANDSTONE_SLAB "smooth_sandstone_slab" [PROP_SLAB_TYPE],
-    SMOOTH_QUARTZ_SLAB "smooth_quartz_slab" [PROP_SLAB_TYPE],
-    GRANITE_SLAB "granite_slab"     [PROP_SLAB_TYPE],
-    ANDESITE_SLAB "andesite_slab"   [PROP_SLAB_TYPE],
-    RED_NETHER_BRICK_SLAB "red_nether_brick_slab" [PROP_SLAB_TYPE],
-    POLISHED_ANDESITE_SLAB "polished_andesite_slab" [PROP_SLAB_TYPE],
-    DIORITE_SLAB "diorite_slab"     [PROP_SLAB_TYPE],
-    BRICK_WALL "brick_wall"         [(...PROPS_WALLS)],
-    PRISMARINE_WALL "prismarine_wall" [(...PROPS_WALLS)],
-    RED_SANDSTONE_WALL "red_sandstone_wall" [(...PROPS_WALLS)],
-    MOSSY_STONE_BRICK_WALL "mossy_stone_brick_wall" [(...PROPS_WALLS)],
-    GRANITE_WALL "granite_wall"     [(...PROPS_WALLS)],
-    STONE_BRICK_WALL "stone_brick_wall" [(...PROPS_WALLS)],
-    NETHER_BRICK_WALL "nether_brick_wall" [(...PROPS_WALLS)],
-    ANDESITE_WALL "andesite_wall"   [(...PROPS_WALLS)],
-    RED_NETHER_BRICK_WALL "red_nether_brick_wall" [(...PROPS_WALLS)],
-    SANDSTONE_WALL "sandstone_wall" [(...PROPS_WALLS)],
-    END_STONE_BRICK_WALL "end_stone_brick_wall" [(...PROPS_WALLS)],
-    DIORITE_WALL "diorite_wall"     [(...PROPS_WALLS)],
-    SCAFFOLDING "scaffolding"       [PROP_BOTTOM, PROP_SCAFFOLDING_DISTANCE, PROP_WATERLOGGED],
-    LOOM "loom"                     [PROP_FACING],
-    BARREL "barrel"                 [PROP_FACING_ALL, PROP_OPEN],
-    SMOKER "smoker"                 [PROP_FACING, PROP_LIT],
-    BLAST_FURNACE "blast_furnace"   [PROP_FACING, PROP_LIT],
+    BUBBLE_COLUMN "bubble_column" SPEC_BUBBLE_COLUMN,
+    POLISHED_GRANITE_STAIRS "polished_granite_stairs" SPEC_STAIRS,
+    SMOOTH_RED_SANDSTONE_STAIRS "smooth_red_sandstone_stairs" SPEC_STAIRS,
+    MOSSY_STONE_BRICK_STAIRS "mossy_stone_brick_stairs" SPEC_STAIRS,
+    POLISHED_DIORITE_STAIRS "polished_diorite_stairs" SPEC_STAIRS,
+    MOSSY_COBBLESTONE_STAIRS "mossy_cobblestone_stairs" SPEC_STAIRS,
+    END_STONE_BRICK_STAIRS "end_stone_brick_stairs" SPEC_STAIRS,
+    STONE_STAIRS "stone_stairs" SPEC_STAIRS,
+    SMOOTH_SANDSTONE_STAIRS "smooth_sandstone_stairs" SPEC_STAIRS,
+    SMOOTH_QUARTZ_STAIRS "smooth_quartz_stairs" SPEC_STAIRS,
+    GRANITE_STAIRS "granite_stairs" SPEC_STAIRS,
+    ANDESITE_STAIRS "andesite_stairs" SPEC_STAIRS,
+    RED_NETHER_BRICK_STAIRS "red_nether_brick_stairs" SPEC_STAIRS,
+    POLISHED_ANDESITE_STAIRS "polished_andesite_stairs" SPEC_STAIRS,
+    DIORITE_STAIRS "diorite_stairs" SPEC_STAIRS,
+    POLISHED_GRANITE_SLAB "polished_granite_slab" SPEC_SLAB,
+    SMOOTH_RED_SANDSTONE_SLAB "smooth_red_sandstone_slab" SPEC_SLAB,
+    MOSSY_STONE_BRICK_SLAB "mossy_stone_brick_slab" SPEC_SLAB,
+    POLISHED_DIORITE_SLAB "polished_diorite_slab" SPEC_SLAB,
+    MOSSY_COBBLESTONE_SLAB "mossy_cobblestone_slab" SPEC_SLAB,
+    END_STONE_BRICK_SLAB "end_stone_brick_slab" SPEC_SLAB,
+    SMOOTH_SANDSTONE_SLAB "smooth_sandstone_slab" SPEC_SLAB,
+    SMOOTH_QUARTZ_SLAB "smooth_quartz_slab" SPEC_SLAB,
+    GRANITE_SLAB "granite_slab" SPEC_SLAB,
+    ANDESITE_SLAB "andesite_slab" SPEC_SLAB,
+    RED_NETHER_BRICK_SLAB "red_nether_brick_slab" SPEC_SLAB,
+    POLISHED_ANDESITE_SLAB "polished_andesite_slab" SPEC_SLAB,
+    DIORITE_SLAB "diorite_slab" SPEC_SLAB,
+    BRICK_WALL "brick_wall" SPEC_WALL,
+    PRISMARINE_WALL "prismarine_wall" SPEC_WALL,
+    RED_SANDSTONE_WALL "red_sandstone_wall" SPEC_WALL,
+    MOSSY_STONE_BRICK_WALL "mossy_stone_brick_wall" SPEC_WALL,
+    GRANITE_WALL "granite_wall" SPEC_WALL,
+    STONE_BRICK_WALL "stone_brick_wall" SPEC_WALL,
+    NETHER_BRICK_WALL "nether_brick_wall" SPEC_WALL,
+    ANDESITE_WALL "andesite_wall" SPEC_WALL,
+    RED_NETHER_BRICK_WALL "red_nether_brick_wall" SPEC_WALL,
+    SANDSTONE_WALL "sandstone_wall" SPEC_WALL,
+    END_STONE_BRICK_WALL "end_stone_brick_wall" SPEC_WALL,
+    DIORITE_WALL "diorite_wall" SPEC_WALL,
+    SCAFFOLDING "scaffolding" SPEC_SCAFFOLDING,
+    LOOM "loom" SPEC_HORIZONTAL_FACING,
+    BARREL "barrel" SPEC_BARREL,
+    SMOKER "smoker" SPEC_FURNACE_LIKE,
+    BLAST_FURNACE "blast_furnace" SPEC_FURNACE_LIKE,
     CARTOGRAPHY_TABLE "cartography_table",
     FLETCHING_TABLE "fletching_table",
-    GRINDSTONE "grindstone"         [PROP_FACE, PROP_FACING],
-    LECTERN "lectern"               [PROP_FACING, PROP_HAS_BOOK, PROP_POWERED],
+    GRINDSTONE "grindstone" SPEC_GRINDSTONE,
+    LECTERN "lectern" SPEC_LECTERN,
     SMITHING_TABLE "smithing_table",
-    STONECUTTER "stonecutter"       [PROP_FACING],
-    BELL "bell"                     [PROP_BELL_ATTACHMENT, PROP_FACING, PROP_POWERED],
-    LANTERN "lantern"               [PROP_HANGING],
-    SOUL_LANTERN "lantern"          [PROP_HANGING],
-    CAMPFIRE "campfire"             [PROP_FACING, PROP_LIT, PROP_SIGNAL_FIRE, PROP_WATERLOGGED],
-    SWEET_BERRY_BUSH "sweet_berry_bush" [PROP_AGE_4],
-    STEM "stem"                     [PROP_NETHER_WOOD_TYPE], // Merged
-    STRIPPED_STEM "stripped_stem"   [PROP_NETHER_WOOD_TYPE], // Merged
-    HYPHAE "hyphae"                 [PROP_NETHER_WOOD_TYPE], // Merged
-    STRIPPED_HYPHAE "stripped_hyphae" [PROP_NETHER_WOOD_TYPE], // Merged
-    NYLIUM "nylium"                 [PROP_NETHER_WOOD_TYPE], // Merged
-    FUNGUS "fungus"                 [PROP_NETHER_WOOD_TYPE], // Merged
-    ROOTS "roots"                   [PROP_NETHER_WOOD_TYPE], // Merged
+    STONECUTTER "stonecutter" SPEC_HORIZONTAL_FACING,
+    BELL "bell" SPEC_BELL,
+    LANTERN "lantern" SPEC_LANTERN,
+    SOUL_LANTERN "lantern" SPEC_LANTERN,
+    CAMPFIRE "campfire" SPEC_CAMPFIRE,
+    SWEET_BERRY_BUSH "sweet_berry_bush" SPEC_SWEET_BERRY_BUSH,
+    STEM "stem" SPEC_NETHER_WOOD_TYPE, // Merged
+    STRIPPED_STEM "stripped_stem" SPEC_NETHER_WOOD_TYPE, // Merged
+    HYPHAE "hyphae" SPEC_NETHER_WOOD_TYPE, // Merged
+    STRIPPED_HYPHAE "stripped_hyphae" SPEC_NETHER_WOOD_TYPE, // Merged
+    NYLIUM "nylium" SPEC_NETHER_WOOD_TYPE, // Merged
+    FUNGUS "fungus" SPEC_NETHER_WOOD_TYPE, // Merged
+    ROOTS "roots" SPEC_NETHER_WOOD_TYPE, // Merged
     WARPED_WART_BLOCK "warped_wart_block",
     NETHER_SPROUTS "nether_sprouts",
     SHROOMLIGHT "shroomlight",
-    WEEPING_VINES "weeping_vines"   [PROP_AGE_26],
+    WEEPING_VINES "weeping_vines" SPEC_NETHER_VINE,
     WEEPING_VINES_PLANT "weeping_vines_plant",
-    TWISTING_VINES "twisting_vines" [PROP_AGE_26],
+    TWISTING_VINES "twisting_vines" SPEC_NETHER_VINE,
     TWISTING_VINES_PLANT "twisting_vines_plant",
-    STRUCTURE_BLOCK "structure_block" [PROP_STRUCTURE_MODE],
-    JIGSAW "jigsaw"                 [PROP_JIGSAW_ORIENTATION],
-    COMPOSTER "composter"           [PROP_COMPOSTER_LEVEL],
-    TARGET "target"                 [PROP_REDSTONE_POWER],
-    BEE_NEST "bee_nest"             [PROP_FACING, PROP_HONEY_LEVEL],
-    BEEHIVE "beehive"               [PROP_FACING, PROP_HONEY_LEVEL],
+    STRUCTURE_BLOCK "structure_block" SPEC_STRUCTURE_BLOCK,
+    JIGSAW "jigsaw" SPEC_JIGSAW,
+    COMPOSTER "composter" SPEC_COMPOSTER,
+    TARGET "target" SPEC_REDSTONE_POWER,
+    BEE_NEST "bee_nest" SPEC_BEEHIVE,
+    BEEHIVE "beehive" SPEC_BEEHIVE,
     HONEY_BLOCK "honey_block",
     HONEYCOMB_BLOCK "honeycomb_block",
     NETHERITE_BLOCK "netherite_block",
     ANCIENT_DEBRIS "ancient_debris",
     CRYING_OBSIDIAN "crying_obsidian",
-    RESPAWN_ANCHOR "respawn_anchor" [PROP_CHARGES],
+    RESPAWN_ANCHOR "respawn_anchor" SPEC_RESPAWN_ANCHOR,
     LODESTONE "lodestone",
     BLACKSTONE "blackstone",
-    BLACKSTONE_STAIRS "blackstone_stairs" [(...PROPS_STAIRS)],
-    BLACKSTONE_WALL "blackstone_wall" [(...PROPS_WALLS)],
-    BLACKSTONE_SLAB "blackstone_slab" [PROP_SLAB_TYPE],
+    BLACKSTONE_STAIRS "blackstone_stairs" SPEC_STAIRS,
+    BLACKSTONE_WALL "blackstone_wall" SPEC_WALL,
+    BLACKSTONE_SLAB "blackstone_slab" SPEC_SLAB,
     POLISHED_BLACKSTONE "polished_blackstone",
     POLISHED_BLACKSTONE_BRICKS "polished_blackstone_bricks",
     CRACKED_POLISHED_BLACKSTONE_BRICKS "cracked_polished_blackstone_bricks",
     CHISELED_POLISHED_BLACKSTONE "chiseled_polished_blackstone",
-    POLISHED_BLACKSTONE_BRICK_SLAB "polished_blackstone_brick_slab" [PROP_SLAB_TYPE],
-    POLISHED_BLACKSTONE_BRICK_STAIRS "polished_blackstone_brick_stairs" [(...PROPS_STAIRS)],
-    POLISHED_BLACKSTONE_BRICK_WALL "polished_blackstone_brick_wall" [(...PROPS_WALLS)],
-    GILDED_BLACKSTONE "gilded_blackstone" [(...PROPS_WALLS)],
-    POLISHED_BLACKSTONE_STAIRS "polished_blackstone_stairs" [(...PROPS_STAIRS)],
-    POLISHED_BLACKSTONE_SLAB "polished_blackstone_slab" [PROP_SLAB_TYPE],
-    POLISHED_BLACKSTONE_PRESSURE_PLATE "polished_blackstone_pressure_plate" [PROP_POWERED],
-    POLISHED_BLACKSTONE_BUTTON "polished_blackstone_button" [(...PROPS_BUTTONS)],
-    POLISHED_BLACKSTONE_WALL "polished_blackstone_wall" [(...PROPS_WALLS)],
+    POLISHED_BLACKSTONE_BRICK_SLAB "polished_blackstone_brick_slab" SPEC_SLAB,
+    POLISHED_BLACKSTONE_BRICK_STAIRS "polished_blackstone_brick_stairs" SPEC_STAIRS,
+    POLISHED_BLACKSTONE_BRICK_WALL "polished_blackstone_brick_wall" SPEC_WALL,
+    GILDED_BLACKSTONE "gilded_blackstone" SPEC_WALL,
+    POLISHED_BLACKSTONE_STAIRS "polished_blackstone_stairs" SPEC_STAIRS,
+    POLISHED_BLACKSTONE_SLAB "polished_blackstone_slab" SPEC_SLAB,
+    POLISHED_BLACKSTONE_PRESSURE_PLATE "polished_blackstone_pressure_plate" SPEC_PRESSURE_PLATE,
+    POLISHED_BLACKSTONE_BUTTON "polished_blackstone_button" SPEC_BUTTON,
+    POLISHED_BLACKSTONE_WALL "polished_blackstone_wall" SPEC_WALL,
     CHISELED_NETHER_BRICKS "chiseled_nether_bricks",
     CRACKED_NETHER_BRICKS "cracked_nether_bricks",
     QUARTZ_BRICKS "quartz_bricks",
@@ -1013,26 +1136,6 @@ impl_enum_serializable!(PotContent {
     WarpedFungus: "warped_fungus",
     CrimsonRoots: "crimson_roots",
     WarpedRoots: "warped_roots"
-});
-
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum SkullType {
-    Skeleton,
-    WitherSkeleton,
-    Zombie,
-    Creeper,
-    Dragon,
-    Player
-}
-
-impl_enum_serializable!(SkullType {
-    Skeleton: "skeleton",
-    WitherSkeleton: "wither_skeleton",
-    Zombie: "zombie",
-    Creeper: "creeper",
-    Dragon: "dragon",
-    Player: "player"
 });
 
 

@@ -178,7 +178,7 @@ macro_rules! inner_property {
 }
 
 
-#[macro_export]
+/*#[macro_export]
 macro_rules! properties_groups {
     ($($v:vis $id:ident: [$($prop_const:ident),+];)*) => {
         $(
@@ -187,7 +187,7 @@ macro_rules! properties_groups {
             ];
         )*
     };
-}
+}*/
 
 
 #[macro_export]

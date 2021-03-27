@@ -26,10 +26,8 @@ pub mod legacy;
 pub struct Block {
     uid: u32,
     name: &'static str,
-    states: Vec<BlockState>,
-    properties: HashMap<&'static str, SharedProperty>,
+    states: BlockStorage,
     extensions: RwGenericMap,
-    default_state_index: usize,
     _marker: PhantomPinned
 }
 
@@ -38,21 +36,80 @@ pub struct Block {
 unsafe impl Send for Block {}
 unsafe impl Sync for Block {}
 
+
+/// Internal enumeration to avoid allocation over-head for single block. This
+/// allows blocks with no properties to avoid allocating two `Vec` and a `HashMap`.
+#[derive(Debug)]
+enum BlockStorage {
+    /// Storage for a single state.
+    Single(BlockState),
+    /// Storage when there is single or multiple properties. This type of storage
+    /// implies that all owned states must have BlockStateProperties::Some.
+    Complex {
+        states: Vec<BlockState>,
+        properties: HashMap<&'static str, SharedProperty>,
+        default_state_index: usize
+    }
+}
+
+
+/// Made for static definitions of all properties of a block.
+pub enum BlockSpec {
+    /// For blocks with no properties, they have a **single** state.
+    Single,
+    /// For blocks with some properties, requires a slice to a static array of properties
+    /// references. Use the `blocks_specs!` macro to generate such arrays.
+    Complex(&'static [&'static dyn UntypedProperty]),
+    /// Same a `Complex`, but with a callback function used to set the default block state.
+    ComplexWithDefault(&'static [&'static dyn UntypedProperty], fn(&BlockState) -> &BlockState)
+}
+
+
 impl Block {
 
-    pub fn new(name: &'static str, state_builder: BlockStateBuilder) -> Pin<Box<Block>> {
+    pub fn new(name: &'static str, spec: BlockSpec) -> Pin<Box<Block>> {
 
+        // Static UID generator, common to all blocks.
         static UID: UidGenerator = UidGenerator::new();
 
-        let (properties, states) = state_builder.build();
+        // Internal function to generate new BlockStorage from properties,
+        // if there are no properties, BlockStorage::Single is returned.
+        fn new_storage(properties: &'static [&'static dyn UntypedProperty]) -> BlockStorage {
+            if properties.is_empty() {
+                BlockStorage::Single(BlockState::build_singleton())
+            } else {
+
+                let (
+                    properties,
+                    states
+                ) = BlockState::build_complex(properties);
+
+                BlockStorage::Complex {
+                    states,
+                    properties,
+                    default_state_index: 0
+                }
+
+            }
+        }
+
+        // The default supplier is obviously useless for BlockStorage::Single.
+        let mut default_supplier = None;
+
+        let states = match spec {
+            BlockSpec::Single => BlockStorage::Single(BlockState::build_singleton()),
+            BlockSpec::Complex(properties) => new_storage(properties),
+            BlockSpec::ComplexWithDefault(properties, fun) => {
+                default_supplier = Some(fun);
+                new_storage(properties)
+            }
+        };
 
         let mut block = Box::pin(Block {
             uid: UID.next(),
             name,
             states,
-            properties,
             extensions: RwGenericMap::new(),
-            default_state_index: 0,
             _marker: PhantomPinned
         });
 
@@ -61,8 +118,16 @@ impl Block {
             let block_ref = NonNull::from(&*block);
             let block_mut = block.as_mut().get_unchecked_mut();
 
-            for state in &mut block_mut.states {
-                state.set_block(block_ref);
+            match &mut block_mut.states {
+                BlockStorage::Single(state) => state.set_block(block_ref),
+                BlockStorage::Complex { states, default_state_index, .. } => {
+                    for state in states.iter_mut() {
+                        state.set_block(block_ref);
+                    }
+                    if let Some(default_supplier) = default_supplier {
+                         *default_state_index = default_supplier(&states[0]).get_index();
+                    }
+                }
             }
 
         }
@@ -83,11 +148,20 @@ impl Block {
     }
 
     pub fn get_default_state(&self) -> &BlockState {
-        &self.states[self.default_state_index]
+        match &self.states {
+            BlockStorage::Single(state) => state,
+            BlockStorage::Complex {
+                states,
+                default_state_index, ..
+            } => &states[*default_state_index]
+        }
     }
 
     pub fn get_states(&self) -> &[BlockState] {
-        &self.states[..]
+        match &self.states {
+            BlockStorage::Single(state) => std::slice::from_ref(state),
+            BlockStorage::Complex { states, .. } => &states[..]
+        }
     }
 
     pub fn add_ext<E: Any + Sync + Send>(&self, ext: E) {
@@ -100,6 +174,37 @@ impl Block {
 
     pub fn get_ext_mut<E: Any + Sync + Send>(&self) -> Option<GuardedMut<E>> {
         self.extensions.get_mut()
+    }
+
+    /// Internal method for neighbor and values resolution of `BlockState`.
+    fn get_shared_prop(&self, name: &'static str) -> Option<&SharedProperty> {
+        match &self.states {
+            BlockStorage::Single(_) => None,
+            BlockStorage::Complex {
+                properties, ..
+            } => properties.get(&name)
+        }
+    }
+
+    /// Internal method for Debug implementation of `BlockState`.
+    fn get_shared_props(&self) -> Option<&HashMap<&'static str, SharedProperty>> {
+        match &self.states {
+            BlockStorage::Single(_) => None,
+            BlockStorage::Complex {
+                properties, ..
+            } => Some(properties)
+        }
+    }
+
+    /// Internal method for `BlockState` to get a state a specific index.
+    fn get_state_unchecked(&self, index: usize) -> &BlockState {
+        match &self.states {
+            BlockStorage::Single(state) => {
+                debug_assert!(index == 0, "index != 0 with BlockStorage::Single");
+                state
+            },
+            BlockStorage::Complex { states, .. } => &states[index]
+        }
     }
 
 }
@@ -136,13 +241,14 @@ impl<'a> WorkBlocks<'a> {
 
     pub fn register(&mut self, block: &'a Pin<Box<Block>>) {
         let block = &**block;
-        let block_len = block.states.len();
+        let states = block.get_states();
+        let states_count = states.len();
         let uid = self.next_sid;
-        self.next_sid = uid.checked_add(block_len as u16)
+        self.next_sid = uid.checked_add(states_count as u16)
             .expect("Too much block in this register.");
         self.blocks_to_sid.insert(block.uid, uid);
-        self.sid_to_states.reserve(block_len);
-        for state in &block.states {
+        self.sid_to_states.reserve(states_count);
+        for state in states {
             self.sid_to_states.push(state);
         }
     }
@@ -192,10 +298,27 @@ macro_rules! inner_blocks_prop {
 }
 
 #[macro_export]
+macro_rules! inner_blocks_spec {
+    () => { $crate::block::BlockSpec::Single };
+    ($spec_id:ident) => { $crate::block::BlockSpec::Complex(&$spec_id) }
+}
+
+#[macro_export]
+macro_rules! blocks_specs {
+    ($($v:vis $id:ident: [$($prop_const:ident),+];)*) => {
+        $(
+            $v static $id: [&'static dyn $crate::block::UntypedProperty; $crate::count!($($prop_const)+)] = [
+                $(&$prop_const),+
+            ];
+        )*
+    };
+}
+
+#[macro_export]
 macro_rules! blocks {
     ($struct_id:ident $static_id:ident [
         $(
-            $block_id:ident $block_name:literal $([ $($prop:tt),* ])?
+            $block_id:ident $block_name:literal $($spec_id:ident)?
         ),*
         $(,)?
     ]) => {
@@ -211,8 +334,9 @@ macro_rules! blocks {
         impl $struct_id {
             pub fn load() -> std::pin::Pin<Box<Self>> {
 
-                use $crate::block::{Block, BlockStateBuilder};
+                //use $crate::block::{Block, BlockStateBuilder};
                 use std::marker::PhantomPinned;
+                use $crate::block::Block;
                 use std::ptr::NonNull;
                 use std::pin::Pin;
 
@@ -228,11 +352,12 @@ macro_rules! blocks {
                 let mut reg = Box::pin(Self {
                     $($block_id: inc(Block::new(
                         $block_name,
-                        #[allow(unused_mut)] {
+                        $crate::inner_blocks_spec!($($spec_id)?)
+                        /*#[allow(unused_mut)] {
                             let mut b = BlockStateBuilder::with_capacity($crate::count!($($($prop)*)?));
                             $($($crate::inner_blocks_prop!(b, $prop);)*)?
                             b
-                        }
+                        }*/
                     )),)*
                     blocks: Vec::with_capacity(blocks_count),
                     states_count,
