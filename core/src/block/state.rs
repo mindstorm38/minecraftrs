@@ -24,8 +24,6 @@ pub(crate) struct SharedProperty {
 /// To build states, use `BlockStateContainerBuilder` and add all wanted
 /// properties.
 pub struct BlockState {
-    // /// Unique ID of this state within its block.
-    // uid: u16,
     /// The index of this state within the shared data's states vector.
     index: u16,
     /// Array of property encoded values.
@@ -35,20 +33,10 @@ pub struct BlockState {
 }
 
 
-/*/// Internal storage for state's properties, if some.
-struct BlockStateProperties {
-    /// Array of property encoded values.
-    values: Vec<u8>,
-    /// The index of this state within the shared data's states vector.
-    index: usize
-}*/
-
-
 impl BlockState {
 
     pub(crate) fn build_singleton() -> BlockState {
         BlockState {
-            // uid: 0,
             index: 0,
             properties: Vec::new(),
             block: NonNull::dangling()
@@ -107,10 +95,6 @@ impl BlockState {
         (shared_properties, shared_states)
 
     }
-
-    /*pub fn get_uid(&self) -> u16 {
-        self.uid
-    }*/
 
     pub fn get_index(&self) -> u16 {
         self.index
@@ -184,30 +168,26 @@ impl Debug for BlockState {
 
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
 
-        /*let reprs = match (self.get_block().get_shared_props(), &self.properties) {
-            (Some(shared_properties), Some(properties)) => {
+        let reprs = match self.get_block().get_shared_props() {
+            None => HashMap::new(),
+            Some(shared_properties) => {
                 let mut reprs = HashMap::new();
                 for shared_prop in shared_properties.values() {
                     let prop = shared_prop.prop;
                     reprs.insert(
                         prop.name(),
-                        prop.prop_to_string(properties.values[shared_prop.index]).unwrap()
+                        prop.prop_to_string(self.properties[shared_prop.index]).unwrap()
                     );
                 }
-                Some(reprs)
-            },
-            _ => None
-        };*/
-
-        let reprs: Option<bool> = None;
+                reprs
+            }
+        };
 
         f.debug_struct("BlockState")
             .field("block", &self.get_block().get_name())
             .field("index", &self.index)
             .field("properties", &reprs)
-            //.field("index", &self.index)
-            //.field("properties", &properties)
-            //.field("raw_properties", &self.properties)
+            .field("raw_properties", &self.properties)
             .finish()
 
     }
