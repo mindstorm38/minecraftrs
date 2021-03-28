@@ -285,12 +285,6 @@ impl<'a> WorkBlocks<'a> {
 }
 
 #[macro_export]
-macro_rules! inner_blocks_spec {
-    () => { $crate::block::BlockSpec::Single };
-    ($spec_id:ident) => { $crate::block::BlockSpec::Complex(&$spec_id) }
-}
-
-#[macro_export]
 macro_rules! blocks_specs {
     ($($v:vis $id:ident: [$($prop_const:ident),+];)*) => {
         $(
@@ -321,8 +315,10 @@ macro_rules! blocks {
         impl $struct_id {
             pub fn load() -> std::pin::Pin<Box<Self>> {
 
-                use std::marker::PhantomPinned;
+                use $crate::block::BlockSpec::*;
                 use $crate::block::Block;
+
+                use std::marker::PhantomPinned;
                 use std::ptr::NonNull;
                 use std::pin::Pin;
 
@@ -336,10 +332,7 @@ macro_rules! blocks {
                 };
 
                 let mut reg = Box::pin(Self {
-                    $($block_id: inc(Block::new(
-                        $block_name,
-                        $crate::inner_blocks_spec!($($spec_id)?)
-                    )),)*
+                    $($block_id: inc(Block::new($block_name, $crate::inner_blocks_spec!($($spec_id)?))),)*
                     blocks: Vec::with_capacity(blocks_count),
                     states_count,
                     _marker: PhantomPinned
@@ -347,7 +340,8 @@ macro_rules! blocks {
 
                 unsafe {
                     let reg_mut = reg.as_mut().get_unchecked_mut();
-                    $(reg_mut.blocks.push(NonNull::from(&reg_mut.$block_id));)*
+                    let reg_blocks = &mut reg_mut.blocks;
+                    $(reg_blocks.push(NonNull::from(&reg_mut.$block_id));)*
                 }
 
                 reg
@@ -379,4 +373,10 @@ macro_rules! blocks {
         pub static $static_id: once_cell::sync::Lazy<std::pin::Pin<Box<$struct_id>>> = once_cell::sync::Lazy::new(|| $struct_id::load());
 
     };
+}
+
+#[macro_export]
+macro_rules! inner_blocks_spec {
+    () => { Single };
+    ($spec_id:ident) => { Complex(&$spec_id) }
 }
