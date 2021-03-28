@@ -38,7 +38,7 @@ unsafe impl Sync for Block {}
 
 
 /// Internal enumeration to avoid allocation over-head for single block. This
-/// allows blocks with no properties to avoid allocating two `Vec` and a `HashMap`.
+/// allows blocks with no properties to avoid allocating a `Vec` and a `HashMap`.
 #[derive(Debug)]
 enum BlockStorage {
     /// Storage for a single state.
@@ -284,19 +284,6 @@ impl<'a> WorkBlocks<'a> {
 
 }
 
-
-#[macro_export]
-macro_rules! inner_blocks_prop {
-    ($state_builder:ident, $prop_const:ident) => {
-        $state_builder = $state_builder.prop(&$prop_const);
-    };
-    ($state_builder:ident, (...$props_group:ident)) => {
-        for ptr in &$props_group {
-            $state_builder = $state_builder.prop(ptr.get_prop());
-        }
-    };
-}
-
 #[macro_export]
 macro_rules! inner_blocks_spec {
     () => { $crate::block::BlockSpec::Single };
@@ -334,7 +321,6 @@ macro_rules! blocks {
         impl $struct_id {
             pub fn load() -> std::pin::Pin<Box<Self>> {
 
-                //use $crate::block::{Block, BlockStateBuilder};
                 use std::marker::PhantomPinned;
                 use $crate::block::Block;
                 use std::ptr::NonNull;
@@ -353,11 +339,6 @@ macro_rules! blocks {
                     $($block_id: inc(Block::new(
                         $block_name,
                         $crate::inner_blocks_spec!($($spec_id)?)
-                        /*#[allow(unused_mut)] {
-                            let mut b = BlockStateBuilder::with_capacity($crate::count!($($($prop)*)?));
-                            $($($crate::inner_blocks_prop!(b, $prop);)*)?
-                            b
-                        }*/
                     )),)*
                     blocks: Vec::with_capacity(blocks_count),
                     states_count,
