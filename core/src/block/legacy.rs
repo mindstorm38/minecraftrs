@@ -35,7 +35,7 @@ macro_rules! legacy {
 
 
 pub fn setup_legacy_ids() {
-    legacy! {
+    /*legacy! {
         // New syntax:
         1, 0  => STONE;
         1, 1  => GRANITE;
@@ -127,7 +127,7 @@ pub fn setup_legacy_ids() {
         //  - Slabs
         //  - Water / Lava
 
-    }
+    }*/
 }
 
 

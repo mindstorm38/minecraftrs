@@ -97,6 +97,8 @@ properties! {
     pub PROP_IN_WALL: bool("in_wall");
     pub PROP_CONDITIONAL: bool("conditional");
     pub PROP_DRAG: bool("drag");
+    pub PROP_PERSISTENT: bool("persistent");
+    pub PROP_LEAVES_DISTANCE: int("distance", 7);
 
     pub PROP_DOWN: bool("down");
     pub PROP_EAST: bool("east");
@@ -282,7 +284,8 @@ properties! {
 blocks_specs! {
 
     pub SPEC_GRASS: [PROP_SNOWY];
-    pub SPEC_PLANKS: [PROP_ALL_WOOD_TYPE];
+    pub SPEC_LEAVES: [PROP_LEAVES_DISTANCE, PROP_PERSISTENT];
+    // pub SPEC_PLANKS: [PROP_ALL_WOOD_TYPE];
     pub SPEC_FARMLAND: [PROP_FARMLAND_MOISTURE];
     pub SPEC_SNOW: [PROP_SNOW_LAYERS];
     pub SPEC_MUSHROOM_BLOCK: [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
@@ -371,7 +374,8 @@ blocks_specs! {
     pub SPEC_BARS_COLORED: [PROP_COLOR, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
     pub SPEC_WOODEN_FENCE: [PROP_ALL_WOOD_TYPE, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
     pub SPEC_WALL: [PROP_UP, PROP_WALL_EAST, PROP_WALL_NORTH, PROP_WALL_SOUTH, PROP_WALL_WEST, PROP_WATERLOGGED];
-    pub SPEC_WOODEN_FENCE_GATE: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
+    pub SPEC_FENCE_GATE: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
+    // pub SPEC_WOODEN_FENCE_GATE: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
     pub SPEC_END_PORTAL: [PROP_END_PORTAL_EYE, PROP_HORIZONTAL_FACING];
     pub SPEC_SKULL: [PROP_ROTATION];
     pub SPEC_WALL_SKULL: [PROP_HORIZONTAL_FACING];
@@ -416,8 +420,23 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     DIRT "dirt",
     COARSE_DIRT "coarse_dirt",
     COBBLESTONE "cobblestone",
-    PLANKS "planks" SPEC_PLANKS, // Merged
-    SAPLING "sapling" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+
+    OAK_PLANKS "oak_planks",
+    SPRUCE_PLANKS "spruce_planks",
+    BIRCH_PLANKS "birch_planks",
+    JUNGLE_PLANKS "jungle_planks",
+    ACACIA_PLANKS "acacia_planks",
+    DARK_OAK_PLANKS "dark_oak_planks",
+    // PLANKS "planks" SPEC_PLANKS, // Merged
+
+    OAK_SAPLING "oak_sapling",
+    SPRUCE_SAPLING "spruce_sapling",
+    BIRCH_SAPLING "birch_sapling",
+    JUNGLE_SAPLING "jungle_sapling",
+    ACACIA_SAPLING "acacia_sapling",
+    DARK_OAK_SAPLING "dark_oak_sapling",
+    // SAPLING "sapling" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+
     BEDROCK "bedrock",
     WATER "water" SPEC_STATIC_LIQUID,
     FLOWING_WATER "flowing_water" SPEC_FLOWING_LIQUID,
@@ -430,11 +449,47 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     IRON_ORE "iron_ore",
     COAL_ORE "coal_ore",
     NETHER_GOLD_ORE "nether_gold_ore",
-    LOG "log" SPEC_OVERWORLD_WOOD_TYPE, // Merged
-    STRIPPED_LOG "stripped_log" SPEC_OVERWORLD_WOOD_TYPE, // Merged
-    WOOD "wood" SPEC_OVERWORLD_WOOD_TYPE, // Merged
-    STRIPPED_WOOD "stripped_wood" SPEC_OVERWORLD_WOOD_TYPE, // Merged
-    LEAVES "leaves" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+
+    OAK_LOG "oak_log" SPEC_AXIS,
+    SPRUCE_LOG "spruce_log" SPEC_AXIS,
+    BIRCH_LOG "birch_log" SPEC_AXIS,
+    JUNGLE_LOG "jungle_log" SPEC_AXIS,
+    ACACIA_LOG "acacia_log" SPEC_AXIS,
+    DARK_OAK_LOG "dark_oak_log" SPEC_AXIS,
+    // LOG "log" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+
+    STRIPPED_OAK_LOG "stripped_oak_log" SPEC_AXIS,
+    STRIPPED_SPRUCE_LOG "stripped_spruce_log" SPEC_AXIS,
+    STRIPPED_BIRCH_LOG "stripped_birch_log" SPEC_AXIS,
+    STRIPPED_JUNGLE_LOG "stripped_jungle_log" SPEC_AXIS,
+    STRIPPED_ACACIA_LOG "stripped_acacia_log" SPEC_AXIS,
+    STRIPPED_DARK_OAK_LOG "stripped_dark_oak_log" SPEC_AXIS,
+    // STRIPPED_LOG "stripped_log" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+
+    OAK_WOOD "oak_wood" SPEC_AXIS,
+    SPRUCE_WOOD "spruce_wood" SPEC_AXIS,
+    BIRCH_WOOD "birch_wood" SPEC_AXIS,
+    JUNGLE_WOOD "jungle_wood" SPEC_AXIS,
+    ACACIA_WOOD "acacia_wood" SPEC_AXIS,
+    DARK_OAK_WOOD "dark_oak_wood" SPEC_AXIS,
+    // WOOD "wood" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+
+    STRIPPED_OAK_WOOD "stripped_oak_wood" SPEC_AXIS,
+    STRIPPED_SPRUCE_WOOD "stripped_spruce_wood" SPEC_AXIS,
+    STRIPPED_BIRCH_WOOD "stripped_birch_wood" SPEC_AXIS,
+    STRIPPED_JUNGLE_WOOD "stripped_jungle_wood" SPEC_AXIS,
+    STRIPPED_ACACIA_WOOD "stripped_acacia_wood" SPEC_AXIS,
+    STRIPPED_DARK_OAK_WOOD "stripped_dark_oak_wood" SPEC_AXIS,
+    // STRIPPED_WOOD "stripped_wood" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+
+    OAK_LEAVES "oak_leaves" SPEC_LEAVES,
+    SPRUCE_LEAVES "spruce_leaves" SPEC_LEAVES,
+    BIRCH_LEAVES "birch_leaves" SPEC_LEAVES,
+    JUNGLE_LEAVES "jungle_leaves" SPEC_LEAVES,
+    ACACIA_LEAVES "acacia_leaves" SPEC_LEAVES,
+    DARK_OAK_LEAVES "dark_oak_leaves" SPEC_LEAVES,
+    // LEAVES "leaves" SPEC_OVERWORLD_WOOD_TYPE, // Merged
+
     SPONGE "sponge",
     WET_SPONGE "wet_sponge",
     GLASS "glass",
@@ -664,7 +719,16 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     SMOOTH_SANDSTONE "smooth_sandstone",
     SMOOTH_QUARTZ "smooth_quartz",
     SMOOTH_RED_SANDSTONE "smooth_red_sandstone",
-    WOODEN_FENCE_GATE "wooden_fence_gate" SPEC_WOODEN_FENCE_GATE, // Merged
+
+    OAK_FENCE_GATE "oak_fence_gate" SPEC_FENCE_GATE,
+    SPRUCE_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
+    BIRCH_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
+    JUNGLE_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
+    ACACIA_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
+    DARK_OAK_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
+
+    // WOODEN_FENCE_GATE "wooden_fence_gate" SPEC_WOODEN_FENCE_GATE, // Merged
+
     WOODEN_FENCE "wooden_fence" SPEC_WOODEN_FENCE, // Merged
     WOODEN_DOOR "wooden_door" SPEC_WOODEN_DOOR, // Merged
     END_ROD "end_rod" SPEC_FACING,
