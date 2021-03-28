@@ -190,7 +190,7 @@ properties! {
         Compare, Subtract
     ]);
 
-    pub PROP_OVERWORLD_WOOD_TYPE: enum("wood_type", WoodType, OVERWORLD_WOOD_TYPE, [
+    /*pub PROP_OVERWORLD_WOOD_TYPE: enum("wood_type", WoodType, OVERWORLD_WOOD_TYPE, [
         Oak, Spruce, Birch, Jungle, Acacia, DarkOak //, Crimson, Warped
     ]);
 
@@ -200,7 +200,7 @@ properties! {
 
     pub PROP_ALL_WOOD_TYPE: enum("wood_type", WoodType, ALL_WOOD_TYPE, [
         Oak, Spruce, Birch, Jungle, Acacia, DarkOak, Crimson, Warped
-    ]);
+    ]);*/
 
     pub PROP_REDSTONE_EAST: enum("east", RedstoneWireMode, REDSTONE_MODE);
     pub PROP_REDSTONE_NORTH: enum("north", RedstoneWireMode, REDSTONE_MODE);
@@ -319,20 +319,20 @@ blocks_specs! {
     pub SPEC_BED: [PROP_COLOR, PROP_HORIZONTAL_FACING, PROP_BED_PART, PROP_OCCUPIED];
     pub SPEC_BREWING_STAND: [PROP_HAS_BOTTLE_0, PROP_HAS_BOTTLE_1, PROP_HAS_BOTTLE_2];
     pub SPEC_BUTTON: [PROP_HORIZONTAL_FACING, PROP_POWERED, PROP_FACE];
-    pub SPEC_WOODEN_BUTTON: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_POWERED, PROP_FACE];
+    // pub SPEC_WOODEN_BUTTON: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_POWERED, PROP_FACE];
     pub SPEC_CHEST: [PROP_HORIZONTAL_FACING, PROP_CHEST_TYPE, PROP_WATERLOGGED];
     pub SPEC_ENDER_CHEST: [PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
     pub SPEC_REDSTONE_WIRE: [PROP_REDSTONE_POWER, PROP_REDSTONE_EAST, PROP_REDSTONE_NORTH, PROP_REDSTONE_SOUTH, PROP_REDSTONE_WEST];
     pub SPEC_LEVER: [PROP_FACE, PROP_HORIZONTAL_FACING, PROP_POWERED];
     pub SPEC_PRESSURE_PLATE: [PROP_POWERED];
-    pub SPEC_WOODEN_PRESSURE_PLATE: [PROP_ALL_WOOD_TYPE, PROP_POWERED];
+    // pub SPEC_WOODEN_PRESSURE_PLATE: [PROP_ALL_WOOD_TYPE, PROP_POWERED];
     pub SPEC_DOOR: [PROP_DOUBLE_BLOCK_HALF, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED];
-    pub SPEC_WOODEN_DOOR: [PROP_ALL_WOOD_TYPE, PROP_DOUBLE_BLOCK_HALF, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED];
+    // pub SPEC_WOODEN_DOOR: [PROP_ALL_WOOD_TYPE, PROP_DOUBLE_BLOCK_HALF, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED];
     pub SPEC_WALL_REDSTONE_TORCH: [PROP_HORIZONTAL_FACING, PROP_LIT];
     pub SPEC_JUKEBOX: [PROP_HAS_RECORD];
     pub SPEC_REPEATER: [PROP_REPEATER_DELAY, PROP_HORIZONTAL_FACING, PROP_LOCKED, PROP_POWERED];
     pub SPEC_TRAPDOOR: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
-    pub SPEC_WOODEN_TRAPDOOR: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
+    // pub SPEC_WOODEN_TRAPDOOR: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
     pub SPEC_CAULDRON: [PROP_CAULDRON_LEVEL];
     pub SPEC_TRIPWIRE_HOOK: [PROP_ATTACHED, PROP_HORIZONTAL_FACING, PROP_POWERED];
     pub SPEC_TRIPWIRE: [PROP_ATTACHED, PROP_DISARMED, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_WEST, PROP_POWERED];
@@ -362,17 +362,17 @@ blocks_specs! {
     pub SPEC_WALL_TORCH: [PROP_HORIZONTAL_FACING];
     pub SPEC_FIRE: [PROP_AGE_16, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST, PROP_UP];
     pub SPEC_STAIRS: [PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
-    pub SPEC_WOODEN_STAIRS: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
+    // pub SPEC_WOODEN_STAIRS: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
     pub SPEC_SLAB: [PROP_SLAB_TYPE];
-    pub SPEC_WOODEN_SLAB: [PROP_ALL_WOOD_TYPE, PROP_SLAB_TYPE];
-    pub SPEC_SIGN: [PROP_ALL_WOOD_TYPE, PROP_ROTATION, PROP_WATERLOGGED];
-    pub SPEC_WALL_SIGN: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
+    // pub SPEC_WOODEN_SLAB: [PROP_ALL_WOOD_TYPE, PROP_SLAB_TYPE];
+    pub SPEC_SIGN: [/*PROP_ALL_WOOD_TYPE, */PROP_ROTATION, PROP_WATERLOGGED];
+    pub SPEC_WALL_SIGN: [/*PROP_ALL_WOOD_TYPE, */PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
     pub SPEC_LADDER: [PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
     pub SPEC_NETHER_PORTAL: [PROP_HORIZONTAL_AXIS];
     pub SPEC_CAKE: [PROP_CAKE_BITES];
     pub SPEC_BARS: [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
     pub SPEC_BARS_COLORED: [PROP_COLOR, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
-    pub SPEC_WOODEN_FENCE: [PROP_ALL_WOOD_TYPE, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
+    // pub SPEC_WOODEN_FENCE: [PROP_ALL_WOOD_TYPE, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
     pub SPEC_WALL: [PROP_UP, PROP_WALL_EAST, PROP_WALL_NORTH, PROP_WALL_SOUTH, PROP_WALL_WEST, PROP_WATERLOGGED];
     pub SPEC_FENCE_GATE: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
     // pub SPEC_WOODEN_FENCE_GATE: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
@@ -397,8 +397,8 @@ blocks_specs! {
     pub SPEC_LIT: [PROP_LIT];
     pub SPEC_WATERLOGGED: [PROP_WATERLOGGED];
     pub SPEC_REDSTONE_POWER: [PROP_REDSTONE_POWER];
-    pub SPEC_NETHER_WOOD_TYPE: [PROP_NETHER_WOOD_TYPE];
-    pub SPEC_OVERWORLD_WOOD_TYPE : [PROP_OVERWORLD_WOOD_TYPE];
+    // pub SPEC_NETHER_WOOD_TYPE: [PROP_NETHER_WOOD_TYPE];
+    // pub SPEC_OVERWORLD_WOOD_TYPE : [PROP_OVERWORLD_WOOD_TYPE];
 
 }
 
@@ -540,7 +540,15 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     FIRE "fire" SPEC_FIRE,
     SOUL_FIRE "fire" SPEC_FIRE,
     SPAWNER "spawner",
-    WOODEN_STAIRS "wooden_stairs" SPEC_WOODEN_STAIRS, // Merged
+
+    OAK_STAIRS "oak_stairs" SPEC_STAIRS,
+    SPRUCE_STAIRS "spruce_stairs" SPEC_STAIRS,
+    BIRCH_STAIRS "birch_stairs" SPEC_STAIRS,
+    JUNGLE_STAIRS "jungle_stairs" SPEC_STAIRS,
+    ACACIA_STAIRS "acacia_stairs" SPEC_STAIRS,
+    DARK_OAK_STAIRS "dark_oak_stairs" SPEC_STAIRS,
+    // WOODEN_STAIRS "wooden_stairs" SPEC_WOODEN_STAIRS, // Merged
+
     CHEST "chest" SPEC_CHEST,
     REDSTONE_WIRE "redstone_wire" SPEC_REDSTONE_WIRE,
     DIAMOND_ORE "diamond_ore",
@@ -549,15 +557,39 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     WHEAT "wheat" SPEC_CROP,
     FARMLAND "farmland" SPEC_FARMLAND,
     FURNACE "furnace" SPEC_FURNACE_LIKE,
-    SIGN "sign" SPEC_SIGN,
+
+    OAK_SIGN "oak_sign" SPEC_SIGN,
+    SPRUCE_SIGN "spruce_sign" SPEC_SIGN,
+    BIRCH_SIGN "birch_sign" SPEC_SIGN,
+    JUNGLE_SIGN "jungle_sign" SPEC_SIGN,
+    ACACIA_SIGN "acacia_sign" SPEC_SIGN,
+    DARK_OAK_SIGN "dark_oak_sign" SPEC_SIGN,
+    // SIGN "sign" SPEC_SIGN, // Merged
+
     LADDER "ladder" SPEC_LADDER,
     RAIL "rail" SPEC_RAIL,
     COBBLESTONE_STAIRS "cobblestone_stairs" SPEC_STAIRS,
-    WALL_SIGN "wall_sign" SPEC_WALL_SIGN, // Merged
+
+    OAK_WALL_SIGN "oak_wall_sign" SPEC_WALL_SIGN,
+    SPRUCE_WALL_SIGN "spruce_wall_sign" SPEC_WALL_SIGN,
+    BIRCH_WALL_SIGN "birch_wall_sign" SPEC_WALL_SIGN,
+    JUNGLE_WALL_SIGN "jungle_wall_sign" SPEC_WALL_SIGN,
+    ACACIA_WALL_SIGN "acacia_wall_sign" SPEC_WALL_SIGN,
+    DARK_OAK_WALL_SIGN "dark_oak_wall_sign" SPEC_WALL_SIGN,
+    // WALL_SIGN "wall_sign" SPEC_WALL_SIGN, // Merged
+
     LEVER "lever" SPEC_LEVER,
     STONE_PRESSURE_PLATE "stone_pressure_plate" SPEC_PRESSURE_PLATE,
     IRON_DOOR "iron_door" SPEC_DOOR,
-    WOODEN_PRESSURE_PLATE "wooden_pressure_plate" SPEC_WOODEN_PRESSURE_PLATE, // Merged
+
+    OAK_PRESSURE_PLATE "oak_pressure_plate" SPEC_PRESSURE_PLATE,
+    SPRUCE_PRESSURE_PLATE "spruce_pressure_plate" SPEC_PRESSURE_PLATE,
+    BIRCH_PRESSURE_PLATE "birch_pressure_plate" SPEC_PRESSURE_PLATE,
+    JUNGLE_PRESSURE_PLATE "jungle_pressure_plate" SPEC_PRESSURE_PLATE,
+    ACACIA_PRESSURE_PLATE "acacia_pressure_plate" SPEC_PRESSURE_PLATE,
+    DARK_OAK_PRESSURE_PLATE "dark_oak_pressure_plate" SPEC_PRESSURE_PLATE,
+    // WOODEN_PRESSURE_PLATE "wooden_pressure_plate" SPEC_WOODEN_PRESSURE_PLATE, // Merged
+
     REDSTONE_ORE "redstone_ore" SPEC_LIT,
     REDSTONE_TORCH "redstone_torch" SPEC_LIT,
     REDSTONE_WALL_TORCH "redstone_wall_torch" SPEC_WALL_REDSTONE_TORCH,
@@ -584,7 +616,15 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     CAKE "cake" SPEC_CAKE,
     REPEATER "repeater" SPEC_REPEATER,
     STAINED_GLASS "stained_glass" SPEC_COLORED,
-    WOODEN_TRAPDOOR "wooden_trapdoor" SPEC_WOODEN_TRAPDOOR, // Merged
+
+    OAK_TRAPDOOR "oak_trapdoor" SPEC_TRAPDOOR,
+    SPRUCE_TRAPDOOR "spruce_trapdoor" SPEC_TRAPDOOR,
+    BIRCH_TRAPDOOR "birch_trapdoor" SPEC_TRAPDOOR,
+    JUNGLE_TRAPDOOR "jungle_trapdoor" SPEC_TRAPDOOR,
+    ACACIA_TRAPDOOR "acacia_trapdoor" SPEC_TRAPDOOR,
+    DARK_OAK_TRAPDOOR "dark_oak_trapdoor" SPEC_TRAPDOOR,
+    // WOODEN_TRAPDOOR "wooden_trapdoor" SPEC_WOODEN_TRAPDOOR, // Merged
+
     STONE_BRICKS "stone_bricks",
     MOSSY_STONE_BRICKS "mossy_stone_bricks",
     CRACKED_STONE_BRICKS "cracked_stone_bricks",
@@ -637,7 +677,15 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     // FLOWER_POT "flower_pot"         [PROP_POT_CONTENT], // Merged TODO
     CARROTS "carrots" SPEC_CROP,
     POTATOES "potatoes" SPEC_CROP,
-    WOODEN_BUTTON "wooden_button" SPEC_WOODEN_BUTTON,
+
+    OAK_BUTTON "oak_button" SPEC_BUTTON,
+    SPRUCE_BUTTON "spruce_button" SPEC_BUTTON,
+    BIRCH_BUTTON "birch_button" SPEC_BUTTON,
+    JUNGLE_BUTTON "jungle_button" SPEC_BUTTON,
+    ACACIA_BUTTON "acacia_button" SPEC_BUTTON,
+    DARK_OAK_BUTTON "dark_oak_button" SPEC_BUTTON,
+    // WOODEN_BUTTON "wooden_button" SPEC_WOODEN_BUTTON, // Merged
+
     // Skulls
     SKELETON_SKULL "skeleton_skull" SPEC_SKULL,
     SKELETON_WALL_SKULL "skeleton_wall_skull" SPEC_WALL_SKULL,
@@ -701,7 +749,15 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     CHISELED_RED_SANDSTONE "chiseled_red_sandstone",
     CUT_RED_SANDSTONE "cut_red_sandstone",
     RED_SANDSTONE_STAIRS "red_sandstone_stairs" SPEC_STAIRS,
-    WOODEN_SLAB "wooden_slab" SPEC_WOODEN_SLAB, // Merged
+
+    OAK_SLAB "oak_slab" SPEC_SLAB,
+    SPRUCE_SLAB "spruce_slab" SPEC_SLAB,
+    BIRCH_SLAB "birch_slab" SPEC_SLAB,
+    JUNGLE_SLAB "jungle_slab" SPEC_SLAB,
+    ACACIA_SLAB "acacia_slab" SPEC_SLAB,
+    DARK_OAK_SLAB "dark_oak_slab" SPEC_SLAB,
+    // WOODEN_SLAB "wooden_slab" SPEC_WOODEN_SLAB, // Merged
+
     STONE_SLAB "stone_slab" SPEC_SLAB,
     SMOOTH_STONE_SLAB "smooth_stone_slab" SPEC_SLAB,
     SANDSTONE_SLAB "sandstone_slab" SPEC_SLAB,
@@ -726,11 +782,24 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     JUNGLE_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
     ACACIA_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
     DARK_OAK_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
-
     // WOODEN_FENCE_GATE "wooden_fence_gate" SPEC_WOODEN_FENCE_GATE, // Merged
 
-    WOODEN_FENCE "wooden_fence" SPEC_WOODEN_FENCE, // Merged
-    WOODEN_DOOR "wooden_door" SPEC_WOODEN_DOOR, // Merged
+    OAK_FENCE "oak_fence" SPEC_BARS,
+    SPRUCE_FENCE "spruce_fence" SPEC_BARS,
+    BIRCH_FENCE "birch_fence" SPEC_BARS,
+    JUNGLE_FENCE "jungle_fence" SPEC_BARS,
+    ACACIA_FENCE "acacia_fence" SPEC_BARS,
+    DARK_OAK_FENCE "dark_oak_fence" SPEC_BARS,
+    // WOODEN_FENCE "wooden_fence" SPEC_WOODEN_FENCE, // Merged
+
+    OAK_DOOR "oak_door" SPEC_DOOR,
+    SPRUCE_DOOR "spruce_door" SPEC_DOOR,
+    BIRCH_DOOR "birch_door" SPEC_DOOR,
+    JUNGLE_DOOR "jungle_door" SPEC_DOOR,
+    ACACIA_DOOR "acacia_door" SPEC_DOOR,
+    DARK_OAK_DOOR "dark_oak_door" SPEC_DOOR,
+    // WOODEN_DOOR "wooden_door" SPEC_WOODEN_DOOR, // Merged
+
     END_ROD "end_rod" SPEC_FACING,
     CHORUS_PLANT "chorus_plant" SPEC_CHORUS_PLANT,
     CHORUS_FLOWER "chorus_flower" SPEC_CHORUS_FLOWER,
@@ -825,20 +894,62 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     SOUL_LANTERN "lantern" SPEC_LANTERN,
     CAMPFIRE "campfire" SPEC_CAMPFIRE,
     SWEET_BERRY_BUSH "sweet_berry_bush" SPEC_SWEET_BERRY_BUSH,
-    STEM "stem" SPEC_NETHER_WOOD_TYPE, // Merged
+
+    WARPED_STEM "warped_stem" SPEC_AXIS,
+    STRIPPED_WARPED_STEM "stripped_warped_stem" SPEC_AXIS,
+    WARPED_HYPHAE "warped_hyphae" SPEC_AXIS,
+    STRIPPED_WARPED_HYPHAE "stripped_warped_hyphae" SPEC_AXIS,
+    WARPED_NYLIUM "warped_nylium",
+    WARPED_FUNGUS "warped_fungus",
+    WARPED_WART_BLOCK "warped_wart_block",
+    WARPED_ROOTS "warped_roots",
+
+    CRIMSON_STEM "crimson_stem" SPEC_AXIS,
+    STRIPPED_CRIMSON_STEM "stripped_crimson_stem" SPEC_AXIS,
+    CRIMSON_HYPHAE "crimson_hyphae" SPEC_AXIS,
+    STRIPPED_CRIMSON_HYPHAE "stripped_crimson_hyphae" SPEC_AXIS,
+    CRIMSON_NYLIUM "crimson_nylium",
+    CRIMSON_FUNGUS "crimson_fungus",
+    CRIMSON_ROOTS "crimson_roots",
+
+    /*STEM "stem" SPEC_NETHER_WOOD_TYPE, // Merged
     STRIPPED_STEM "stripped_stem" SPEC_NETHER_WOOD_TYPE, // Merged
     HYPHAE "hyphae" SPEC_NETHER_WOOD_TYPE, // Merged
     STRIPPED_HYPHAE "stripped_hyphae" SPEC_NETHER_WOOD_TYPE, // Merged
     NYLIUM "nylium" SPEC_NETHER_WOOD_TYPE, // Merged
     FUNGUS "fungus" SPEC_NETHER_WOOD_TYPE, // Merged
-    ROOTS "roots" SPEC_NETHER_WOOD_TYPE, // Merged
-    WARPED_WART_BLOCK "warped_wart_block",
+    ROOTS "roots" SPEC_NETHER_WOOD_TYPE, // Merged*/
+
     NETHER_SPROUTS "nether_sprouts",
     SHROOMLIGHT "shroomlight",
     WEEPING_VINES "weeping_vines" SPEC_NETHER_VINE,
     WEEPING_VINES_PLANT "weeping_vines_plant",
     TWISTING_VINES "twisting_vines" SPEC_NETHER_VINE,
     TWISTING_VINES_PLANT "twisting_vines_plant",
+
+    CRIMSON_PLANKS "crimson_planks",
+    WARPED_PLANKS "warped_planks",
+    CRIMSON_SLAB "crimson_slab" SPEC_SLAB,
+    WARPED_SLAB "warped_slab" SPEC_SLAB,
+    CRIMSON_PRESSURE_PLATE "crimson_pressure_plate" SPEC_PRESSURE_PLATE,
+    WARPED_PRESSURE_PLATE "warped_pressure_plate" SPEC_PRESSURE_PLATE,
+    CRIMSON_FENCE "crimson_fence" SPEC_BARS,
+    WARPED_FENCE "warped_fence" SPEC_BARS,
+    CRIMSON_TRAPDOOR "crimson_trapdoor" SPEC_TRAPDOOR,
+    WARPED_TRAPDOOR "warped_trapdoor" SPEC_TRAPDOOR,
+    CRIMSON_FENCE_GATE "crimson_fence_gate" SPEC_FENCE_GATE,
+    WARPED_FENCE_GATE "warped_fence_gate" SPEC_FENCE_GATE,
+    CRIMSON_STAIRS "crimson_stairs" SPEC_STAIRS,
+    WARPED_STAIRS "warped_stairs" SPEC_STAIRS,
+    CRIMSON_BUTTON "crimson_button" SPEC_BUTTON,
+    WARPED_BUTTON "warped_button" SPEC_BUTTON,
+    CRIMSON_DOOR "crimson_door" SPEC_DOOR,
+    WARPED_DOOR "warped_door" SPEC_DOOR,
+    CRIMSON_SIGN "crimson_sign" SPEC_SIGN,
+    WARPED_SIGN "warped_sign" SPEC_SIGN,
+    CRIMSON_WALL_SIGN "crimson_wall_sign" SPEC_WALL_SIGN,
+    WARPED_WALL_SIGN "warped_wall_sign" SPEC_WALL_SIGN,
+
     STRUCTURE_BLOCK "structure_block" SPEC_STRUCTURE_BLOCK,
     JIGSAW "jigsaw" SPEC_JIGSAW,
     COMPOSTER "composter" SPEC_COMPOSTER,
@@ -1049,7 +1160,7 @@ impl_enum_serializable!(DoorHingeSide {
 });
 
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+/*#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum WoodType {
     Oak,
     Spruce,
@@ -1070,7 +1181,7 @@ impl_enum_serializable!(WoodType {
     DarkOak: "dark_oak",
     Crimson: "crimson",
     Warped: "warped"
-});
+});*/
 
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
