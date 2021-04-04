@@ -28,7 +28,7 @@ pub struct Block {
     name: &'static str,
     states: BlockStorage,
     extensions: RwGenericMap,
-    _marker: PhantomPinned
+    marker: PhantomPinned
 }
 
 // We enforce Send + Sync because we know that these pointers will never
@@ -110,7 +110,7 @@ impl Block {
             name,
             states,
             extensions: RwGenericMap::new(),
-            _marker: PhantomPinned
+            marker: PhantomPinned
         });
 
         unsafe {
@@ -229,6 +229,16 @@ pub struct WorkBlocks<'a> {
     sid_to_states: Vec<&'a BlockState>
 }
 
+impl WorkBlocks<'static> {
+
+    pub fn new_vanilla() -> WorkBlocks<'static> {
+        let mut r = Self::new();
+        r.register_static(&*vanilla::VanillaBlocks);
+        r
+    }
+
+}
+
 impl<'a> WorkBlocks<'a> {
 
     pub fn new() -> WorkBlocks<'a> {
@@ -309,7 +319,7 @@ macro_rules! blocks {
             blocks: Vec<std::ptr::NonNull<std::pin::Pin<Box<$crate::block::Block>>>>,
             states_count: usize,
             $( pub $block_id: std::pin::Pin<Box<$crate::block::Block>>, )*
-            _marker: std::marker::PhantomPinned
+            marker: std::marker::PhantomPinned
         }
 
         impl $struct_id {
@@ -335,7 +345,7 @@ macro_rules! blocks {
                     $($block_id: inc(Block::new($block_name, $crate::inner_blocks_spec!($($spec_id)?))),)*
                     blocks: Vec::with_capacity(blocks_count),
                     states_count,
-                    _marker: PhantomPinned
+                    marker: PhantomPinned
                 });
 
                 unsafe {

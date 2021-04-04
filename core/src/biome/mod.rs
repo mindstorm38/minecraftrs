@@ -63,6 +63,16 @@ pub struct WorkBiomes<'a> {
     uid_to_biomes: Vec<&'a Biome>
 }
 
+impl WorkBiomes<'static> {
+
+    pub fn new_vanilla() -> WorkBiomes<'static> {
+        let mut r = Self::new();
+        r.register_static(&*vanilla::VanillaBiomes);
+        r
+    }
+
+}
+
 impl<'a> WorkBiomes<'a> {
 
     pub fn new() -> WorkBiomes<'a> {
@@ -120,7 +130,7 @@ macro_rules! biomes {
         pub struct $struct_id {
             biomes: Vec<std::ptr::NonNull<$crate::biome::Biome>>,
             $( pub $biome_id: $crate::biome::Biome, )*
-            _marker: std::marker::PhantomPinned
+            marker: std::marker::PhantomPinned
         }
 
         impl $struct_id {
@@ -140,7 +150,7 @@ macro_rules! biomes {
                 let mut reg = Box::pin(Self {
                     $($biome_id: inc(Biome::new($biome_name)),)*
                     biomes: Vec::with_capacity(biomes_count),
-                    _marker: PhantomPinned
+                    marker: PhantomPinned
                 });
 
                 unsafe {
