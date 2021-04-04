@@ -18,14 +18,13 @@ pub fn initial_scramble(seed: i64) -> Wrapping<i64> {
 
 
 /// Generate a new seed in the same way as `java.util.Random` (same constants).
-#[allow(deprecated)] // Allow deprecated for "compare_and_swap" with nightly toolchain.
 pub fn gen_seed() -> i64 {
     static mut SEED: AtomicI64 = AtomicI64::new(8682522807148012);
     unsafe {
         loop {
             let current = SEED.load(Ordering::Relaxed);
             let next = current.wrapping_mul(181783497276652981);
-            if SEED.compare_and_swap(current, next, Ordering::Relaxed) == current {
+            if SEED.compare_exchange(current, next, Ordering::Relaxed, Ordering::Relaxed) == current {
                 // This is a bit different from Java implementation because the nano time
                 // as an integer value is not available in Rust, even with Instant.
                 // So we're using duration since unix epoch of the system time, maybe not
