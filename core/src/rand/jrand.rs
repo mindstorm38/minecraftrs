@@ -24,7 +24,7 @@ pub fn gen_seed() -> i64 {
         loop {
             let current = SEED.load(Ordering::Relaxed);
             let next = current.wrapping_mul(181783497276652981);
-            if SEED.compare_exchange(current, next, Ordering::Relaxed, Ordering::Relaxed) == current {
+            if SEED.compare_exchange(current, next, Ordering::Relaxed, Ordering::Relaxed).is_ok() {
                 // This is a bit different from Java implementation because the nano time
                 // as an integer value is not available in Rust, even with Instant.
                 // So we're using duration since unix epoch of the system time, maybe not
