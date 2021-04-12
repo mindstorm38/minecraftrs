@@ -206,7 +206,7 @@ impl Chunk {
 
 /// Used for rich read-only access to a `SubChunk`.
 ///
-/// Documentation of this structure is the same
+/// Documentation of this structure is the same for all guards.
 pub struct ChunkReadGuard<'a> {
     owner: &'a Chunk,
     /// This Arc is kept in like a guard for the owned world. Check `world` for explanation.
