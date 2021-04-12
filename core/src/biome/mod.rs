@@ -59,8 +59,8 @@ pub trait StaticBiomes {
 /// A working biomes' registry mapping unique biomes IDs to save IDs (SID).
 pub struct WorkBiomes<'a> {
     next_sid: u16, // 0 is reserved, like the null-ptr
-    biomes_to_uid: HashMap<u32, u16>,
-    uid_to_biomes: Vec<&'a Biome>
+    biomes_to_sid: HashMap<u32, u16>,
+    sid_to_biomes: Vec<&'a Biome>
 }
 
 impl WorkBiomes<'static> {
@@ -78,42 +78,42 @@ impl<'a> WorkBiomes<'a> {
     pub fn new() -> WorkBiomes<'a> {
         WorkBiomes {
             next_sid: 1,
-            biomes_to_uid: HashMap::new(),
-            uid_to_biomes: Vec::new()
+            biomes_to_sid: HashMap::new(),
+            sid_to_biomes: Vec::new()
         }
     }
 
     pub fn register(&mut self, biome: &'a Biome) {
-        let uid = self.next_sid;
-        self.next_sid = uid.checked_add(1).expect("Too much biomes in this register.");
-        self.biomes_to_uid.insert(biome.uid, uid);
-        self.uid_to_biomes.push(biome);
+        let sid = self.next_sid;
+        self.next_sid = sid.checked_add(1).expect("Too much biomes in this register.");
+        self.biomes_to_sid.insert(biome.uid, sid);
+        self.sid_to_biomes.push(biome);
     }
 
     pub fn register_static(&mut self, static_biomes: &'a Pin<Box<impl StaticBiomes>>) {
         let count = static_biomes.biomes_count();
-        self.biomes_to_uid.reserve(count);
-        self.uid_to_biomes.reserve(count);
+        self.biomes_to_sid.reserve(count);
+        self.sid_to_biomes.reserve(count);
         for biome in static_biomes.iter_biomes() {
             self.register(biome);
         }
     }
 
-    pub fn get_uid_from(&self, biome: &Biome) -> Option<u16> {
+    pub fn get_sid_from(&self, biome: &Biome) -> Option<u16> {
         let biome_uid = biome.uid;
-        let biome_offset = *self.biomes_to_uid.get(&biome_uid)?;
+        let biome_offset = *self.biomes_to_sid.get(&biome_uid)?;
         Some(biome_offset)
     }
 
-    pub fn get_biome_from(&self, uid: u16) -> Option<&'a Biome> {
-        match uid {
+    pub fn get_biome_from(&self, sid: u16) -> Option<&'a Biome> {
+        match sid {
             0 => None,
-            _ => Some(*self.uid_to_biomes.get((uid - 1) as usize)?)
+            _ => Some(*self.sid_to_biomes.get((sid - 1) as usize)?)
         }
     }
 
     pub fn biomes_count(&self) -> usize {
-        self.uid_to_biomes.len()
+        self.sid_to_biomes.len()
     }
 
 }
@@ -130,7 +130,7 @@ macro_rules! biomes {
         pub struct $struct_id {
             biomes: Vec<std::ptr::NonNull<$crate::biome::Biome>>,
             $( pub $biome_id: $crate::biome::Biome, )*
-            marker: std::marker::PhantomPinned
+            _marker: std::marker::PhantomPinned
         }
 
         impl $struct_id {
@@ -150,7 +150,7 @@ macro_rules! biomes {
                 let mut reg = Box::pin(Self {
                     $($biome_id: inc(Biome::new($biome_name)),)*
                     biomes: Vec::with_capacity(biomes_count),
-                    marker: PhantomPinned
+                    _marker: PhantomPinned
                 });
 
                 unsafe {

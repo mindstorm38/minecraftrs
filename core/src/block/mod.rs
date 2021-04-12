@@ -271,16 +271,16 @@ impl<'a> WorkBlocks<'a> {
         }
     }
 
-    pub fn get_uid_from(&self, state: &BlockState) -> Option<u16> {
+    pub fn get_sid_from(&self, state: &BlockState) -> Option<u16> {
         let block_uid = state.get_block().get_uid();
         let block_offset = *self.blocks_to_sid.get(&block_uid)?;
         Some(block_offset + state.get_index())
     }
 
-    pub fn get_state_from(&self, uid: u16) -> Option<&'a BlockState> {
-        match uid {
+    pub fn get_state_from(&self, sid: u16) -> Option<&'a BlockState> {
+        match sid {
             0 => None,
-            _ => Some(*self.sid_to_states.get((uid - 1) as usize)?)
+            _ => Some(*self.sid_to_states.get((sid - 1) as usize)?)
         }
     }
 
@@ -319,7 +319,7 @@ macro_rules! blocks {
             blocks: Vec<std::ptr::NonNull<std::pin::Pin<Box<$crate::block::Block>>>>,
             states_count: usize,
             $( pub $block_id: std::pin::Pin<Box<$crate::block::Block>>, )*
-            marker: std::marker::PhantomPinned
+            _marker: std::marker::PhantomPinned
         }
 
         impl $struct_id {
@@ -345,7 +345,7 @@ macro_rules! blocks {
                     $($block_id: inc(Block::new($block_name, $crate::inner_blocks_spec!($($spec_id)?))),)*
                     blocks: Vec::with_capacity(blocks_count),
                     states_count,
-                    marker: PhantomPinned
+                    _marker: PhantomPinned
                 });
 
                 unsafe {

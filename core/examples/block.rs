@@ -40,7 +40,7 @@ fn main() {
 
     println!("State: {:?}", state);
     println!("State with: {:?}", state.with(&PROP_HAS_BOTTLE_0, true));
-    println!("State uid in reg: {:?}", blocks.get_uid_from(&*state));
+    println!("State uid in reg: {:?}", blocks.get_sid_from(&*state));
     println!("State with uid 1 in reg: {:?}", blocks.get_state_from(1));
     println!("State with uid 2 in reg: {:?}", blocks.get_state_from(2));
     println!("State with uid 54 in reg: {:?}", blocks.get_state_from(54));

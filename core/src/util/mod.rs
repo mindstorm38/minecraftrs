@@ -29,7 +29,7 @@ impl UidGenerator {
     /// UID <code>2<sup>32</sup>-1</code>, the function panics.
     pub fn next(&self) -> u32 {
         match self.0.fetch_add(1, Ordering::Relaxed) {
-            0 => panic!("Abnormal block count, the global UID overflowed (more than 4 billion)."),
+            0 => panic!("Abnormal UID count: overflowed (more than 4 billion)."),
             uid => uid
         }
     }
