@@ -9,21 +9,7 @@ pub mod loader;
 
 use level::Level;
 use std::sync::{Arc, Weak, RwLock};
-
-
-// TODO: There is an issue with "back pointers" to parent structures, because we can in this case
-//  get mutate reference to a Chunk, and from this chunk get back immutable reference to the Level.
-//  With this reference to Level we can therefore get an immutable reference to another Chunk while
-//  mutating the first one.
-//
-//  let level_mut: &mut Level = ...;
-//  let chunk_ref: &mut Chunk = level_mut.get_chunk_mut().unwrap();
-//  let level_ref: &Level = chunk_ref.get_level();
-//
-//  This last line is ILLEGAL, because we already mutated level_mut.
-//
-//  To fix this we can put all world data in a sub structure and store it in an Arc<_>,
-//  or an Arc<Mutex<_>>
+use std::collections::hash_map::Entry;
 
 
 /// Main storage for a world, contains blocks, biomes registers
@@ -59,6 +45,7 @@ impl World {
 
     }
 
+    #[cfg(all(feature = "vanilla_blocks", feature = "vanilla_biomes"))]
     pub fn new_vanilla() -> Arc<RwLock<World>> {
         Self::new(WorkBlocks::new_vanilla(), WorkBiomes::new_vanilla())
     }
@@ -69,6 +56,15 @@ impl World {
 
     pub fn get_biomes(&self) -> &WorkBiomes<'static> {
         &self.biomes
+    }
+
+    pub fn add_level(&mut self, id: &'static str) -> Option<&Arc<RwLock<Level>>> {
+        match self.levels.entry(id) {
+            Entry::Occupied(_) => None,
+            Entry::Vacant(v) => {
+                Some(v.insert(Level::new(id, Weak::clone(&self.this))))
+            }
+        }
     }
 
 }

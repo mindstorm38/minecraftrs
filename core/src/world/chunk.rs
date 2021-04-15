@@ -39,20 +39,6 @@ fn calc_biome_3d_index(x: usize, y: usize, z: usize) -> usize {
 }
 
 
-macro_rules! new_guard {
-    ($self_id:ident, $struct_id:ident) => {
-        {
-            let arc = $self_id.world.upgrade().unwrap();
-            $struct_id {
-                owner: $self_id,
-                world: unsafe { std::mem::transmute(arc.read().unwrap()) },
-                _arc: arc,
-            }
-        }
-    };
-}
-
-
 /// A vertical chunk, 16x16 blocks.
 pub struct Chunk {
     level: Weak<RwLock<Level>>,
@@ -169,18 +155,22 @@ impl Chunk {
 
     // GUARDS //
 
+    fn update_world(&self) -> Arc<RwLock<World>> {
+        self.world.upgrade().unwrap()
+    }
+
     /// Get a read-only guard for rich access to this chunk.
     /// This means that you can use the safe methods to directly get
     /// blocks and biomes from their static registers.
     pub fn read(&self) -> ChunkReadGuard {
-        new_guard!(self, ChunkReadGuard)
+        ChunkReadGuard::new(self, self.update_world())
     }
 
     /// Get a read/write guard for rich access to this chunk.
     /// This means that you can use the safe methods to directly get
     /// blocks and biomes from their static registers.
     pub fn write(&mut self) -> ChunkWriteGuard {
-        new_guard!(self, ChunkWriteGuard)
+        ChunkWriteGuard::new(self, self.update_world())
     }
 
     // BIOMES CONVERSIONS //
@@ -199,87 +189,6 @@ impl Chunk {
                     }
                 }
             }
-        }
-    }
-
-}
-
-/// Used for rich read-only access to a `SubChunk`.
-///
-/// Documentation of this structure is the same for all guards.
-pub struct ChunkReadGuard<'a> {
-    owner: &'a Chunk,
-    /// This Arc is kept in like a guard for the owned world. Check `world` for explanation.
-    _arc: Arc<RwLock<World>>,
-    /// This guard is used to keep a read access to the world.
-    /// The guard is transmuted in order to get a static lifetime, the real lifetime is used
-    /// because this guard is bound to the object owned by `_arc` (in heap). The guard must
-    /// not be leaked out of this structure! Instead, it must be kept into this struct in order
-    /// to be dropped together with `_arc`.
-    world: RwLockReadGuard<'static, World>
-}
-
-/// Used for rich read/write access to a `SubChunk`.
-pub struct ChunkWriteGuard<'a> {
-    owner: &'a mut Chunk,
-    _arc: Arc<RwLock<World>>,
-    world: RwLockReadGuard<'static, World>
-}
-
-macro_rules! impl_sub_chunk_guard_read {
-    () => {
-
-        pub fn get_block(&self, x: usize, y: usize, z: usize) -> Option<&'static BlockState> {
-            self.world.get_blocks().get_state_from(self.owner.get_sub_chunk(y >> 4).get_block_id(x, y & 15, z))
-        }
-
-        pub fn get_biome_2d(&self, x: usize, z: usize) -> &'static Biome {
-            self.world.get_biomes().get_biome_from(self.owner.get_biome_2d_id(x, z))
-                .expect("Chunk can't have undefined biome.")
-        }
-
-        pub fn get_biome_3d(&self, x: usize, y: usize, z: usize) -> &'static Biome {
-            self.world.get_biomes().get_biome_from(self.owner.get_biome_3d_id(x, y, z))
-                .expect("Chunk can't have undefined biome.")
-        }
-
-    }
-}
-
-impl<'a> ChunkReadGuard<'a> {
-    impl_sub_chunk_guard_read!();
-}
-
-impl<'a> ChunkWriteGuard<'a> {
-
-    impl_sub_chunk_guard_read!();
-
-    /// Set the block at a specific position relative to this chunk.
-    /// **The function may panic if positions are not within ranges,
-    /// for safer function, check world functions.**
-    /// *For more documentation, refer to SubChunk structure's function
-    /// with the same name.*
-    pub fn set_block(&mut self, x: usize, y: usize, z: usize, state: Option<&'static BlockState>) {
-        unsafe {
-            self.owner.get_sub_chunk_mut(y >> 4).set_block_id(x, y & 15, z, match state {
-                Some(state) => self.world.get_blocks().get_sid_from(state)
-                    .expect("This block state is not supported by the world."),
-                None => 0
-            })
-        }
-    }
-
-    pub fn set_biome_2d(&mut self, x: usize, z: usize, biome: &'static Biome) {
-        unsafe {
-            self.owner.set_biome_2d_id(x, z, self.world.get_biomes().get_sid_from(biome)
-                .expect("This biome is not supported by the world."));
-        }
-    }
-
-    pub fn set_biome_3d(&mut self, x: usize, y: usize, z: usize, biome: &'static Biome) {
-        unsafe {
-            self.owner.set_biome_3d_id(x, y, z, self.world.get_biomes().get_sid_from(biome)
-                .expect("This biome is not supported by the world."));
         }
     }
 
@@ -354,18 +263,286 @@ impl SubChunk {
 
     // GUARDS //
 
+    fn update_world(&self) -> Arc<RwLock<World>> {
+        self.world.upgrade().unwrap()
+    }
+
     /// Get a read-only guard for rich access to this sub chunk.
     /// This means that you can use the safe methods to directly get
     /// blocks and biomes from their static registers.
     pub fn read(&self) -> SubChunkReadGuard {
-        new_guard!(self, SubChunkReadGuard)
+        SubChunkReadGuard::new(self, self.update_world())
     }
 
     /// Get a read/write guard for rich access to this sub chunk.
     /// This means that you can use the safe methods to directly get
     /// blocks and biomes from their static registers.
     pub fn write(&mut self) -> SubChunkWriteGuard {
-        new_guard!(self, SubChunkWriteGuard)
+        SubChunkWriteGuard::new(self, self.update_world())
+    }
+
+}
+
+
+/// Internal base structure for rich access guards for `Chunk`s and `SubChunk`s.
+pub struct RichGuard<O> {
+    owner: O,
+    /// This Arc is kept in like a guard for the owned world. Check `world` for explanation.
+    _arc: Arc<RwLock<World>>,
+    /// ***TW Hacky Tricks***<br>
+    /// This guard is used to keep a read access to the world.
+    /// The guard is transmuted in order to get a static lifetime, the real lifetime is ignored
+    /// because this guard is bound to the object owned by `_arc` (in heap) which will live as long
+    /// as this structure. **The guard must not be leaked out of this structure!** Instead, it must
+    /// be kept into this struct in order to be dropped together with `_arc`.
+    world: RwLockReadGuard<'static, World>
+}
+
+impl<O> RichGuard<O> {
+
+    fn new(owner: O, arc: Arc<RwLock<World>>) -> Self {
+        Self {
+            owner,
+            world: unsafe { std::mem::transmute(arc.read().unwrap()) },
+            _arc: arc,
+        }
+    }
+
+}
+
+
+/// Type alias for rich read-only guard on `Chunk`s.
+pub type ChunkReadGuard<'a> = RichGuard<&'a Chunk>;
+/// Type alias for rich read/write guard on `Chunk`s.
+pub type ChunkWriteGuard<'a> = RichGuard<&'a mut Chunk>;
+/// Type alias for rich read-only guard on `SubChunk`s.
+pub type SubChunkReadGuard<'a> = RichGuard<&'a SubChunk>;
+/// Type alias for rich read/write guard on `SubChunk`s.
+pub type SubChunkWriteGuard<'a> = RichGuard<&'a mut SubChunk>;
+
+macro_rules! impl_chunk_guard {
+    ($t:ident) => {
+
+        impl $t<'_> {
+
+            pub fn get_block(&self, x: usize, y: usize, z: usize) -> Option<&'static BlockState> {
+                self.world.get_blocks().get_state_from(self.owner.get_sub_chunk(y >> 4).get_block_id(x, y & 15, z))
+            }
+
+            pub fn get_biome_2d(&self, x: usize, z: usize) -> &'static Biome {
+                self.world.get_biomes().get_biome_from(self.owner.get_biome_2d_id(x, z))
+                    .expect("Chunk can't have undefined biome.")
+            }
+
+            pub fn get_biome_3d(&self, x: usize, y: usize, z: usize) -> &'static Biome {
+                self.world.get_biomes().get_biome_from(self.owner.get_biome_3d_id(x, y, z))
+                    .expect("Chunk can't have undefined biome.")
+            }
+
+        }
+
+    }
+}
+
+macro_rules! impl_sub_chunk_guard {
+    ($t:ident) => {
+
+        impl $t<'_> {
+
+            /// Get the actual block state at specific position.
+            pub fn get_block(&self, x: usize, y: usize, z: usize) -> Option<&'static BlockState> {
+                self.world.get_blocks().get_state_from(self.owner.get_block_id(x, y, z))
+            }
+
+            /// Returns the actual biome reference.
+            pub fn get_biome(&self, x: usize, y: usize, z: usize) -> &'static Biome {
+                self.world.get_biomes().get_biome_from(self.owner.get_biome_id(x, y, z)).unwrap()
+            }
+
+        }
+
+    }
+}
+
+impl_chunk_guard!(ChunkReadGuard);
+impl_chunk_guard!(ChunkWriteGuard);
+impl_sub_chunk_guard!(SubChunkReadGuard);
+impl_sub_chunk_guard!(SubChunkWriteGuard);
+
+
+impl ChunkWriteGuard<'_> {
+
+    /// Set the block at a specific position relative to this chunk.
+    /// **The function may panic if positions are not within ranges,
+    /// for safer function, check world functions.**
+    /// *For more documentation, refer to SubChunk structure's function
+    /// with the same name.*
+    pub fn set_block(&mut self, x: usize, y: usize, z: usize, state: &'static BlockState) {
+        /*unsafe {
+            self.owner.get_sub_chunk_mut(y >> 4).set_block_id(x, y & 15, z, match state {
+                Some(state) => self.world.get_blocks().get_sid_from(state)
+                    .expect("This block state is not supported by the world."),
+                None => 0
+            })
+        }*/
+        unsafe {
+            self.owner.get_sub_chunk_mut(y >> 4)
+                .set_block_id(x, y & 15, z, self.world.get_blocks().get_sid_from(state)
+                .expect("This block state is not supported by the world."))
+        }
+    }
+
+    pub fn set_biome_2d(&mut self, x: usize, z: usize, biome: &'static Biome) {
+        unsafe {
+            self.owner.set_biome_2d_id(x, z, self.world.get_biomes().get_sid_from(biome)
+                .expect("This biome is not supported by the world."));
+        }
+    }
+
+    pub fn set_biome_3d(&mut self, x: usize, y: usize, z: usize, biome: &'static Biome) {
+        unsafe {
+            self.owner.set_biome_3d_id(x, y, z, self.world.get_biomes().get_sid_from(biome)
+                .expect("This biome is not supported by the world."));
+        }
+    }
+
+}
+
+
+impl SubChunkWriteGuard<'_> {
+
+    /// Set the actual block state at specific position, the position is relative to
+    /// this chunk `(0 <= x/y/z < 16)`. The block can be `None` to remove the block,
+    /// if `Some`, the state must be supported by the world this chunk belongs to.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `Some(state)` is not supported by the world.
+    pub fn set_block(&mut self, x: usize, y: usize, z: usize, state: &'static BlockState) {
+        /*unsafe {
+            self.owner.set_block_id(x, y, z, match state {
+                Some(state) => self.world.get_blocks().get_sid_from(state)
+                    .expect("This block state is not supported by the world."),
+                None => 0
+            });
+        }*/
+        unsafe {
+            self.owner.set_block_id(x, y, z, self.world.get_blocks().get_sid_from(state)
+                .expect("This block state is not supported by the world."));
+        }
+    }
+
+    /// Set the actual biome at specific position, check [`SubChunk::get_biome_id`][get_biome_id]
+    /// to understand specificities of biome position.
+    ///
+    /// [get_biome_id]: SubChunk::get_biome_id
+    pub fn set_biome(&mut self, x: usize, y: usize, z: usize, biome: &'static Biome) {
+        unsafe {
+            self.owner.set_biome_id(x, y, z, self.world.get_biomes().get_sid_from(biome)
+                .expect("This biome is not supported by the world."));
+        }
+    }
+
+}
+
+
+/*impl<'a> ChunkReadGuard<'a> {
+
+    pub fn get_block(&self, x: usize, y: usize, z: usize) -> Option<&'static BlockState> {
+        self.world.get_blocks().get_state_from(self.owner.get_sub_chunk(y >> 4).get_block_id(x, y & 15, z))
+    }
+
+    pub fn get_biome_2d(&self, x: usize, z: usize) -> &'static Biome {
+        self.world.get_biomes().get_biome_from(self.owner.get_biome_2d_id(x, z))
+            .expect("Chunk can't have undefined biome.")
+    }
+
+    pub fn get_biome_3d(&self, x: usize, y: usize, z: usize) -> &'static Biome {
+        self.world.get_biomes().get_biome_from(self.owner.get_biome_3d_id(x, y, z))
+            .expect("Chunk can't have undefined biome.")
+    }
+
+}*/
+
+
+/*/// Used for rich read-only access to a `SubChunk`.
+///
+/// Documentation of this structure is the same for all guards.
+pub struct ChunkReadGuard<'a> {
+    owner: &'a Chunk,
+    /// This Arc is kept in like a guard for the owned world. Check `world` for explanation.
+    _arc: Arc<RwLock<World>>,
+    /// ***TW Hacky Tricks***<br>
+    /// This guard is used to keep a read access to the world.
+    /// The guard is transmuted in order to get a static lifetime, the real lifetime is used
+    /// because this guard is bound to the object owned by `_arc` (in heap). **The guard must
+    /// not be leaked out of this structure!** Instead, it must be kept into this struct in order
+    /// to be dropped together with `_arc`.
+    world: RwLockReadGuard<'static, World>
+}
+
+/// Used for rich read/write access to a `SubChunk`.
+pub struct ChunkWriteGuard<'a> {
+    owner: &'a mut Chunk,
+    _arc: Arc<RwLock<World>>,
+    world: RwLockReadGuard<'static, World>
+}
+
+macro_rules! impl_sub_chunk_guard_read {
+    () => {
+
+        pub fn get_block(&self, x: usize, y: usize, z: usize) -> Option<&'static BlockState> {
+            self.world.get_blocks().get_state_from(self.owner.get_sub_chunk(y >> 4).get_block_id(x, y & 15, z))
+        }
+
+        pub fn get_biome_2d(&self, x: usize, z: usize) -> &'static Biome {
+            self.world.get_biomes().get_biome_from(self.owner.get_biome_2d_id(x, z))
+                .expect("Chunk can't have undefined biome.")
+        }
+
+        pub fn get_biome_3d(&self, x: usize, y: usize, z: usize) -> &'static Biome {
+            self.world.get_biomes().get_biome_from(self.owner.get_biome_3d_id(x, y, z))
+                .expect("Chunk can't have undefined biome.")
+        }
+
+    }
+}
+
+impl<'a> ChunkReadGuard<'a> {
+    impl_sub_chunk_guard_read!();
+}
+
+impl<'a> ChunkWriteGuard<'a> {
+
+    impl_sub_chunk_guard_read!();
+
+    /// Set the block at a specific position relative to this chunk.
+    /// **The function may panic if positions are not within ranges,
+    /// for safer function, check world functions.**
+    /// *For more documentation, refer to SubChunk structure's function
+    /// with the same name.*
+    pub fn set_block(&mut self, x: usize, y: usize, z: usize, state: Option<&'static BlockState>) {
+        unsafe {
+            self.owner.get_sub_chunk_mut(y >> 4).set_block_id(x, y & 15, z, match state {
+                Some(state) => self.world.get_blocks().get_sid_from(state)
+                    .expect("This block state is not supported by the world."),
+                None => 0
+            })
+        }
+    }
+
+    pub fn set_biome_2d(&mut self, x: usize, z: usize, biome: &'static Biome) {
+        unsafe {
+            self.owner.set_biome_2d_id(x, z, self.world.get_biomes().get_sid_from(biome)
+                .expect("This biome is not supported by the world."));
+        }
+    }
+
+    pub fn set_biome_3d(&mut self, x: usize, y: usize, z: usize, biome: &'static Biome) {
+        unsafe {
+            self.owner.set_biome_3d_id(x, y, z, self.world.get_biomes().get_sid_from(biome)
+                .expect("This biome is not supported by the world."));
+        }
     }
 
 }
@@ -437,4 +614,4 @@ impl<'a> SubChunkWriteGuard<'a> {
         }
     }
 
-}
+}*/

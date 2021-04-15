@@ -28,6 +28,8 @@ impl Level {
 
     pub fn new(id: &'static str, world: Weak<RwLock<World>>) -> Arc<RwLock<Level>> {
 
+        world.upgrade().expect("The given world weak reference must be valid at construction.");
+
         let ret = Arc::new(RwLock::new(Level {
             id,
             this: Weak::new(),
@@ -41,6 +43,10 @@ impl Level {
         ret.write().unwrap().this = Arc::downgrade(&ret);
         ret
 
+    }
+
+    pub fn get_id(&self) -> &'static str {
+        self.id
     }
 
     /// Return a strong counted reference to the `World` owning this level.
