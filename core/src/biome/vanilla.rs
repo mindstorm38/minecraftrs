@@ -2,6 +2,7 @@ use crate::biomes;
 
 
 biomes!(VanillaBiomesStruct VanillaBiomes [
+    THE_VOID "the_void", // Moved here to be the first default biome
     BADLANDS "badlands",
     BADLANDS_PLATEAU "badlands_plateau",
     BAMBOO_JUNGLE "bamboo_jungle",
@@ -77,7 +78,7 @@ biomes!(VanillaBiomesStruct VanillaBiomes [
     TALL_BIRCH_FOREST "tall_birch_forest",
     TALL_BIRCH_HILLS "tall_birch_hills",
     THE_END "the_end",
-    THE_VOID "the_void",
+    // THE_VOID "the_void",
     WARM_OCEAN "warm_ocean",
     WARPED_FOREST "warped_forest", // 1.16
     WOODED_BADLANDS_PLATEAU "wooded_badlands_plateau",

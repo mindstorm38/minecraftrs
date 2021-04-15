@@ -5,6 +5,7 @@ use std::any::Any;
 use crate::util::generic::{RwGenericMap, GuardedRef, GuardedMut};
 use crate::util::UidGenerator;
 
+#[cfg(feature = "vanilla_biomes")]
 pub mod vanilla;
 
 
@@ -63,6 +64,7 @@ pub struct WorkBiomes<'a> {
     sid_to_biomes: Vec<&'a Biome>
 }
 
+#[cfg(feature = "vanilla_biomes")]
 impl WorkBiomes<'static> {
 
     pub fn new_vanilla() -> WorkBiomes<'static> {
@@ -77,7 +79,7 @@ impl<'a> WorkBiomes<'a> {
 
     pub fn new() -> WorkBiomes<'a> {
         WorkBiomes {
-            next_sid: 1,
+            next_sid: 0,
             biomes_to_sid: HashMap::new(),
             sid_to_biomes: Vec::new()
         }
@@ -106,10 +108,11 @@ impl<'a> WorkBiomes<'a> {
     }
 
     pub fn get_biome_from(&self, sid: u16) -> Option<&'a Biome> {
-        match sid {
+        Some(*self.sid_to_biomes.get((sid - 1) as usize)?)
+        /*match sid {
             0 => None,
             _ => Some(*self.sid_to_biomes.get((sid - 1) as usize)?)
-        }
+        }*/
     }
 
     pub fn biomes_count(&self) -> usize {

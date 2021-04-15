@@ -13,7 +13,9 @@ mod property;
 pub use state::*;
 pub use property::*;
 
+#[cfg(feature = "vanilla_blocks")]
 pub mod vanilla;
+#[cfg(feature = "vanilla_blocks")]
 pub mod legacy;
 
 
@@ -229,6 +231,7 @@ pub struct WorkBlocks<'a> {
     sid_to_states: Vec<&'a BlockState>
 }
 
+#[cfg(feature = "vanilla_blocks")]
 impl WorkBlocks<'static> {
 
     pub fn new_vanilla() -> WorkBlocks<'static> {
@@ -243,7 +246,7 @@ impl<'a> WorkBlocks<'a> {
 
     pub fn new() -> WorkBlocks<'a> {
         WorkBlocks {
-            next_sid: 1,
+            next_sid: 0,
             blocks_to_sid: HashMap::new(),
             sid_to_states: Vec::new()
         }
@@ -278,10 +281,11 @@ impl<'a> WorkBlocks<'a> {
     }
 
     pub fn get_state_from(&self, sid: u16) -> Option<&'a BlockState> {
-        match sid {
+        Some(*self.sid_to_states.get((sid - 1) as usize)?)
+        /*match sid {
             0 => None,
             _ => Some(*self.sid_to_states.get((sid - 1) as usize)?)
-        }
+        }*/
     }
 
     pub fn blocks_count(&self) -> usize {

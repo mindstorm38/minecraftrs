@@ -408,6 +408,9 @@ blocks_specs! {
 // for example, for compatibility with Minecraft these blocks may need
 // extensions or a specified module for the conversion.
 blocks!(VanillaBlocksStruct VanillaBlocks [
+
+    AIR "air", // Moved here to be the first default block
+
     STONE "stone",
     GRANITE "granite",
     POLISHED_GRANITE "polished_granite",
