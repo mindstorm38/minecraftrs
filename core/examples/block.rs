@@ -68,8 +68,6 @@ fn main() {
     println!("State sizeof: {} (total: {})", state_sizeof, state_sizeof * states_count);
     println!("========================");
 
-
-
 }
 
 
