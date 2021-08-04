@@ -172,16 +172,6 @@ impl Debug for dyn UntypedProperty {
 }
 
 
-/// A Sync-able pointer container used for the `properties_groups!` macro.
-pub struct StaticPropertyPointer(pub *const dyn UntypedProperty);
-unsafe impl Sync for StaticPropertyPointer {}
-impl StaticPropertyPointer {
-    pub fn get_prop(&self) -> &'static dyn UntypedProperty {
-        unsafe { self.0.as_ref().unwrap() }
-    }
-}
-
-
 #[macro_export]
 macro_rules! properties {
     ($($v:vis $id:ident: $type_token:tt $params_token:tt;)*) => {
@@ -205,18 +195,6 @@ macro_rules! inner_property {
         $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
     };
 }
-
-
-/*#[macro_export]
-macro_rules! properties_groups {
-    ($($v:vis $id:ident: [$($prop_const:ident),+];)*) => {
-        $(
-            $v static $id: [$crate::block::StaticPropertyPointer; $crate::count!($($prop_const)+)] = [
-                $($crate::block::StaticPropertyPointer(&$prop_const as *const dyn $crate::block::UntypedProperty)),+
-            ];
-        )*
-    };
-}*/
 
 
 #[macro_export]
