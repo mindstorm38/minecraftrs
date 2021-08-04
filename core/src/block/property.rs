@@ -27,8 +27,8 @@ pub trait Property<T: PropertySerializable>: UntypedProperty {
 
 
 impl<T> PropertySerializable for T
-    where
-        T: 'static + Copy + ToString + FromStr
+where
+    T: 'static + Copy + ToString + FromStr
 {
 
     fn prop_to_string(self) -> String {
@@ -88,11 +88,9 @@ impl UntypedProperty for IntProperty {
 }
 
 impl Property<u8> for IntProperty {
-
     fn encode(&self, value: u8) -> Option<u8> {
         if value < self.1 { Some(value) } else { None }
     }
-
     fn decode(&self, index: u8) -> Option<u8> {
         if index < self.1 { Some(index) } else { None }
     }
@@ -102,8 +100,8 @@ impl Property<u8> for IntProperty {
 pub struct EnumProperty<T: PropertySerializable + Eq>(pub &'static str, pub &'static [T]);
 
 impl<T> UntypedProperty for EnumProperty<T>
-    where
-        T: PropertySerializable + Eq + Sync
+where
+    T: PropertySerializable + Eq + Sync
 {
 
     fn name(&self) -> &'static str { self.0 }
@@ -121,18 +119,49 @@ impl<T> UntypedProperty for EnumProperty<T>
 }
 
 impl<T> Property<T> for EnumProperty<T>
-    where
-        T: PropertySerializable + Eq + Sync
+where
+    T: PropertySerializable + Eq + Sync
 {
-
     fn encode(&self, value: T) -> Option<u8> {
         Some(self.1.iter().position(|v| *v == value)? as u8)
     }
-
     fn decode(&self, index: u8) -> Option<T> {
         Some(*(self.1.get(index as usize)?))
     }
+}
 
+
+pub struct ArrayEnumProperty<T: PropertySerializable + Eq, const N: usize>(pub &'static str, pub [T; N]);
+
+impl<T, const N: usize> UntypedProperty for ArrayEnumProperty<T, N>
+where
+    T: PropertySerializable + Eq + Sync
+{
+
+    fn name(&self) -> &'static str { self.0 }
+    fn len(&self) -> u8 { N as u8 }
+
+    fn prop_to_string(&self, index: u8) -> Option<String> {
+        Some(self.1.get(index as usize)?.prop_to_string())
+    }
+
+    fn prop_from_string(&self, value: &str) -> Option<u8> {
+        let value = T::prop_from_string(value)?;
+        Some(self.1.iter().position(|v| *v == value)? as u8)
+    }
+
+}
+
+impl<T, const N: usize> Property<T> for ArrayEnumProperty<T, N>
+where
+    T: PropertySerializable + Eq + Sync
+{
+    fn encode(&self, value: T) -> Option<u8> {
+        Some(self.1.iter().position(|v| *v == value)? as u8)
+    }
+    fn decode(&self, index: u8) -> Option<T> {
+        Some(*(self.1.get(index as usize)?))
+    }
 }
 
 

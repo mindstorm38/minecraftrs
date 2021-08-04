@@ -986,6 +986,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks [
     CHISELED_NETHER_BRICKS "chiseled_nether_bricks",
     CRACKED_NETHER_BRICKS "cracked_nether_bricks",
     QUARTZ_BRICKS "quartz_bricks",
+
 ]);
 
 

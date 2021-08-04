@@ -4,7 +4,7 @@ use super::chunk::Chunk;
 
 /// Common chunk error enum
 #[derive(Debug)]
-pub enum ChunkError {
+pub enum ChunkLoadError {
     IllegalPosition(i32, i32)
 }
 
@@ -12,12 +12,12 @@ pub enum ChunkError {
 /// This factory trait is implemented by the caller of `ChunkLoader::load_chunk`
 /// and must construct the chunk at the position given as parameters (`cx`, `cz`)
 /// for `ChunkLoader::load_chunk`.
-pub trait ChunkFactory {
+pub trait ChunkFactory<'env> {
 
-    fn build(&self, sub_chunks_count: u8) -> Chunk;
+    fn build(&self) -> Chunk<'env>;
 
-    fn build_populated(&self, sub_chunks_count: u8) -> Chunk {
-        let mut chunk = self.build(sub_chunks_count);
+    fn build_populated(&self) -> Chunk<'env> {
+        let mut chunk = self.build();
         chunk.set_populated(true);
         chunk
     }
@@ -31,7 +31,7 @@ pub trait ChunkFactory {
 pub trait ChunkLoader {
 
     /// Load the chunk at specified position, generators must generate.
-    fn load_chunk(&self, factory: &dyn ChunkFactory, cx: i32, cz: i32) -> Result<Chunk, ChunkError>;
+    fn load_chunk<'env>(&self, factory: &dyn ChunkFactory<'env>, cx: i32, cz: i32) -> Result<Chunk<'env>, ChunkLoadError>;
 
     /// Because the chunk population mechanism involve multiples chunks checks,
     /// the chunk population must be generated separately from the `load_chunk`.
@@ -41,6 +41,8 @@ pub trait ChunkLoader {
     /// macro if this function is called.
     fn populate_chunk(&self, world: &mut LevelStorage, cx: i32, cz: i32);
 
+    fn min_height(&self) -> (i8, i8);
+
 }
 
 
@@ -49,12 +51,16 @@ pub struct NoChunkLoader;
 
 impl ChunkLoader for NoChunkLoader {
 
-    fn load_chunk(&self, _: &dyn ChunkFactory, cx: i32, cz: i32) -> Result<Chunk, ChunkError> {
-        Err(ChunkError::IllegalPosition(cx, cz))
+    fn load_chunk<'env>(&self, _: &dyn ChunkFactory<'env>, cx: i32, cz: i32) -> Result<Chunk<'env>, ChunkLoadError> {
+        Err(ChunkLoadError::IllegalPosition(cx, cz))
     }
 
     fn populate_chunk(&self, _: &mut LevelStorage, _: i32, _: i32) {
         unimplemented!("NoChunkLoader doesn't provide chunks.");
+    }
+
+    fn min_height(&self) -> (i8, i8) {
+        (0, 0)
     }
 
 }

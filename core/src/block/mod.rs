@@ -226,7 +226,7 @@ pub trait StaticBlocks {
 /// Working blocks' registry, use this structure to add individual blocks to the register.
 /// This registry maps unique blocks and block states IDs to save IDs (SID).
 pub struct WorkBlocks<'a> {
-    next_sid: u16, // 0 is reserved, like the null-ptr
+    next_sid: u16,
     blocks_to_sid: HashMap<u32, u16>,
     sid_to_states: Vec<&'a BlockState>
 }
@@ -234,10 +234,10 @@ pub struct WorkBlocks<'a> {
 #[cfg(feature = "vanilla_blocks")]
 impl WorkBlocks<'static> {
 
-    pub fn new_vanilla() -> WorkBlocks<'static> {
+    pub fn new_vanilla() -> Result<WorkBlocks<'static>, ()> {
         let mut r = Self::new();
-        r.register_static(&*vanilla::VanillaBlocks);
-        r
+        r.register_static(&*vanilla::VanillaBlocks)?;
+        Ok(r)
     }
 
 }
@@ -252,26 +252,27 @@ impl<'a> WorkBlocks<'a> {
         }
     }
 
-    pub fn register(&mut self, block: &'a Pin<Box<Block>>) {
+    pub fn register(&mut self, block: &'a Pin<Box<Block>>) -> Result<(), ()> {
         let block = &**block;
         let states = block.get_states();
         let states_count = states.len();
         let uid = self.next_sid;
-        self.next_sid = uid.checked_add(states_count as u16)
-            .expect("Too much block in this register.");
+        self.next_sid = uid.checked_add(states_count as u16).ok_or(())?;
         self.blocks_to_sid.insert(block.uid, uid);
         self.sid_to_states.reserve(states_count);
         for state in states {
             self.sid_to_states.push(state);
         }
+        Ok(())
     }
 
-    pub fn register_static(&mut self, static_blocks: &'a Pin<Box<impl StaticBlocks>>) {
+    pub fn register_static(&mut self, static_blocks: &'a Pin<Box<impl StaticBlocks>>) -> Result<(), ()> {
         self.blocks_to_sid.reserve(static_blocks.blocks_count());
         self.sid_to_states.reserve(static_blocks.states_count());
         for block in static_blocks.iter_blocks() {
-            self.register(block);
+            self.register(block)?;
         }
+        Ok(())
     }
 
     pub fn get_sid_from(&self, state: &BlockState) -> Option<u16> {
@@ -281,11 +282,7 @@ impl<'a> WorkBlocks<'a> {
     }
 
     pub fn get_state_from(&self, sid: u16) -> Option<&'a BlockState> {
-        Some(*self.sid_to_states.get((sid - 1) as usize)?)
-        /*match sid {
-            0 => None,
-            _ => Some(*self.sid_to_states.get((sid - 1) as usize)?)
-        }*/
+        Some(*self.sid_to_states.get(sid as usize)?)
     }
 
     pub fn blocks_count(&self) -> usize {
@@ -329,7 +326,6 @@ macro_rules! blocks {
         impl $struct_id {
             pub fn load() -> std::pin::Pin<Box<Self>> {
 
-                use $crate::block::BlockSpec::*;
                 use $crate::block::Block;
 
                 use std::marker::PhantomPinned;
@@ -391,6 +387,6 @@ macro_rules! blocks {
 
 #[macro_export]
 macro_rules! inner_blocks_spec {
-    () => { Single };
-    ($spec_id:ident) => { Complex(&$spec_id) }
+    () => { $crate::block::BlockSpec::Single };
+    ($spec_id:ident) => { $crate::block::BlockSpec::Complex(&$spec_id) }
 }

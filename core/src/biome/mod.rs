@@ -67,10 +67,10 @@ pub struct WorkBiomes<'a> {
 #[cfg(feature = "vanilla_biomes")]
 impl WorkBiomes<'static> {
 
-    pub fn new_vanilla() -> WorkBiomes<'static> {
+    pub fn new_vanilla() -> Result<WorkBiomes<'static>, ()> {
         let mut r = Self::new();
-        r.register_static(&*vanilla::VanillaBiomes);
-        r
+        r.register_static(&*vanilla::VanillaBiomes)?;
+        Ok(r)
     }
 
 }
@@ -85,20 +85,22 @@ impl<'a> WorkBiomes<'a> {
         }
     }
 
-    pub fn register(&mut self, biome: &'a Biome) {
+    pub fn register(&mut self, biome: &'a Biome) -> Result<(), ()> {
         let sid = self.next_sid;
-        self.next_sid = sid.checked_add(1).expect("Too much biomes in this register.");
+        self.next_sid = sid.checked_add(1).ok_or(())?;
         self.biomes_to_sid.insert(biome.uid, sid);
         self.sid_to_biomes.push(biome);
+        Ok(())
     }
 
-    pub fn register_static(&mut self, static_biomes: &'a Pin<Box<impl StaticBiomes>>) {
+    pub fn register_static(&mut self, static_biomes: &'a Pin<Box<impl StaticBiomes>>) -> Result<(), ()> {
         let count = static_biomes.biomes_count();
         self.biomes_to_sid.reserve(count);
         self.sid_to_biomes.reserve(count);
         for biome in static_biomes.iter_biomes() {
-            self.register(biome);
+            self.register(biome)?;
         }
+        Ok(())
     }
 
     pub fn get_sid_from(&self, biome: &Biome) -> Option<u16> {
@@ -108,11 +110,7 @@ impl<'a> WorkBiomes<'a> {
     }
 
     pub fn get_biome_from(&self, sid: u16) -> Option<&'a Biome> {
-        Some(*self.sid_to_biomes.get((sid - 1) as usize)?)
-        /*match sid {
-            0 => None,
-            _ => Some(*self.sid_to_biomes.get((sid - 1) as usize)?)
-        }*/
+        Some(*self.sid_to_biomes.get(sid as usize)?)
     }
 
     pub fn biomes_count(&self) -> usize {
