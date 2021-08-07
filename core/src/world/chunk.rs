@@ -3,7 +3,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use crate::util::packed::{PackedArray, Palette};
-use crate::block::{BlockState, GlobalBlocks};
+use crate::block::BlockState;
 use crate::biome::Biome;
 
 use super::level::{LevelEnv, Level, LevelHeight};
@@ -27,11 +27,11 @@ fn calc_block_index(x: u8, y: u8, z: u8) -> usize {
 }
 
 
-#[inline]
+/*#[inline]
 fn calc_biome_2d_index(x: u8, z: u8) -> usize {
     debug_assert!(x < 16 && z < 16, "x: {}, z: {}", x, z);
     x as usize | ((z as usize) << 4)
-}
+}*/
 
 
 #[inline]
@@ -202,7 +202,10 @@ pub struct SubChunkOptions {
 
 impl Default for SubChunkOptions {
     fn default() -> Self {
-        Self { .. Default::default() }
+        Self {
+            default_block: None,
+            default_biome: None
+        }
     }
 }
 
@@ -254,7 +257,7 @@ impl<'env> SubChunk<'env> {
         // and they must have a corresponding valid value in palettes, at least at the beginning.
         Ok(SubChunk {
             env,
-            blocks_palette: Some(Palette::new(default_state, 1, 128)),
+            blocks_palette: Some(Palette::new(Some(default_state), 128)),
             blocks: PackedArray::new(BLOCKS_DATA_SIZE, 4, None),
             biomes: PackedArray::new(BIOMES_3D_DATA_SIZE, biomes_byte_size, Some(default_biome as u64))
         })
@@ -360,7 +363,7 @@ impl<'env> SubChunk<'env> {
     pub fn set_biome(&mut self, x: u8, y: u8, z: u8, biome: &'static Biome) -> ChunkResult<()> {
         let idx = calc_biome_3d_index(x >> 2, y >> 2, z >> 2);
         match self.env.biomes().get_sid_from(biome) {
-            Some(sid) => unsafe {
+            Some(sid) => {
                 self.biomes.set(idx, sid as u64);
                 Ok(())
             },

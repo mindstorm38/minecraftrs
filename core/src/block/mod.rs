@@ -15,8 +15,8 @@ pub use property::*;
 
 #[cfg(feature = "vanilla_blocks")]
 pub mod vanilla;
-#[cfg(feature = "vanilla_blocks")]
-pub mod legacy;
+//#[cfg(feature = "vanilla_blocks")]
+//pub mod legacy;
 
 
 /// A basic block defined by a name, its states, properties or extensions.

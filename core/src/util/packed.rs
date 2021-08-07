@@ -52,7 +52,7 @@ impl PackedArray {
                 let cell = &mut self.cells[cell_index];
                 *cell = (*cell & !(mask << bit_index)) | (value << bit_index); // Clear and Set
             } else {
-                panic!("Given value is out of range, {} is greater than maximum {}.", value, mask);
+                panic!("Given value {} does not fit in {} bits.", value, self.byte_size);
             }
         } else {
             panic!("Index out of bounds, {} with length {}.", index, self.length);
@@ -136,21 +136,23 @@ impl PackedArray {
         for old_cell_index in (0..old_cells_cap).rev() {
             let old_cell = self.cells[old_cell_index];
             for value_index in 0..old_vpc {
-
-                let old_bit_index = value_index * old_byte_size;
-                let mut value = (old_cell >> old_bit_index) & old_mask;
                 let index = old_cell_index * old_vpc + value_index;
+                if index < self.length {
 
-                let new_cell_index = index / new_vpc;
-                let new_bit_index = (index % new_vpc) * new_byte_size;
+                    let old_bit_index = value_index * old_byte_size;
+                    let mut value = (old_cell >> old_bit_index) & old_mask;
 
-                if let Some(ref replacer) = replacer {
-                    value = replacer(value);
+                    let new_cell_index = index / new_vpc;
+                    let new_bit_index = (index % new_vpc) * new_byte_size;
+
+                    if let Some(ref replacer) = replacer {
+                        value = replacer(value);
+                    }
+
+                    let cell = &mut self.cells[new_cell_index];
+                    *cell = (*cell & !(new_mask << new_bit_index)) | (value << new_bit_index);
+
                 }
-
-                let cell = &mut self.cells[new_cell_index];
-                *cell = (*cell & !(new_mask << new_bit_index)) | (value << new_bit_index);
-
             }
         }
 
@@ -221,14 +223,15 @@ where
     where
         T: Default
     {
-        Self::new(T::default(), 0, capacity)
+        Self::new(None, capacity)
     }
 
-    pub fn new(default: T, length: usize, capacity: usize) -> Self {
+    pub fn new(default: Option<T>, capacity: usize) -> Self {
         assert_ne!(capacity, 0, "Given capacity is zero.");
-        assert!(length <= capacity, "Given length is larger than the given capacity.");
         let mut items = Vec::with_capacity(capacity);
-        items.resize(length, default);
+        if let Some(default) = default {
+            items.resize(1, default);
+        }
         Self(items)
     }
 
@@ -259,18 +262,6 @@ where
         }
     }
 
-    /*pub fn remove_index(&mut self, target_item: T) -> Option<usize> {
-        if let Some(idx) = self.search_index(target_item) {
-            for i in idx..(self.length - 1) {
-                self.items[i] = self.items[i + 1];
-            }
-            self.length -= 1;
-            Some(idx)
-        } else {
-            None
-        }
-    }*/
-
     pub fn search_index(&self, target_item: T) -> Option<usize> {
         return self.0.iter()
             .position(|item| *item == target_item);
@@ -283,93 +274,125 @@ where
 }
 
 
-/*pub trait GlobalPalette<T> {
-    fn len(&self) -> usize;
-    fn has_item(&self, item: &'static T) -> bool;
-    fn get_item_from_sid(&self, sid: u32) -> &'static T;
-    fn get_sid_from_item(&self, item: &'static T) -> u32;
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn packed_valid_byte_size() {
+        PackedArray::new(1, 64, None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn packed_invalid_byte_size() {
+        PackedArray::new(1, 65, None);
+    }
+
+    #[test]
+    fn packed_min_byte_size() {
+        assert_eq!(PackedArray::calc_min_byte_size(63), 6);
+        assert_eq!(PackedArray::calc_min_byte_size(64), 7);
+        assert_eq!(PackedArray::calc_min_byte_size(127), 7);
+    }
+
+    #[test]
+    #[should_panic]
+    fn packed_invalid_default_value() {
+        PackedArray::new(1, 4, Some(16));
+    }
+
+    #[test]
+    #[should_panic]
+    fn packed_invalid_value() {
+        let mut array = PackedArray::new(1, 4, None);
+        array.set(0, 16);
+    }
+
+    #[test]
+    #[should_panic]
+    fn packed_oor_get() {
+        PackedArray::new(10, 4, None).get(10).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn packed_oor_set() {
+        PackedArray::new(10, 4, None).set(10, 15);
+    }
+
+    #[test]
+    #[should_panic]
+    fn packed_invalid_resize() {
+        PackedArray::new(10, 4, None).resize_byte(4);
+    }
+
+    #[test]
+    fn packed() {
+
+        const LEN: usize = 32;
+
+        let mut array = PackedArray::new(LEN, 4, Some(15));
+
+        assert_eq!(array.cells.len(), 2);
+        assert_eq!(array.cells[0], u64::MAX);
+        assert_eq!(array.cells[1], u64::MAX);
+
+        for i in 0..LEN {
+            assert_eq!(array.get(i).unwrap(), 15);
+        }
+
+        array.set(2, 3);
+
+        for i in 0..LEN {
+            assert_eq!(array.get(i).unwrap(), if i == 2 { 3 } else { 15 });
+        }
+
+        array.replace(|val| val / 2);
+
+        for i in 0..LEN {
+            assert_eq!(array.get(i).unwrap(), if i == 2 { 1 } else { 7 });
+        }
+
+        array.resize_byte(5);
+        assert_eq!(array.cells.len(), 3);
+        assert_eq!(array.byte_size, 5);
+
+        for i in 0..LEN {
+            assert_eq!(array.get(i).unwrap(), if i == 2 { 1 } else { 7 });
+        }
+
+        array.resize_byte_and_replace(16, |val| val * 5678);
+        assert_eq!(array.cells.len(), 8);
+        assert_eq!(array.byte_size, 16);
+
+        for i in 0..LEN {
+            assert_eq!(array.get(i).unwrap(), if i == 2 { 5678 } else { 7 * 5678 });
+        }
+
+    }
+
+    #[test]
+    #[should_panic]
+    fn palette_invalid_capacity() {
+        Palette::new(Some("default"), 0);
+    }
+
+    #[test]
+    fn palette() {
+
+        let mut palette = Palette::new(Some("default"), 5);
+        assert_eq!(palette.get_item(0).unwrap(), "default");
+        assert_eq!(palette.search_index("default").unwrap(), 0);
+        assert_eq!(palette.ensure_index("default").unwrap(), 0);
+
+        assert_eq!(palette.ensure_index("str1").unwrap(), 1);
+        assert_eq!(palette.ensure_index("str2").unwrap(), 2);
+        assert_eq!(palette.ensure_index("str3").unwrap(), 3);
+        assert_eq!(palette.ensure_index("str4").unwrap(), 4);
+        assert!(palette.ensure_index("str5").is_none());
+
+    }
+
 }
-
-
-pub struct PaletteArray<'g, T, G: GlobalPalette<T>> {
-    data: PackedArray,
-    palette: Option<Palette<*const T>>,
-    global_palette: &'g G
-}
-
-impl<'g, T, G: GlobalPalette<T>> PaletteArray<'g, T, G> {
-
-    pub fn new(global_palette: &'g G, length: usize, byte_size: u8, palette_capacity: usize) -> Self {
-        Self {
-            data: PackedArray::new(length, byte_size),
-            palette: Some(Palette::new(global_palette.get_item_from_sid(0) as *const T, 1, palette_capacity)),
-            global_palette
-        }
-    }
-
-    pub fn get(&self, index: usize) -> &'static T {
-        let sid = self.data.get(index).unwrap() as u32;
-        match self.palette {
-            Some(ref palette) => unsafe {
-                // SAFETY: Transmuting `*const T` to `&'static T`: safe.
-                std::mem::transmute(palette.get_item(sid as usize).unwrap())
-            },
-            None => self.global_palette.get_item_from_sid(sid)
-        }
-    }
-
-    pub fn set(&mut self, index: usize, value: &'static T) -> bool {
-        match self.ensure_sid(value) {
-            Some(sid) => {
-                self.data.set(index, sid as u64);
-                true
-            },
-            None => false
-        }
-    }
-
-    fn ensure_sid(&mut self, value: &'static T) -> Option<u32> {
-
-        if let Some(ref mut palette) = self.palette {
-            let ptr = value as *const T;
-            match palette.search_index(ptr) {
-                Some(sid) => return Some(sid as u32),
-                None => {
-                    if self.global_palette.has_item(value) {
-                        match palette.insert_index(ptr) {
-                            Some(sid) => {
-                                if sid as u64 > self.data.max_value() {
-                                    self.data.resize_byte(self.data.byte_size + 1, None);
-                                }
-                                return Some(sid as u32);
-                            },
-                            None => {
-                                // In this case, the local palette is full, we have to switch to
-                                // the global one. So we don't return anything to skip the match.
-                            }
-                        }
-                    } else {
-                        return None;
-                    }
-                }
-            }
-        }
-
-        self.global_palette.get_sid_from_item()
-
-    }
-
-    fn use_global(&mut self) {
-        if let Some(ref local_palette) = self.palette {
-            let global_palette = self.env.blocks();
-            let new_byte_size = PackedArray::calc_min_byte_size(global_palette.states_count() as u64);
-            self.blocks.resize_byte(new_byte_size, Some(move |sid| unsafe {
-                global_palette.get_sid_from(std::mem::transmute(
-                    local_palette.get_item(sid as usize).unwrap()
-                )).unwrap() as u64
-            }));
-            self.blocks_palette = None;
-        }
-    }
-
-}*/
