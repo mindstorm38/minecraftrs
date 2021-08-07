@@ -61,9 +61,7 @@ pub struct Chunk<'env> {
     cx: i32,
     cz: i32,
     populated: bool,
-    sub_chunks: HashMap<i8, SubChunk<'env>>,
-    /// The legacy flat biomes array.
-    biomes: [u16; BIOMES_2D_DATA_SIZE]
+    sub_chunks: HashMap<i8, SubChunk<'env>>
 }
 
 impl<'env> Chunk<'env> {
@@ -80,8 +78,7 @@ impl<'env> Chunk<'env> {
             cx,
             cz,
             populated: false,
-            sub_chunks: HashMap::new(),
-            biomes: [0; BIOMES_2D_DATA_SIZE]
+            sub_chunks: HashMap::new()
         }
 
     }
@@ -179,108 +176,18 @@ impl<'env> Chunk<'env> {
             .set_block(x, (y & 15) as u8, z, state)
     }
 
-    // RAW BIOMES //
-
-    /*/// Get the 2D biome id at specific position.
-    ///
-    /// # Panics (debug-only)
-    /// This method panics if either X or Z is higher than 15.
-    pub fn get_biome_2d_id(&self, x: u8, z: u8) -> u16 {
-        self.biomes[calc_biome_2d_index(x, z)]
-    }
-
-    /// Get the 3D biome id at specific position.
-    ///
-    /// Returns `None` if no sub chunk is loaded at the given coordinates.
-    ///
-    /// # Panics (debug-only)
-    /// This method panics if either X or Z is higher than 15.
-    pub fn get_biome_3d_id(&self, x: u8, y: i32, z: u8) -> ChunkResult<u16> {
-        match self.get_sub_chunk((y >> 4) as i8) {
-            None => Err(ChunkError::SubChunkUnloaded),
-            Some(sub_chunk) => Ok(sub_chunk.get_biome_id(x, (y & 15) as u8, z))
-        }
-    }
-
-    /// Set the 2D biome id at specific position.
-    ///
-    /// # Panics (debug-only)
-    /// This method panics if either X or Z is higher than 15.
-    ///
-    /// # Safety
-    /// This method is unsafe because you should ensure that the biome ID is valid for the world's
-    /// biome register.
-    pub unsafe fn set_biome_2d_id(&mut self, x: u8, z: u8, biome_id: u16) {
-        self.biomes[calc_biome_2d_index(x, z)] = biome_id;
-    }
-
-    /// Set the 3D biome id at specific position.
-    ///
-    /// Return `Ok(())` if the biome was successfully set, `Err(ChunkError::IllegalVerticalPos)` if
-    /// the given Y coordinate is invalid for the level.
-    ///
-    /// # Panics (debug-only)
-    /// This method panics if either X or Z is higher than 15.
-    ///
-    /// # Safety
-    /// This method is unsafe because you should ensure that the biome ID is valid for the world's
-    /// biome register.
-    pub unsafe fn set_biome_3d_id(&mut self, x: u8, y: i32, z: u8, biome_id: u16) -> ChunkResult<()> {
-        self.ensure_sub_chunk((y >> 4) as i8, None)?
-            .set_biome_id(x, (y & 15) as u8, z, biome_id);
-        Ok(())
-    }*/
-
     // BIOMES //
 
-    /*pub fn get_biome_2d(&self, x: u8, z: u8) -> &'static Biome {
-        // SAFETY: Check safety comment of `get_block` for explanation of the unwrapping.
-        self.env.biomes().get_biome_from(self.get_biome_2d_id(x, z)).unwrap()
-    }*/
-
-    pub fn get_biome_3d(&self, x: u8, y: i32, z: u8) -> ChunkResult<&'static Biome> {
+    pub fn get_biome(&self, x: u8, y: i32, z: u8) -> ChunkResult<&'static Biome> {
         match self.get_sub_chunk((y >> 4) as i8) {
             None => Err(ChunkError::SubChunkUnloaded),
             Some(sub_chunk) => Ok(sub_chunk.get_biome(x, (y & 15) as u8, z))
         }
-        // SAFETY: Check safety comment of `get_block` for explanation of the unwrapping.
-        // self.get_biome_3d_id(x, y, z).map(|sid| self.env.biomes().get_biome_from(sid).unwrap())
     }
 
-    /*pub fn set_biome_2d(&mut self, x: u8, z: u8, biome: &'static Biome) -> ChunkResult<()> {
-        match self.env.biomes().get_sid_from(biome) {
-            None => Err(ChunkError::IllegalBiome),
-            Some(sid) => unsafe {
-                self.set_biome_2d_id(x, z, sid);
-                Ok(())
-            }
-        }
-    }*/
-
-    pub fn set_biome_3d(&mut self, x: u8, y: i32, z: u8, biome: &'static Biome) -> ChunkResult<()> {
+    pub fn set_biome(&mut self, x: u8, y: i32, z: u8, biome: &'static Biome) -> ChunkResult<()> {
         self.ensure_sub_chunk((y >> 4) as i8, None)?
             .set_biome(x, (y & 15) as u8, z, biome)
-    }
-
-    // BIOMES CONVERSIONS //
-
-    /// Expand the 2D legacy biome grid to the 3D biome grid of 3D of all sub-chunks.
-    pub fn set_biome_3d_auto(&mut self) {
-        /*unsafe {
-            for x in 0..4 {
-                for z in 0..4 {
-                    // Maybe we can choose the most represented biome in the 4x4 cube
-                    let biome = self.get_biome_2d_id((x << 2) + 1, (z << 2) + 1);
-                    for cy in self.height {
-                        let sub_chunk = self.ensure_sub_chunk(cy, None).unwrap();
-                        for y in 0..4 {
-                            sub_chunk.set_biome_id(x << 2, y << 2, z << 2, biome);
-                        }
-                    }
-                }
-            }
-        }*/
-        // TODO: REPLACE OLD
     }
 
 }
