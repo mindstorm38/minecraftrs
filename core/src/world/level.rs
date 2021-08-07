@@ -3,8 +3,8 @@ use std::sync::{Weak, RwLock, Arc};
 use std::collections::HashMap;
 use std::ops::RangeInclusive;
 
-use crate::block::WorkBlocks;
-use crate::biome::WorkBiomes;
+use crate::block::GlobalBlocks;
+use crate::biome::GlobalBiomes;
 
 use super::loader::{ChunkLoader, ChunkFactory, ChunkLoadError, NoChunkLoader};
 use super::chunk::Chunk;
@@ -14,27 +14,27 @@ use super::chunk::Chunk;
 /// Levels and it's used to decide was
 pub struct LevelEnv {
     /// Actual blocks register.
-    blocks: WorkBlocks<'static>,
+    blocks: GlobalBlocks<'static>,
     /// Actual biomes register.
-    biomes: WorkBiomes<'static>,
+    biomes: GlobalBiomes<'static>,
 }
 
 impl LevelEnv {
 
-    pub fn new(blocks: WorkBlocks<'static>, biomes: WorkBiomes<'static>) -> Self {
+    pub fn new(blocks: GlobalBlocks<'static>, biomes: GlobalBiomes<'static>) -> Self {
         LevelEnv { blocks, biomes }
     }
 
     #[cfg(all(feature = "vanilla_blocks", feature = "vanilla_biomes"))]
     pub fn new_vanilla() -> Result<Self, ()> {
-        Ok(Self::new(WorkBlocks::new_vanilla()?, WorkBiomes::new_vanilla()?))
+        Ok(Self::new(GlobalBlocks::new_vanilla()?, GlobalBiomes::new_vanilla()?))
     }
 
-    pub fn get_blocks(&self) -> &WorkBlocks<'static> {
+    pub fn blocks(&self) -> &GlobalBlocks<'static> {
         &self.blocks
     }
 
-    pub fn get_biomes(&self) -> &WorkBiomes<'static> {
+    pub fn biomes(&self) -> &GlobalBiomes<'static> {
         &self.biomes
     }
 

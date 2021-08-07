@@ -58,16 +58,16 @@ pub trait StaticBiomes {
 
 
 /// A working biomes' registry mapping unique biomes IDs to save IDs (SID).
-pub struct WorkBiomes<'a> {
-    next_sid: u16, // 0 is reserved, like the null-ptr
+pub struct GlobalBiomes<'a> {
+    next_sid: u16,
     biomes_to_sid: HashMap<u32, u16>,
     sid_to_biomes: Vec<&'a Biome>
 }
 
 #[cfg(feature = "vanilla_biomes")]
-impl WorkBiomes<'static> {
+impl GlobalBiomes<'static> {
 
-    pub fn new_vanilla() -> Result<WorkBiomes<'static>, ()> {
+    pub fn new_vanilla() -> Result<GlobalBiomes<'static>, ()> {
         let mut r = Self::new();
         r.register_static(&*vanilla::VanillaBiomes)?;
         Ok(r)
@@ -75,10 +75,10 @@ impl WorkBiomes<'static> {
 
 }
 
-impl<'a> WorkBiomes<'a> {
+impl<'a> GlobalBiomes<'a> {
 
-    pub fn new() -> WorkBiomes<'a> {
-        WorkBiomes {
+    pub fn new() -> GlobalBiomes<'a> {
+        GlobalBiomes {
             next_sid: 0,
             biomes_to_sid: HashMap::new(),
             sid_to_biomes: Vec::new()
@@ -111,6 +111,14 @@ impl<'a> WorkBiomes<'a> {
 
     pub fn get_biome_from(&self, sid: u16) -> Option<&'a Biome> {
         Some(*self.sid_to_biomes.get(sid as usize)?)
+    }
+
+    pub fn has_biome(&self, biome: &Biome) -> bool {
+        self.biomes_to_sid.contains_key(&biome.uid)
+    }
+
+    pub fn check_biome<'z, E>(&self, biome: &'z Biome, err: impl FnOnce() -> E) -> Result<&'z Biome, E> {
+        if self.has_biome(biome) { Ok(biome) } else { Err(err()) }
     }
 
     pub fn biomes_count(&self) -> usize {

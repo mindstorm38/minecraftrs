@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 pub mod generic;
 pub mod version;
+pub mod packed;
 
 
 /// A static thread-safe unique 32 bits identifier generate.

@@ -1,6 +1,5 @@
-use mc_core::block::{Block, WorkBlocks, Property, PropertySerializable, BlockState};
+use mc_core::block::{Block, GlobalBlocks, Property, PropertySerializable, BlockState};
 use mc_core::block::vanilla::*;
-// use mc_core::block::legacy::setup_legacy_ids;
 use std::time::Instant;
 use std::mem::size_of;
 
@@ -16,7 +15,7 @@ fn main() {
     // setup_legacy_ids();
 
     let start = Instant::now();
-    let mut blocks = WorkBlocks::new();
+    let mut blocks = GlobalBlocks::new();
     blocks.register_static(&*VanillaBlocks).unwrap();
     println!("Vanilla blocks registered in {}us", start.elapsed().as_micros());
     let blocks_count = blocks.blocks_count();
@@ -48,14 +47,19 @@ fn main() {
 
     println!("State: {:?}", state);
     println!("State with: {:?}", state.with(&PROP_HAS_BOTTLE_0, true));
+    let start = Instant::now();
     let state_sid = blocks.get_sid_from(&*state).unwrap();
-    println!("State uid in reg: {:?}", state_sid);
+    let elapsed = start.elapsed().as_nanos();
+    println!("State uid in reg: {:?} (in: {}ns)", state_sid, elapsed);
     println!("State from its sid: {:?}", blocks.get_state_from(state_sid));
     println!("========================");
     println!();
 
     println!("===== OTHER BLOCKS =====");
-    println!("State with uid 1 in reg: {:?}", blocks.get_state_from(1));
+    let start = Instant::now();
+    let state = blocks.get_state_from(1);
+    let elapsed = start.elapsed().as_nanos();
+    println!("State with uid 1 in reg: {:?} (in: {}ns)", state, elapsed);
     println!("State with uid 2 in reg: {:?}", blocks.get_state_from(2));
     println!("State with uid 54 in reg: {:?}", blocks.get_state_from(54));
     println!("========================");

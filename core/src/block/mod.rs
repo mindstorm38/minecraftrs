@@ -141,10 +141,12 @@ impl Block {
     /// Get the unique ID of this block, this is unique for the process.
     /// This UID is not used for any save operation, for saving purpose,
     /// use `WorkBlocks`.
+    #[inline]
     pub fn get_uid(&self) -> u32 {
         self.uid
     }
 
+    #[inline]
     pub fn get_name(&self) -> &'static str {
         self.name
     }
@@ -225,16 +227,16 @@ pub trait StaticBlocks {
 
 /// Working blocks' registry, use this structure to add individual blocks to the register.
 /// This registry maps unique blocks and block states IDs to save IDs (SID).
-pub struct WorkBlocks<'a> {
-    next_sid: u16,
-    blocks_to_sid: HashMap<u32, u16>,
+pub struct GlobalBlocks<'a> {
+    next_sid: u32,
+    blocks_to_sid: HashMap<u32, u32>,
     sid_to_states: Vec<&'a BlockState>
 }
 
 #[cfg(feature = "vanilla_blocks")]
-impl WorkBlocks<'static> {
+impl GlobalBlocks<'static> {
 
-    pub fn new_vanilla() -> Result<WorkBlocks<'static>, ()> {
+    pub fn new_vanilla() -> Result<GlobalBlocks<'static>, ()> {
         let mut r = Self::new();
         r.register_static(&*vanilla::VanillaBlocks)?;
         Ok(r)
@@ -242,10 +244,10 @@ impl WorkBlocks<'static> {
 
 }
 
-impl<'a> WorkBlocks<'a> {
+impl<'a> GlobalBlocks<'a> {
 
-    pub fn new() -> WorkBlocks<'a> {
-        WorkBlocks {
+    pub fn new() -> GlobalBlocks<'a> {
+        GlobalBlocks {
             next_sid: 0,
             blocks_to_sid: HashMap::new(),
             sid_to_states: Vec::new()
@@ -257,7 +259,7 @@ impl<'a> WorkBlocks<'a> {
         let states = block.get_states();
         let states_count = states.len();
         let uid = self.next_sid;
-        self.next_sid = uid.checked_add(states_count as u16).ok_or(())?;
+        self.next_sid = uid.checked_add(states_count as u32).ok_or(())?;
         self.blocks_to_sid.insert(block.uid, uid);
         self.sid_to_states.reserve(states_count);
         for state in states {
@@ -275,14 +277,22 @@ impl<'a> WorkBlocks<'a> {
         Ok(())
     }
 
-    pub fn get_sid_from(&self, state: &BlockState) -> Option<u16> {
-        let block_uid = state.get_block().get_uid();
+    pub fn get_sid_from(&self, state: &BlockState) -> Option<u32> {
+        let block_uid = state.get_block().uid;
         let block_offset = *self.blocks_to_sid.get(&block_uid)?;
-        Some(block_offset + state.get_index())
+        Some(block_offset + state.get_index() as u32)
     }
 
-    pub fn get_state_from(&self, sid: u16) -> Option<&'a BlockState> {
+    pub fn get_state_from(&self, sid: u32) -> Option<&'a BlockState> {
         Some(*self.sid_to_states.get(sid as usize)?)
+    }
+
+    pub fn has_state(&self, state: &BlockState) -> bool {
+        self.blocks_to_sid.contains_key(&state.get_block().uid)
+    }
+
+    pub fn check_state<'z, E>(&self, state: &'z BlockState, err: impl FnOnce() -> E) -> Result<&'z BlockState, E> {
+        if self.has_state(state) { Ok(state) } else { Err(err()) }
     }
 
     pub fn blocks_count(&self) -> usize {
