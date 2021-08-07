@@ -93,7 +93,15 @@ impl PackedArray {
         }
     }
 
-    pub fn resize_byte<F>(&mut self, new_byte_size: u8, replacer: Option<F>)
+    pub fn resize_byte(&mut self, new_byte_size: u8) {
+        self.internal_resize_byte::<fn(u64) -> u64>(new_byte_size, None);
+    }
+
+    pub fn resize_byte_and_replace(&mut self, new_byte_size: u8, replacer: impl Fn(u64) -> u64) {
+        self.internal_resize_byte(new_byte_size, Some(replacer));
+    }
+
+    fn internal_resize_byte<F>(&mut self, new_byte_size: u8, replacer: Option<F>)
     where
         F: Fn(u64) -> u64
     {

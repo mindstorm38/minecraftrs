@@ -150,43 +150,6 @@ impl<'env> Chunk<'env> {
         return self.height
     }
 
-    // RAW BLOCKS //
-
-    /*/// Get the block id at a specific position relative to this chunk.
-    ///
-    /// Returns `Err(ChunkError::SubChunkUnloaded)` if no sub chunk is loaded at the given
-    /// coordinates.
-    ///
-    /// # Panics (debug-only)
-    /// This method panics if either X or Z is higher than 15.
-    pub fn get_block_id(&self, x: u8, y: i32, z: u8) -> ChunkResult<u32> {
-        match self.get_sub_chunk((y >> 4) as i8) {
-            None => Err(ChunkError::SubChunkUnloaded),
-            Some(sub_chunk) => Ok(sub_chunk.get_block_id(x, (y & 15) as u8, z))
-        }
-    }
-
-    /// Set the block id at a specific position relative to this chunk.
-    ///
-    /// Return `Ok(())` if the biome was successfully set, `Err(ChunkError::IllegalVerticalPos)` if
-    /// the given Y coordinate is invalid for the level.
-    ///
-    /// # Panics (debug-only)
-    /// This method panics if either X or Z is higher than 15.
-    ///
-    /// # Safety
-    /// This method is unsafe because you should ensure that the block ID is valid for the world's
-    /// block register.
-    pub unsafe fn set_block_id(&mut self, x: u8, y: i32, z: u8, block_id: u32) -> ChunkResult<()> {
-        match self.ensure_sub_chunk((y >> 4) as i8) {
-            None => Err(ChunkError::IllegalVerticalPos),
-            Some(sub_chunk) => {
-                sub_chunk.set_block_id(x, (y & 15) as u8, z, block_id);
-                Ok(())
-            }
-        }
-    }*/
-
     // BLOCKS //
 
     /// Get the actual block at a specific position.
@@ -201,11 +164,6 @@ impl<'env> Chunk<'env> {
             None => Err(ChunkError::SubChunkUnloaded),
             Some(sub_chunk) => Ok(sub_chunk.get_block(x, (y & 15) as u8, z))
         }
-        // SAFETY: Here we unwrap because the save ID should be valid since the level
-        //         environment is not mutable and a reference is kept in this Chunk.
-        //         The save ID can only be set from `set_block` or `set_block_id`, the first
-        //         get the save ID from the blocks registers, and the last is unsafe.
-        // self.get_block_id(x, y, z).map(|sid| self.env.blocks().get_state_from(sid).unwrap())
     }
 
     /// Set the block at a specific position relative to this chunk.
@@ -396,40 +354,6 @@ impl<'env> SubChunk<'env> {
 
     }
 
-    // RAW BLOCKS //
-
-    /*/// Get the block id at specific position, the position is relative to this chunk
-    /// `(0 <= x/y/z < 16)`.
-    ///
-    /// **This function is intended for internal uses, but is still public to allow
-    /// low level manipulation, be careful!**
-    pub fn get_block_id(&self, x: u8, y: u8, z: u8) -> u32 {
-        // Internal ID should not be larger than u32, even if the returned value is u64.
-        /*let internal_id = self.blocks.get(calc_block_index(x, y, z)).unwrap() as u32;
-        self.blocks_palette.get_item(internal_id as usize).unwrap()*/
-        //self.blocks[calc_block_index(x, y, z)]
-        0
-    }
-
-    /// Set the block id at specific position, the position is relative to this chunk
-    /// `(0 <= x/y/z < 16)`. The block id must valid for the registry of the world
-    /// this chunk belongs to.
-    ///
-    /// # Safety
-    /// This method is unsafe because you should ensure that the block ID is valid for the world's
-    /// block register.
-    pub unsafe fn set_block_id(&mut self, x: u8, y: u8, z: u8, block_id: u32) {
-        /*if let Some(internal_id) = self.blocks_palette.ensure_index(block_id) {
-            if internal_id as u64 > self.blocks.max_value() {
-                self.blocks.resize_byte(self.blocks.byte_size() + 1);
-            }
-            self.blocks.set(calc_block_index(x, y, z), internal_id as u64);
-        } else {
-
-            // TODO: Handle this case when the palette is full, switch to global blocks.
-        }*/
-    }*/
-
     // BLOCKS //
 
     pub fn get_block(&self, x: u8, y: u8, z: u8) -> &'static BlockState {
@@ -450,9 +374,6 @@ impl<'env> SubChunk<'env> {
             None => self.env.blocks().get_state_from(sid).unwrap()
         }
 
-        // SAFETY: Check safety comment of `Chunk::get_block` for explanation of the unwrapping.
-        // self.env.blocks().get_state_from(self.get_block_id(x, y, z)).unwrap()
-
     }
 
     pub fn set_block(&mut self, x: u8, y: u8, z: u8, state: &'static BlockState) -> ChunkResult<()> {
@@ -465,14 +386,6 @@ impl<'env> SubChunk<'env> {
             },
             None => Err(ChunkError::IllegalBlock)
         }
-
-        /*match self.env.blocks().get_sid_from(state) {
-            None => Err(ChunkError::IllegalBlock),
-            Some(sid) => unsafe {
-                self.set_block_id(x, y, z, sid);
-                Ok(())
-            }
-        }*/
 
     }
 
@@ -494,7 +407,7 @@ impl<'env> SubChunk<'env> {
                         match palette.insert_index(state_ptr) {
                             Some(sid) => {
                                 if sid as u64 > self.blocks.max_value() {
-                                    self.blocks.resize_byte::<fn(u64) -> u64>(self.blocks.byte_size() + 1, None);
+                                    self.blocks.resize_byte(self.blocks.byte_size() + 1);
                                 }
                                 return Some(sid as u32);
                             },
@@ -521,43 +434,18 @@ impl<'env> SubChunk<'env> {
         if let Some(ref local_palette) = self.blocks_palette {
             let global_palette = self.env.blocks();
             let new_byte_size = PackedArray::calc_min_byte_size(global_palette.states_count() as u64);
-            self.blocks.resize_byte(new_byte_size, Some(move |sid| unsafe {
+            self.blocks.resize_byte_and_replace(new_byte_size, move |sid| unsafe {
                 global_palette.get_sid_from(std::mem::transmute(
                     local_palette.get_item(sid as usize).unwrap()
                 )).unwrap() as u64
-            }));
+            });
             self.blocks_palette = None;
         }
     }
 
-    // RAW BIOMES //
-
-    /*/// Returns the internal biome ID stored at specific position. This value will always be
-    /// valid to set back to any sub-chunk owned by the same world as this sub-chunk.
-    ///
-    /// This method may override the underlying biome array because in the current implementation
-    /// a 3D biome sample take 4x4x4 blocs.
-    pub fn get_biome_id(&self, x: u8, y: u8, z: u8) -> u16 {
-        // Note: Shifting position because biomes 3D cube is 4x4x4 and
-        // we don't want to expose this details to the API.
-        //self.biomes[calc_biome_3d_index(x >> 2, y >> 2, z >> 2)]
-        0
-    }
-
-    /// Set the internal biome ID stored at specific position.
-    ///
-    /// # Safety
-    /// This method is unsafe because you should ensure that the biome ID is valid for the world's
-    /// biome register.
-    pub unsafe fn set_biome_id(&mut self, x: u8, y: u8, z: u8, biome_id: u16) {
-        //self.biomes[calc_biome_3d_index(x >> 2, y >> 2, z >> 2)] = biome_id;
-    }*/
-
     // BIOMES //
 
     pub fn get_biome(&self, x: u8, y: u8, z: u8) -> &'static Biome {
-        // SAFETY: Check safety comment of `Chunk::get_block` for explanation of the unwrapping.
-        // self.env.biomes().get_biome_from(self.get_biome_id(x, y, z)).unwrap()
         let sid = self.biomes.get(calc_biome_3d_index(x >> 2, y >> 2, z >> 2)).unwrap() as u16;
         self.env.biomes().get_biome_from(sid).unwrap()
     }
@@ -566,7 +454,6 @@ impl<'env> SubChunk<'env> {
         let idx = calc_biome_3d_index(x >> 2, y >> 2, z >> 2);
         match self.env.biomes().get_sid_from(biome) {
             Some(sid) => unsafe {
-                // self.set_biome_id(x, y, z, sid);
                 self.biomes.set(idx, sid as u64);
                 Ok(())
             },
