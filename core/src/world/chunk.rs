@@ -193,7 +193,7 @@ impl<'env> Chunk<'env> {
 }
 
 
-/// Options structure used when constructing a new `SubChunk`.
+/// Options used when constructing a new `SubChunk`.
 pub struct SubChunkOptions {
     /// The default block state used to fill
     pub default_block: Option<&'static BlockState>,
@@ -236,7 +236,7 @@ impl<'env> SubChunk<'env> {
                 env.blocks().check_state(*default_block, || ChunkError::IllegalBlock)?
             },
             _ => {
-                // SAFETY: Here we can unwrap because the level has already check that the
+                // SAFETY: Here we can unwrap because the level has already checked that the
                 //         global palettes contains at least one state.
                 env.blocks().get_state_from(0).unwrap()
             }
