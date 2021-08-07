@@ -6,39 +6,8 @@ use std::ops::RangeInclusive;
 use crate::block::GlobalBlocks;
 use crate::biome::GlobalBiomes;
 
-use super::loader::{ChunkLoader, ChunkFactory, ChunkLoadError, NoChunkLoader};
+use super::loader::{ChunkLoader, ChunkFactory, ChunkLoadError};
 use super::chunk::Chunk;
-
-
-/// A structure that contains the static environment of a World, this can be used for multiple
-/// Levels and it's used to decide was
-pub struct LevelEnv {
-    /// Actual blocks register.
-    blocks: GlobalBlocks<'static>,
-    /// Actual biomes register.
-    biomes: GlobalBiomes<'static>,
-}
-
-impl LevelEnv {
-
-    pub fn new(blocks: GlobalBlocks<'static>, biomes: GlobalBiomes<'static>) -> Self {
-        LevelEnv { blocks, biomes }
-    }
-
-    #[cfg(all(feature = "vanilla_blocks", feature = "vanilla_biomes"))]
-    pub fn new_vanilla() -> Result<Self, ()> {
-        Ok(Self::new(GlobalBlocks::new_vanilla()?, GlobalBiomes::new_vanilla()?))
-    }
-
-    pub fn blocks(&self) -> &GlobalBlocks<'static> {
-        &self.blocks
-    }
-
-    pub fn biomes(&self) -> &GlobalBiomes<'static> {
-        &self.biomes
-    }
-
-}
 
 
 /// This structure is used to represent the physical limits of a level.
@@ -50,6 +19,7 @@ pub struct LevelHeight {
 
 impl LevelHeight {
 
+    /// Return `true` if the given chunk Y coordinate is valid for the specified height.
     #[inline]
     pub fn includes(self, cy: i8) -> bool {
         return self.min <= cy && cy <= self.max;
@@ -69,82 +39,63 @@ impl IntoIterator for LevelHeight {
 }
 
 
-/// This structure must be used to configure a `Level`.
-pub struct LevelBuilder {
-    id: &'static str,
-    height: LevelHeight,
-    loader: Box<dyn ChunkLoader>
+/// A structure that contains the static environment of a World, this can be used for multiple
+/// Levels and it's used to decide was
+pub struct LevelEnv {
+    /// Actual blocks register.
+    blocks: GlobalBlocks<'static>,
+    /// Actual biomes register.
+    biomes: GlobalBiomes<'static>,
+    /// Level chunk height.
+    height: LevelHeight
 }
 
-impl LevelBuilder {
+impl LevelEnv {
 
-    pub fn new(id: &'static str) -> Self {
-        Self {
-            id,
-            height: LevelHeight { min: 0, max: 0 },
-            loader: Box::new(NoChunkLoader)
+    pub fn new(
+        blocks: GlobalBlocks<'static>,
+        biomes: GlobalBiomes<'static>
+    ) -> Self {
+        LevelEnv {
+            blocks,
+            biomes,
+            height: LevelHeight {
+                min: 0,
+                max: 0
+            }
         }
     }
 
-    pub fn get_id(&self) -> &'static str {
-        self.id
+    #[cfg(all(feature = "vanilla_blocks", feature = "vanilla_biomes"))]
+    pub fn new_vanilla() -> Result<Self, ()> {
+        Ok(Self::new(GlobalBlocks::new_vanilla()?, GlobalBiomes::new_vanilla()?))
     }
 
-    /// Use a specific `ChunkLoader` for this world. If this current height
-    /// limits are shorter than the loader requirements, the loader limits
-    /// are used.
-    ///
-    /// # Panics
-    ///
-    /// This method panics is the loader return an invalid height range (min > max).
-    pub fn with_loader(mut self, loader: impl ChunkLoader + 'static) -> Self {
-
-        let (min, max) = loader.min_height();
-        debug_assert!(min <= max, "The loader height has a minimum higher than the maximum.");
-
-        self.loader = Box::new(loader);
-
-        if min < self.height.min {
-            self.height.min = min;
-        }
-
-        if max > self.height.max {
-            self.height.max = max;
-        }
-
-        self
-
-    }
-
-    /// Set the height limits for the level, if the given limits are not
-    /// allowed by the current `ChunkLoader`, the limit is not saved.
-    ///
+    /// Set the height limits for the level.
     /// The limits are expressed in vertical chunks coordinates.
     ///
     /// The limit of the height are the limits of 8 bits integers (-128 to 127 included,
     /// so 256 maximum chunks in the height, 4096 blocks).
     pub fn with_height(mut self, min: i8, max: i8) -> Self {
-
-        debug_assert!(min <= max, "The given minimum higher than the maximum.");
-
-        let (ldr_min, ldr_max) = self.loader.min_height();
-
-        if min < ldr_min {
-            self.height.min = min;
-        }
-
-        if max > ldr_max {
-            self.height.max = max;
-        }
-
+        assert!(min <= max, "The given minimum is greater than maximum.");
+        self.height.min = min;
+        self.height.max = max;
         self
-
     }
 
-    /// Delegate call to `Level::new`.
     #[inline]
-    pub fn build(self, env: &LevelEnv) -> Arc<RwLock<Level>> {
-        Level::new(self, env)
+    pub fn blocks(&self) -> &GlobalBlocks<'static> {
+        &self.blocks
+    }
+
+    #[inline]
+    pub fn biomes(&self) -> &GlobalBiomes<'static> {
+        &self.biomes
+    }
+
+    #[inline]
+    pub fn height(&self) -> LevelHeight {
+        self.height
     }
 
 }
@@ -152,15 +103,15 @@ impl LevelBuilder {
 
 /// Main storage for a level, part of a World.
 pub struct Level<'env> {
+    /// The global environment used by this level, this environment should not be mutated afterward.
+    /// It contains the global blocks and biomes palettes, it also contains
     env: &'env LevelEnv,
     /// The unique ID of this level (among all levels of the world).
-    id: &'static str,
+    id: String,
     /// Weak counted reference to this structure, this implies that
     /// this structure must be owned by an `Arc<RwLock<_>>`. This is
     /// used internally when building `Chunk`s.
     this: Weak<RwLock<Level<'env>>>,
-    /// The minimum and maximum chunks coordinates allowed.
-    height: LevelHeight,
     /// Chunk storage, stored in another field to allow the loader, and
     /// the storage to be mutated concurrently.
     storage: LevelStorage<'env>,
@@ -170,20 +121,36 @@ pub struct Level<'env> {
 
 impl<'env> Level<'env> {
 
-    fn new(builder: LevelBuilder, env: &'env LevelEnv) -> Arc<RwLock<Level<'env>>> {
+    pub fn new(id: String, env: &'env LevelEnv, loader: impl ChunkLoader + 'static) -> Arc<RwLock<Level<'env>>> {
 
         assert_ne!(env.blocks.states_count(), 0, "The given environment has no states, a level requires at least one block state with save ID 0");
         assert_ne!(env.biomes.biomes_count(), 0, "The given environment has no biomes, a level requires at least one biome with save ID 0");
 
+        let loader_height = loader.min_height();
+
+        debug_assert!(loader_height.min <= loader_height.max,
+                      "The given chunk loader's height has a min ({}) greater than max ({}).",
+                      loader_height.min,
+                      loader_height.max);
+
+        assert!(env.height.min <= loader_height.min,
+                "The given environment's height has a min ({}) greater than the loader min ({}).",
+                env.height.min,
+                loader_height.min);
+
+        assert!(env.height.max >= loader_height.max,
+                "The given environment's height has a max ({}) smaller than the loader max ({}).",
+                env.height.max,
+                loader_height.min);
+
         let ret = Arc::new(RwLock::new(Level {
             env,
-            id: builder.id,
+            id,
             this: Weak::new(),
-            height: builder.height,
             storage: LevelStorage {
                 chunks: HashMap::new()
             },
-            loader: builder.loader
+            loader: Box::new(loader)
         }));
 
         ret.write().unwrap().this = Arc::downgrade(&ret);
@@ -197,29 +164,15 @@ impl<'env> Level<'env> {
     }
 
     /// Return the unique ID (unique in the owning world).
-    pub fn get_id(&self) -> &'static str {
-        self.id
+    pub fn get_id(&self) -> &String {
+        &self.id
     }
 
     /// Return the minimum and maximum chunks position allowed in this world.
     /// The limits can -128 to 127, it is more than enough.
     pub fn get_height(&self) -> LevelHeight {
-        self.height
+        self.env.height
     }
-
-    /*/// Return a strong counted reference to the `World` owning this level.
-    ///
-    /// # Panics
-    ///
-    /// This method panic if this level is no longer owned (should not happen).
-    pub fn get_world(&self) -> Arc<RwLock<World>> {
-        self.world.upgrade().expect("This level is no longer owned by its world.")
-    }
-
-    /// Return a weak counted reference to the `World` owning this level.
-    pub fn get_weak_world(&self) -> Weak<RwLock<World>> {
-        Weak::clone(&self.world)
-    }*/
 
     // PROVIDE CHUNKS //
 

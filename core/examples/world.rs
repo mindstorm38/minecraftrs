@@ -1,15 +1,16 @@
-use mc_core::world::level::{LevelEnv, LevelBuilder, LevelHeight, Level};
+use mc_core::world::level::{LevelEnv, LevelHeight, Level};
 use mc_core::world::chunk::{Chunk, SubChunk};
 
 use std::mem::size_of;
+use mc_core::world::loader::NoChunkLoader;
 
 fn main() {
 
-    let env = LevelEnv::new_vanilla().unwrap();
+    let env = LevelEnv::new_vanilla()
+        .unwrap()
+        .with_height(0, 15);
 
-    let _lvl = LevelBuilder::new("overworld")
-        .with_height(0, 15)
-        .build(&env);
+    let _lvl = Level::new("overworld".to_string(), &env, NoChunkLoader);
 
     println!("===== MEMORY USAGE =====");
     let chunk_sizeof = size_of::<Chunk>();

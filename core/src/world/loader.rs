@@ -1,4 +1,4 @@
-use super::level::LevelStorage;
+use super::level::{LevelStorage, LevelHeight};
 use super::chunk::Chunk;
 
 
@@ -41,7 +41,7 @@ pub trait ChunkLoader {
     /// macro if this function is called.
     fn populate_chunk(&self, world: &mut LevelStorage, cx: i32, cz: i32);
 
-    fn min_height(&self) -> (i8, i8);
+    fn min_height(&self) -> LevelHeight;
 
 }
 
@@ -59,8 +59,11 @@ impl ChunkLoader for NoChunkLoader {
         unimplemented!("NoChunkLoader doesn't provide chunks.");
     }
 
-    fn min_height(&self) -> (i8, i8) {
-        (0, 0)
+    fn min_height(&self) -> LevelHeight {
+        LevelHeight {
+            min: 0,
+            max: 0
+        }
     }
 
 }

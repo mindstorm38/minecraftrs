@@ -57,7 +57,6 @@ pub type ChunkResult<T> = Result<T, ChunkError>;
 pub struct Chunk<'env> {
     level: Weak<RwLock<Level<'env>>>,
     env: &'env LevelEnv,
-    height: LevelHeight,
     cx: i32,
     cz: i32,
     populated: bool,
@@ -74,7 +73,6 @@ impl<'env> Chunk<'env> {
         Chunk {
             level,
             env: level_guard.get_env(),
-            height: level_guard.get_height(),
             cx,
             cz,
             populated: false,
@@ -114,7 +112,7 @@ impl<'env> Chunk<'env> {
         options: Option<&'b SubChunkOptions>
     ) -> ChunkResult<&'a mut SubChunk<'env>> {
 
-        if self.height.includes(cy) {
+        if self.env.height().includes(cy) {
             match self.sub_chunks.entry(cy) {
                 Entry::Occupied(o) => Ok(o.into_mut()),
                 Entry::Vacant(v) => {
@@ -144,7 +142,7 @@ impl<'env> Chunk<'env> {
 
     /// Return the configured height for the level owning this chunk.
     pub fn get_height(&self) -> LevelHeight {
-        return self.height
+        return self.env.height()
     }
 
     // BLOCKS //
