@@ -1,8 +1,11 @@
 use mc_core::world::level::{LevelEnv, LevelHeight, Level};
 use mc_core::world::chunk::{Chunk, SubChunk};
+use mc_core::world::loader::NoChunkLoader;
+
+use mc_core::world::anvil::region::RegionFile;
 
 use std::mem::size_of;
-use mc_core::world::loader::NoChunkLoader;
+use std::path::PathBuf;
 
 fn main() {
 
@@ -21,6 +24,26 @@ fn main() {
     println!("SubChunk sizeof: {}", sub_chunk_sizeof);
     println!("For a whole loaded region: {}", 32 * 32 * (chunk_sizeof + 16 * sub_chunk_sizeof));
     println!("========================");
+    println!();
+
+    println!("====== ANVIL TEST ======");
+
+    let mut region_file = RegionFile::new(
+        PathBuf::from(r"C:\Users\Theo\AppData\Roaming\.minecraft\saves\Test JDataPack\DIM1\region_copy"),
+        0,
+        0
+    ).unwrap();
+
+    let mut reader = region_file.get_chunk_reader(0, 0).unwrap();
+    let mut data = Vec::new();
+    reader.read_to_end(&mut data);
+
+    println!("Chunk data length: {}", data.len());
+    println!("Chunk data: {:?}", data);
+    println!("Chunk data (string): {}", data.iter().map(|&data| char::from(data)).collect::<String>());
+
+    println!("========================");
+
 
     /*let world = World::new_vanilla();
     let mut world_guard = world.write().unwrap();
