@@ -1,11 +1,11 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::path::PathBuf;
+use std::sync::Mutex;
 
 pub mod region;
 
-use region::{RegionFile, RegionResult, RegionError};
+use region::{RegionFile, RegionResult};
 use std::io::Read;
 
 

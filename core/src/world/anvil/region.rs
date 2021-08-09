@@ -1,8 +1,10 @@
-use std::io::{Error as IoError, Result as IoResult, Seek, SeekFrom, Read, BufWriter, Write, Cursor, ErrorKind};
+use std::io::{Error as IoError, Result as IoResult, Seek, SeekFrom, Read, Write, Cursor, ErrorKind};
 use std::fs::{File, OpenOptions};
 use std::path::PathBuf;
 
 use flate2::read::{GzDecoder, ZlibDecoder};
+use flate2::write::{GzEncoder, ZlibEncoder};
+use flate2::Compression;
 use bit_vec::BitVec;
 
 
@@ -190,6 +192,33 @@ impl RegionFile {
 
     // Writing //
 
+    pub fn get_chunk_writer(&mut self, cx: i32, cz: i32, method: CompressionMethod) -> ChunkWriter {
+
+        let vec: Vec<u8> = Vec::new();
+        let inner = match method {
+            CompressionMethod::Gzip => ChunkWriterInner::Gzip(GzEncoder::new(vec, Compression::best())),
+            CompressionMethod::Zlib => ChunkWriterInner::Zlib(ZlibEncoder::new(vec, Compression::best())),
+            CompressionMethod::None => ChunkWriterInner::None(vec)
+        };
+
+        ChunkWriter {
+            cx,
+            cz,
+            region: self,
+            inner
+        }
+
+    }
+
+    pub fn get_latest_chunk_writer(&mut self, cx: i32, cz: i32) -> LatestChunkWriter {
+        LatestChunkWriter {
+            cx,
+            cz,
+            region: self,
+            inner: ZlibEncoder::new(Vec::new(), Compression::best())
+        }
+    }
+
     fn write_chunk(&mut self, cx: i32, cz: i32, data: &[u8], method: CompressionMethod) -> RegionResult<()> {
 
         let metadata_index = calc_chunk_metadata_index(cx, cz);
@@ -258,7 +287,10 @@ impl RegionFile {
                 //  if the length is not enough.
                 debug_assert!(length < needed_length);
                 let missing_length = needed_length - length;
-                self.file.set_len((missing_length + self.sectors.len() as u64 + 2) * SECTOR_SIZE);
+
+                self.file.set_len((missing_length + self.sectors.len() as u64 + 2) * SECTOR_SIZE)
+                    .map_err(map_io_err)?;
+
                 self.sectors.extend((0..missing_length).map(|_| true));
 
             }
@@ -270,7 +302,7 @@ impl RegionFile {
 
             // Update metadata for new offset and length.
             metadata.set_location(offset, length);
-            self.write_metadata(metadata_index, metadata);
+            self.write_metadata(metadata_index, metadata).map_err(map_io_err)?;
 
         }
 
@@ -379,6 +411,93 @@ impl CompressionMethod {
             external
         ))
 
+    }
+
+}
+
+impl Default for CompressionMethod {
+    fn default() -> Self {
+        Self::Zlib
+    }
+}
+
+
+/// A chunk writer for the latest compression method.
+pub struct LatestChunkWriter<'region> {
+    cx: i32,
+    cz: i32,
+    region: &'region mut RegionFile,
+    inner: ZlibEncoder<Vec<u8>>
+}
+
+impl LatestChunkWriter<'_> {
+
+    pub fn write_chunk(&mut self) -> RegionResult<()> {
+        self.region.write_chunk(self.cx, self.cz, &self.inner.get_ref()[..], CompressionMethod::Zlib)
+    }
+
+}
+
+impl Write for LatestChunkWriter<'_> {
+
+    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+        self.inner.write(buf)
+    }
+
+    fn flush(&mut self) -> IoResult<()> {
+        self.inner.flush()
+    }
+
+}
+
+
+/// A generic chunk writer for every compression method,
+/// might be slower than `LatestChunkWriter`.
+pub struct ChunkWriter<'region> {
+    cx: i32,
+    cz: i32,
+    region: &'region mut RegionFile,
+    inner: ChunkWriterInner
+}
+
+pub enum ChunkWriterInner {
+    Gzip(GzEncoder<Vec<u8>>),
+    Zlib(ZlibEncoder<Vec<u8>>),
+    None(Vec<u8>)
+}
+
+impl ChunkWriter<'_> {
+
+    fn inner_write(&mut self) -> &mut dyn Write {
+        match &mut self.inner {
+            ChunkWriterInner::Gzip(encoder) => encoder,
+            ChunkWriterInner::Zlib(encoder) => encoder,
+            ChunkWriterInner::None(vec) => vec
+        }
+    }
+
+    pub fn write_chunk(&mut self) -> RegionResult<()> {
+
+        let (data, method) = match &self.inner {
+            ChunkWriterInner::Gzip(encoder) => (encoder.get_ref(), CompressionMethod::Gzip),
+            ChunkWriterInner::Zlib(encoder) => (encoder.get_ref(), CompressionMethod::Zlib),
+            ChunkWriterInner::None(vec) => (vec, CompressionMethod::None)
+        };
+
+        self.region.write_chunk(self.cx, self.cz, &data[..], method)
+
+    }
+
+}
+
+impl Write for ChunkWriter<'_> {
+
+    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+        self.inner_write().write(buf)
+    }
+
+    fn flush(&mut self) -> IoResult<()> {
+        self.inner_write().flush()
     }
 
 }

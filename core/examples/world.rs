@@ -36,7 +36,7 @@ fn main() {
 
     let mut reader = region_file.get_chunk_reader(0, 0).unwrap();
     let mut data = Vec::new();
-    reader.read_to_end(&mut data);
+    reader.read_to_end(&mut data).unwrap();
 
     println!("Chunk data length: {}", data.len());
     println!("Chunk data: {:?}", data);
