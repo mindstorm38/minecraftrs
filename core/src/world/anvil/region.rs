@@ -6,6 +6,7 @@ use flate2::read::{GzDecoder, ZlibDecoder};
 use flate2::write::{GzEncoder, ZlibEncoder};
 use flate2::Compression;
 use bit_vec::BitVec;
+use std::fmt::Arguments;
 
 
 const SECTOR_SIZE: u64 = 4096;
@@ -13,8 +14,6 @@ const MAX_SECTOR_OFFSET: u64 = 0xFFFFFF;
 const MAX_SECTOR_LENGTH: u64 = 0xFF;
 const MAX_CHUNK_SIZE: u64 = MAX_SECTOR_LENGTH * SECTOR_SIZE;
 
-// /// Internal empty sector array used to fill the region file with an entire section.
-// static EMPTY_SECTOR: [u8; SECTOR_SIZE as usize] = [0; SECTOR_SIZE as usize];
 
 /// Error type used together with `RegionResult` for every call on region file methods.
 #[derive(Debug)]
@@ -25,10 +24,14 @@ pub enum RegionError {
     FileNotPadded,
     /// The region file has an invalid chunk metadata that leads to sectors out of the range.
     IllegalMetadata,
+    /// The required chunk is empty, it has no sector allocated in the region file.
+    EmptyChunk,
     /// The compression method in the chunk header is unknown, the ID is given as parameter.
     UnknownCompression(u8),
     /// The external chunk file was not found. This is used if the chunk is too large.
     ExternalChunkNotFound,
+    /// No more sectors are available to in the region file.
+    OutOfSectors,
     /// For common IO errors that can happen and can't be reduced to another `RegionError`.
     Io(IoError)
 }
@@ -50,6 +53,13 @@ fn get_region_file_path(dir: &PathBuf, rx: i32, rz: i32) -> PathBuf {
 #[inline]
 fn get_chunk_file_path(dir: &PathBuf, cx: i32, cz: i32) -> PathBuf {
     dir.join(format!("c.{}.{}.mcc", cx, cz))
+}
+
+#[inline]
+fn fill_sectors(sectors: &mut BitVec, from: usize, length: usize, value: bool) {
+    for sector in from..(from + length) {
+        sectors.set(sector, value);
+    }
 }
 
 /// Internal function used to pass to `.map_err` of `IoResult`.
@@ -109,9 +119,7 @@ impl RegionFile {
             let length = meta.length();
 
             if length != 0 && (offset + length) <= sectors_count {
-                for sector in (offset - 2)..(offset + length - 2) {
-                    sectors.set(sector as usize, false);
-                }
+                fill_sectors(&mut sectors, offset as usize - 2, length as usize, false);
             } else {
                 return Err(RegionError::IllegalMetadata);
             }
@@ -145,6 +153,10 @@ impl RegionFile {
     pub fn get_chunk_reader(&mut self, cx: i32, cz: i32) -> RegionResult<Box<dyn Read>> {
 
         let metadata = self.metadata[calc_chunk_metadata_index(cx, cz)];
+        if metadata.length() == 0 {
+            return Err(RegionError::EmptyChunk);
+        }
+
         self.file.seek(SeekFrom::Start(metadata.offset() * SECTOR_SIZE)).map_err(map_io_err)?;
 
         let mut length_data = [0u8; 4];
@@ -210,15 +222,6 @@ impl RegionFile {
 
     }
 
-    pub fn get_latest_chunk_writer(&mut self, cx: i32, cz: i32) -> LatestChunkWriter {
-        LatestChunkWriter {
-            cx,
-            cz,
-            region: self,
-            inner: ZlibEncoder::new(Vec::new(), Compression::best())
-        }
-    }
-
     fn write_chunk(&mut self, cx: i32, cz: i32, data: &[u8], method: CompressionMethod) -> RegionResult<()> {
 
         let metadata_index = calc_chunk_metadata_index(cx, cz);
@@ -239,9 +242,7 @@ impl RegionFile {
 
         if needed_length != length {
 
-            for sector in (offset - 2)..(offset + length - 2) {
-                self.sectors.set(sector as usize, true);
-            }
+            fill_sectors(&mut self.sectors, offset as usize - 2, length as usize, true);
 
             offset = 0;
             length = 0;
@@ -272,9 +273,9 @@ impl RegionFile {
                     offset = free_sector as u64;
                     length = 1;
                 } else {
-                    // TODO: Return err, no sector available for external chunk header.
-                    //       This is really unlikely to happen but we need to take this case into
-                    //       account.
+                    // Revert the change to sectors "free state".
+                    fill_sectors(&mut self.sectors, offset as usize - 2, length as usize, false);
+                    return Err(RegionError::OutOfSectors);
                 }
 
             }
@@ -296,9 +297,7 @@ impl RegionFile {
             }
 
             // Mark all new sectors to "not free".
-            for sector in (offset - 2)..(offset + length - 2) {
-                self.sectors.set(sector as usize, false);
-            }
+            fill_sectors(&mut self.sectors, offset as usize - 2, length as usize, false);
 
             // Update metadata for new offset and length.
             metadata.set_location(offset, length);
@@ -422,35 +421,6 @@ impl Default for CompressionMethod {
 }
 
 
-/// A chunk writer for the latest compression method.
-pub struct LatestChunkWriter<'region> {
-    cx: i32,
-    cz: i32,
-    region: &'region mut RegionFile,
-    inner: ZlibEncoder<Vec<u8>>
-}
-
-impl LatestChunkWriter<'_> {
-
-    pub fn write_chunk(&mut self) -> RegionResult<()> {
-        self.region.write_chunk(self.cx, self.cz, &self.inner.get_ref()[..], CompressionMethod::Zlib)
-    }
-
-}
-
-impl Write for LatestChunkWriter<'_> {
-
-    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
-        self.inner.write(buf)
-    }
-
-    fn flush(&mut self) -> IoResult<()> {
-        self.inner.flush()
-    }
-
-}
-
-
 /// A generic chunk writer for every compression method,
 /// might be slower than `LatestChunkWriter`.
 pub struct ChunkWriter<'region> {
@@ -498,6 +468,14 @@ impl Write for ChunkWriter<'_> {
 
     fn flush(&mut self) -> IoResult<()> {
         self.inner_write().flush()
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> IoResult<()> {
+        self.inner_write().write_all(buf)
+    }
+
+    fn write_fmt(&mut self, fmt: Arguments<'_>) -> IoResult<()> {
+        self.inner_write().write_fmt(fmt)
     }
 
 }

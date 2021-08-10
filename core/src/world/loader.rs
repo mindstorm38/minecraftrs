@@ -39,7 +39,9 @@ pub trait ChunkLoader {
     /// Implementations that does not support populating should load chunk and
     /// set the populated flag to true and should panic with `unimplemented!`
     /// macro if this function is called.
-    fn populate_chunk(&self, world: &mut LevelStorage, cx: i32, cz: i32);
+    fn populate_chunk(&self, _world: &mut LevelStorage, _cx: i32, _cz: i32) {
+        unimplemented!();
+    }
 
     fn min_height(&self) -> LevelHeight;
 
@@ -53,10 +55,6 @@ impl ChunkLoader for NoChunkLoader {
 
     fn load_chunk<'env>(&self, _: &dyn ChunkFactory<'env>, cx: i32, cz: i32) -> Result<Chunk<'env>, ChunkLoadError> {
         Err(ChunkLoadError::IllegalPosition(cx, cz))
-    }
-
-    fn populate_chunk(&self, _: &mut LevelStorage, _: i32, _: i32) {
-        unimplemented!("NoChunkLoader doesn't provide chunks.");
     }
 
     fn min_height(&self) -> LevelHeight {
