@@ -30,7 +30,7 @@ pub enum RegionError {
     UnknownCompression(u8),
     /// The external chunk file was not found. This is used if the chunk is too large.
     ExternalChunkNotFound,
-    /// No more sectors are available to in the region file.
+    /// No more sectors are available in the region file, really unlikely to happen.
     OutOfSectors,
     /// For common IO errors that can happen and can't be reduced to another `RegionError`.
     Io(IoError)

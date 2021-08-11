@@ -7,6 +7,9 @@ use mc_core::world::anvil::region::RegionFile;
 use std::mem::size_of;
 use std::path::PathBuf;
 
+use nbt::decode::read_compound_tag;
+
+
 fn main() {
 
     let env = LevelEnv::new_vanilla()
@@ -35,12 +38,9 @@ fn main() {
     ).unwrap();
 
     let mut reader = region_file.get_chunk_reader(0, 0).unwrap();
-    let mut data = Vec::new();
-    reader.read_to_end(&mut data).unwrap();
+    let tag = read_compound_tag(&mut reader).unwrap();
 
-    println!("Chunk data length: {}", data.len());
-    println!("Chunk data: {:?}", data);
-    println!("Chunk data (string): {}", data.iter().map(|&data| char::from(data)).collect::<String>());
+    println!("Chunk tag: {:?}", tag);
 
     println!("========================");
 

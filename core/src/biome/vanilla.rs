@@ -6,6 +6,7 @@ biomes!(VanillaBiomesStruct VanillaBiomes [
     BADLANDS "badlands",
     BADLANDS_PLATEAU "badlands_plateau",
     BAMBOO_JUNGLE "bamboo_jungle",
+    BAMBOO_JUNGLE_HILLS "bamboo_jungle_hills",
     BASALT_DELTAS "basalt_deltas", // 1.16
     BEACH "beach",
     BIRCH_FOREST "birch_forest",
@@ -51,7 +52,7 @@ biomes!(VanillaBiomesStruct VanillaBiomes [
     MOUNTAIN_EDGE "mountain_edge",
     MUSHROOM_FIELDS "mushroom_fields",
     MUSHROOM_FIELD_SHORE "mushroom_field_shore",
-    NETHER "nether", // < 1.16
+    // NETHER "nether", // < 1.16  it is actually nether_wastes
     NETHER_WASTES "nether_wastes", // < 1.16
     OCEAN "ocean",
     PLAINS "plains",

@@ -1,13 +1,12 @@
-use std::sync::{Mutex, MutexGuard, Arc};
+use std::sync::{Mutex, Arc};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::io::Read;
 
 pub mod region;
 pub mod loader;
 
-use region::{RegionFile, RegionResult, CompressionMethod, ChunkWriter};
+use region::{RegionFile, RegionResult};
 
 
 #[inline]
@@ -30,7 +29,7 @@ impl AnvilManager {
         match self.cache.lock().unwrap().entry(pos) {
             Entry::Occupied(o) => Ok(Arc::clone(o.into_mut())),
             Entry::Vacant(v) => {
-                let region = RegionFile::new(dir.clone(), pos.0, pos.1)?;
+                let region = RegionFile::new(self.dir.clone(), pos.0, pos.1)?;
                 let region = Arc::new(Mutex::new(region));
                 Ok(Arc::clone(v.insert(region)))
             }

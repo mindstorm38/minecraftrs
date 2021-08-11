@@ -7,6 +7,8 @@ use crate::util::UidGenerator;
 
 #[cfg(feature = "vanilla_biomes")]
 pub mod vanilla;
+#[cfg(feature = "vanilla_biomes")]
+pub mod legacy;
 
 
 /// A basic biome structure. Allow extensions for modifying.
