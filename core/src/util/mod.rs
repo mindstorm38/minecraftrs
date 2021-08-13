@@ -97,3 +97,16 @@ macro_rules! count {
     () => (0usize);
     ( $x:tt $($xs:tt)* ) => (1usize + $crate::count!($($xs)*));
 }
+
+#[macro_export]
+macro_rules! debug {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        {
+            print!("[{}:{}] ", file!(), line!());
+            println!($($arg)*);
+        }
+        #[cfg(not(debug_assertions))]
+        {}
+    };
+}

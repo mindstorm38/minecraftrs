@@ -473,11 +473,6 @@ fn calc_chunk_index_from_pos(cx: i32, cz: i32) -> usize {
 }
 
 #[inline]
-fn calc_chunk_pos_from_index(index: usize) -> (u8, u8) {
-    ((index & 31) as u8, ((index >> 5) & 31) as u8)
-}
-
-#[inline]
 fn get_region_file_path(dir: &PathBuf, rx: i32, rz: i32) -> PathBuf {
     dir.join(format!("r.{}.{}.mca", rx, rz))
 }

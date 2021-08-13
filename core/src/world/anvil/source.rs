@@ -3,10 +3,10 @@ use std::collections::hash_map::Entry;
 use std::io::{Result as IoResult};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use std::fs::File;
 
-use crossbeam_channel::{Sender, Receiver, unbounded, bounded};
+use crossbeam_channel::{Sender, Receiver, RecvTimeoutError, unbounded, bounded};
 use nbt::{CompoundTag, decode::read_gzip_compound_tag};
 
 use crate::world::chunk::{Chunk, ChunkHeight};
@@ -15,6 +15,7 @@ use crate::world::source::{
     LevelSource, LevelSourceError, LevelSourceResult, LevelSourcePollResult,
     LevelSourceBuilder, ChunkBuilder
 };
+use crate::debug;
 
 use super::region::{RegionFile, calc_region_pos};
 use super::serial::{decode_chunk_from_reader};
@@ -158,18 +159,27 @@ impl Worker {
     }
 
     fn run(mut self) {
+
+        static REQUEST_RECV_TIMEOUT: Duration = Duration::from_secs(REGIONS_CACHE_TIME / 2);
+
         loop {
-            match self.request_receiver.recv() {
+
+            match self.request_receiver.recv_timeout(REQUEST_RECV_TIMEOUT) {
                 Ok(pos) => {
+                    debug!("Received chunk load request for {}/{}", pos.0, pos.1);
                     let chunk = self.load_chunk(pos.0, pos.1);
                     if let Err(_) = self.result_sender.send((pos, chunk)) {
                         break
                     }
                 },
-                Err(_) => break
+                Err(RecvTimeoutError::Timeout) => {},
+                Err(RecvTimeoutError::Disconnected) => break
             }
+
             self.check_cache();
+
         }
+
     }
 
     fn load_chunk(&mut self, cx: i32, cz: i32) -> LevelSourceResult<Chunk> {
@@ -180,7 +190,10 @@ impl Worker {
             Entry::Occupied(o) => o.into_mut().refresh(),
             Entry::Vacant(v) => {
                 match RegionFile::new(self.regions_dir.clone(), region_pos.0, region_pos.1) {
-                    Ok(region) => v.insert(TimedCache::new(region)),
+                    Ok(region) => {
+                        debug!("Region file opened at {}/{}", region_pos.0, region_pos.1);
+                        v.insert(TimedCache::new(region))
+                    },
                     Err(err) => return Err(LevelSourceError::new_custom(err))
                 }
             }
@@ -200,7 +213,14 @@ impl Worker {
 
     fn check_cache(&mut self) {
         if self.last_cache_check.elapsed().as_secs() >= REGIONS_CACHE_TIME {
-            self.regions.retain(|_, region| region.timedout());
+            self.regions.retain(|(rx, rz), region| {
+                if region.timedout() {
+                    debug!("Region file timed out at {}/{}", rx, rz);
+                    false
+                } else {
+                    true
+                }
+            });
             self.last_cache_check = Instant::now();
         }
     }

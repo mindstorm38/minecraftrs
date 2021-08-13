@@ -3,10 +3,10 @@ use std::collections::HashMap;
 
 use crate::block::GlobalBlocks;
 use crate::biome::GlobalBiomes;
+use crate::debug;
 
-use super::source::{LevelSource, LevelSourceBuilder};
+use super::source::{LevelSource, LevelSourceBuilder, ChunkBuilder};
 use super::chunk::{Chunk, ChunkHeight};
-use crate::world::source::ChunkBuilder;
 
 
 /// A structure that contains the static environment of a World, this can be used for multiple
@@ -100,17 +100,21 @@ impl<S: LevelSource> Level<S> {
     }
 
     pub fn request_chunk(&mut self, cx: i32, cz: i32) -> bool {
+        debug!("Request chunk load at {}/{}", cx, cz);
         matches!(self.source.request_chunk_load(cx, cz), Ok(_))
     }
 
     pub fn load_chunks(&mut self) {
         while let Some(((cx, cz), res)) = self.source.poll_chunk() {
             match res {
-                Ok(chunk) => self.storage.insert_chunk(chunk),
+                Ok(chunk) => {
+                    debug!("Loaded chunk at {}/{}", cx, cz);
+                    self.storage.insert_chunk(chunk)
+                },
                 Err(err) => {
                     // IDE shows an error for 'Display' not being implemented, but we use the
                     // crate 'thiserror' to implement it through a custom derive.
-                    println!("Failed to load chunk at {}/{}: {}", cx, cz, err);
+                    debug!("Failed to load chunk at {}/{}: {}", cx, cz, err);
                 }
             }
         }
