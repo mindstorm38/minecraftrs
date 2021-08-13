@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::any::Any;
 
-use crate::util::generic::{RwGenericMap, GuardedRef, GuardedMut};
-use crate::util::UidGenerator;
+use crate::util::{UidGenerator, RwGenericMap, GuardedRef, GuardedMut};
 
 #[cfg(feature = "vanilla_biomes")]
 pub mod vanilla;

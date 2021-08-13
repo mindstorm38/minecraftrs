@@ -32,6 +32,13 @@ pub struct BlockState {
     block: NonNull<Block>
 }
 
+// Sync is implemented because a block state can be referenced between threads, no data race can
+// happen since it is never mutated. The `NonNull` block field prevents the default implementation
+// of `Sync`, but every state should be stored in a pined box of block.
+// It is not made Send because states are internal to blocks which are statics and should not be
+// moved, then block states can't be moved.
+unsafe impl Sync for BlockState {}
+
 
 impl BlockState {
 

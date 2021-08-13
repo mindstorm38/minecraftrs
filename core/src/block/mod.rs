@@ -5,8 +5,7 @@ use std::fmt::Debug;
 use std::any::Any;
 use std::pin::Pin;
 
-use crate::util::generic::{RwGenericMap, GuardedRef, GuardedMut};
-use crate::util::UidGenerator;
+use crate::util::{UidGenerator, RwGenericMap, GuardedRef, GuardedMut};
 
 mod state;
 mod property;

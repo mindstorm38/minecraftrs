@@ -1,12 +1,11 @@
-use std::sync::{Arc, Weak, RwLock};
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::sync::Arc;
 
-use crate::util::packed::{PackedArray, Palette};
+use thiserror::Error;
+
+use crate::util::{PackedArray, Palette};
 use crate::block::BlockState;
 use crate::biome::Biome;
-
-use super::level::{LevelEnv, Level, LevelHeight};
+use super::level::LevelEnv;
 
 
 /// The number of blocks for each direction in sub chunks.
@@ -14,125 +13,150 @@ pub const SIZE: usize = 16;
 /// The total count of data for a 3 dimensional cube of `SIZE`.
 pub const BLOCKS_DATA_SIZE: usize = SIZE * SIZE * SIZE;
 /// The total count of biomes samples for 3 dimensional biomes.
-pub const BIOMES_2D_DATA_SIZE: usize = SIZE * SIZE;
-/// The total count of biomes samples for 3 dimensional biomes.
-pub const BIOMES_3D_DATA_SIZE: usize = 4 * 4 * 4;
+pub const BIOMES_DATA_SIZE: usize = 4 * 4 * 4;
 
 
-/// Used to calculate the index in a data array of `BLOCKS_DATA_SIZE`.
-#[inline]
-fn calc_block_index(x: u8, y: u8, z: u8) -> usize {
-    debug_assert!(x < 16 && y < 16 && z < 16, "x: {}, y: {}, z: {}", x, y, z);
-    x as usize | ((z as usize) << 4) | ((y as usize) << 8)
-}
-
-
-/*#[inline]
-fn calc_biome_2d_index(x: u8, z: u8) -> usize {
-    debug_assert!(x < 16 && z < 16, "x: {}, z: {}", x, z);
-    x as usize | ((z as usize) << 4)
-}*/
-
-
-#[inline]
-fn calc_biome_3d_index(x: u8, y: u8, z: u8) -> usize {
-    debug_assert!(x < 4 && y < 4 && z < 4, "x: {}, y: {}, z: {}", x, y, z);
-    x as usize | ((z as usize) << 2) | ((y as usize) << 4)
-}
-
-
-#[derive(Debug)]
+/// An error enumeration for all operations related to blocks and biomes on
+/// sub chunks and chunks. Check each variation for specific documentation.
+#[derive(Error, Debug)]
 pub enum ChunkError {
-    IllegalVerticalPos,
+    #[error("You are trying to alter a sub chunk that is out of the height range.")]
+    SubChunkOutOfRange,
+    #[error("You are trying get information from an unloaded sub chunk.")]
     SubChunkUnloaded,
+    #[error("You gave a block reference that is not supported by this chunk's level's env.")]
     IllegalBlock,
+    #[error("You gave a biome reference that is not supported by this chunk's level's env.")]
     IllegalBiome
 }
 
-
+/// A type alias with an error type of `ChunkError`.
 pub type ChunkResult<T> = Result<T, ChunkError>;
 
 
-/// A vertical chunk, 16x16 blocks.
-pub struct Chunk<'env> {
-    level: Weak<RwLock<Level<'env>>>,
-    env: &'env LevelEnv,
-    cx: i32,
-    cz: i32,
-    populated: bool,
-    sub_chunks: HashMap<i8, SubChunk<'env>>
+/// An enumeration for the different generation status used by the game. Depending on the
+/// generation algorithm some status might not be used.
+#[derive(Debug, Copy, Clone)]
+pub enum ChunkStatus {
+    Empty,
+    StructureStarts,
+    StructureReferences,
+    Biomes,
+    Noise,
+    Surface,
+    Carvers,
+    LiquidCarvers,
+    Features,
+    Light,
+    Spawn,
+    Heightmaps,
+    Full
 }
 
-impl<'env> Chunk<'env> {
 
-    pub(super) fn new(level: Weak<RwLock<Level<'env>>>, cx: i32, cz: i32) -> Self {
+/// A vertical chunk, 16x16 blocks. This vertical chunk is composed of multiple `SubChunk`s,
+/// each sub chunk has stores blocks, biomes, lights. This structure however stores metadata
+/// about the chunk like inhabited time and generation status. All entities and block entities
+/// are also stored in the chunk.
+pub struct Chunk {
+    /// Chunk X position.
+    cx: i32,
+    /// Chunk Z position.
+    cz: i32,
+    /// The level environment with block and biomes global palettes.
+    env: Arc<LevelEnv>,
+    /// The array of sub chunks, defined once with a specific size depending on the height.
+    sub_chunks: Vec<Option<SubChunk>>,
+    /// The offset of the
+    sub_chunks_offset: i8,
+    /// The current generation status of this chunk.
+    status: ChunkStatus,
+    /// Total number of ticks players has been in this chunk, this increase faster when
+    /// more players are in the chunk.
+    inhabited_time: u64
+}
 
-        let level_arc = level.upgrade().unwrap();
-        let level_guard = level_arc.read().unwrap();
+impl Chunk {
+
+    pub(super) fn new(env: Arc<LevelEnv>, height: ChunkHeight, cx: i32, cz: i32) -> Self {
 
         Chunk {
-            level,
-            env: level_guard.get_env(),
             cx,
             cz,
-            populated: false,
-            sub_chunks: HashMap::new()
+            env,
+            status: ChunkStatus::Empty,
+            sub_chunks: Vec::with_capacity(height.len()),
+            sub_chunks_offset: height.min,
+            inhabited_time: 0
         }
 
     }
 
-    /// Return a strong counted reference to the `Level` owning this chunk.
-    ///
-    /// # Panics
-    /// This method panic if this chunk is no longer owned (should not happen).
-    pub fn get_level(&self) -> Arc<RwLock<Level<'env>>> {
-        self.level.upgrade().expect("This chunk is no longer owned by its level.")
-    }
-
     /// Get the chunk position `(x, z)`.
+    #[inline]
     pub fn get_position(&self) -> (i32, i32) {
         (self.cx, self.cz)
     }
 
-    pub fn is_populated(&self) -> bool {
-        self.populated
+    #[inline]
+    pub fn get_status(&self) -> ChunkStatus {
+        self.status
     }
 
-    pub fn set_populated(&mut self, populated: bool) {
-        self.populated = populated;
+    #[inline]
+    pub fn set_status(&mut self, status: ChunkStatus) {
+        self.status = status;
+    }
+
+    #[inline]
+    pub fn get_inhabited_time(&self) -> u64 {
+        self.inhabited_time
+    }
+
+    #[inline]
+    pub fn set_inhabited_time(&mut self, time: u64) {
+        self.inhabited_time = time;
     }
 
     /// Ensure that a sub chunk is existing at a specific chunk-Y coordinate, if this coordinate
     /// is out of the height of the level, `Err(ChunkError::IllegalVerticalPos)` is returned.
     /// You can pass `Some(&SubChunkOptions)` in order to change the default block and biome used
     /// to fill the sub chunk if it need to be created.
-    pub fn ensure_sub_chunk<'a, 'b>(
-        &'a mut self,
-        cy: i8,
-        options: Option<&'b SubChunkOptions>
-    ) -> ChunkResult<&'a mut SubChunk<'env>> {
+    pub fn ensure_sub_chunk(&mut self, cy: i8, options: Option<&SubChunkOptions>) -> ChunkResult<&mut SubChunk> {
 
-        if self.env.height().includes(cy) {
-            match self.sub_chunks.entry(cy) {
-                Entry::Occupied(o) => Ok(o.into_mut()),
-                Entry::Vacant(v) => {
-                    Ok(v.insert(SubChunk::new(self.env, options)?))
-                }
-            }
-        } else {
-            Err(ChunkError::IllegalVerticalPos)
+        let offset = self.calc_chunk_offset(cy).ok_or(ChunkError::SubChunkOutOfRange)?;
+
+        match self.sub_chunks.get_mut(offset) {
+            Some(Some(sub_chunk)) => Ok(sub_chunk),
+            Some(sub_chunk ) => {
+                Ok(sub_chunk.insert(SubChunk::new(Arc::clone(&self.env), options)?))
+            },
+            None => Err(ChunkError::SubChunkOutOfRange)
         }
 
     }
 
     /// Get a sub chunk reference at a specified index.
-    pub fn get_sub_chunk(&self, cy: i8) -> Option<&SubChunk<'env>> {
-        self.sub_chunks.get(&cy)
+    pub fn get_sub_chunk(&self, cy: i8) -> Option<&SubChunk> {
+        let offset = self.calc_chunk_offset(cy)?;
+        match self.sub_chunks.get(offset) {
+            Some(Some(chunk)) => Some(chunk),
+            _ => None
+        }
     }
 
     /// Get a sub chunk mutable reference at a specified index.
-    pub fn mut_sub_chunk(&mut self, cy: i8) -> Option<&mut SubChunk<'env>> {
-        self.sub_chunks.get_mut(&cy)
+    pub fn mut_sub_chunk(&mut self, cy: i8) -> Option<&mut SubChunk> {
+        let offset = self.calc_chunk_offset(cy)?;
+        match self.sub_chunks.get_mut(offset) {
+            Some(Some(chunk)) => Some(chunk),
+            _ => None
+        }
+    }
+
+    // Internal
+    fn calc_chunk_offset(&self, cy: i8) -> Option<usize> {
+        cy.checked_sub(self.sub_chunks_offset).map(|v| v as usize)
     }
 
     /// Return the number of sub chunks in the height of this chunk.
@@ -141,8 +165,11 @@ impl<'env> Chunk<'env> {
     }
 
     /// Return the configured height for the level owning this chunk.
-    pub fn get_height(&self) -> LevelHeight {
-        return self.env.height()
+    pub fn get_height(&self) -> ChunkHeight {
+        ChunkHeight {
+            min: self.sub_chunks_offset,
+            max: self.sub_chunks_offset + self.sub_chunks.len() as i8
+        }
     }
 
     // BLOCKS //
@@ -209,8 +236,8 @@ impl Default for SubChunkOptions {
 
 
 /// A sub chunk, 16x16x16 blocks.
-pub struct SubChunk<'env> {
-    env: &'env LevelEnv,
+pub struct SubChunk {
+    env: Arc<LevelEnv>,
     /// Blocks palette. It is limited to 128 blocks in order to support most blocks in a natural
     /// generation, which is the case of most of the sub chunks that are untouched by players.
     /// In case of "artificial chunks" made by players, the block palette is likely to overflow
@@ -225,30 +252,36 @@ pub struct SubChunk<'env> {
     biomes: PackedArray,
 }
 
-impl<'env> SubChunk<'env> {
+// We must unsafely implement Send + Sync because of the `Palette<*const BlockState>`, this field
+// is safe because it references a 'static reference to a lazy loaded `BlockState`.
+unsafe impl Send for SubChunk {}
+unsafe impl Sync for SubChunk {}
 
-    fn new(env: &'env LevelEnv, options: Option<&SubChunkOptions>) -> ChunkResult<Self> {
+
+impl SubChunk {
+
+    fn new(env: Arc<LevelEnv>, options: Option<&SubChunkOptions>) -> ChunkResult<Self> {
 
         let default_state = match options {
             Some(SubChunkOptions { default_block: Some(default_block), .. }) => {
-                env.blocks().check_state(*default_block, || ChunkError::IllegalBlock)?
+                env.blocks.check_state(*default_block, || ChunkError::IllegalBlock)?
             },
             _ => {
                 // SAFETY: Here we can unwrap because the level has already checked that the
                 //         global palettes contains at least one state.
-                env.blocks().get_state_from(0).unwrap()
+                env.blocks.get_state_from(0).unwrap()
             }
         };
 
         let default_biome = match options {
             Some(SubChunkOptions { default_biome: Some(default_biome), .. }) => {
-                env.biomes().get_sid_from(*default_biome).ok_or_else(|| ChunkError::IllegalBiome)?
+                env.biomes.get_sid_from(*default_biome).ok_or_else(|| ChunkError::IllegalBiome)?
             },
             _ => 0
         };
 
         // This is 7 bits for current vanilla biomes, this only take 64 octets of storage.
-        let biomes_byte_size = PackedArray::calc_min_byte_size(env.biomes().biomes_count() as u64);
+        let biomes_byte_size = PackedArray::calc_min_byte_size(env.biomes.biomes_count() as u64);
 
         // The palettes are initialized with an initial state and biome (usually air and void, if
         // vanilla environment), this is required because the packed array has default values of 0,
@@ -257,7 +290,7 @@ impl<'env> SubChunk<'env> {
             env,
             blocks_palette: Some(Palette::new(Some(default_state), 128)),
             blocks: PackedArray::new(BLOCKS_DATA_SIZE, 4, None),
-            biomes: PackedArray::new(BIOMES_3D_DATA_SIZE, biomes_byte_size, Some(default_biome as u64))
+            biomes: PackedArray::new(BIOMES_DATA_SIZE, biomes_byte_size, Some(default_biome as u64))
         })
 
     }
@@ -279,13 +312,12 @@ impl<'env> SubChunk<'env> {
                 // Here we transmute a `*const BlockState` to `&'static BlockState`, this is safe.
                 std::mem::transmute(palette.get_item(sid as usize).unwrap())
             },
-            None => self.env.blocks().get_state_from(sid).unwrap()
+            None => self.env.blocks.get_state_from(sid).unwrap()
         }
 
     }
 
     pub fn set_block(&mut self, x: u8, y: u8, z: u8, state: &'static BlockState) -> ChunkResult<()> {
-
         let idx = calc_block_index(x, y, z);
         match self.ensure_block_sid(state) {
             Some(sid) => {
@@ -294,12 +326,9 @@ impl<'env> SubChunk<'env> {
             },
             None => Err(ChunkError::IllegalBlock)
         }
-
     }
 
     fn ensure_block_sid(&mut self, state: &'static BlockState) -> Option<u32> {
-
-        let global_palette = self.env.blocks();
 
         if let Some(ref mut palette) = self.blocks_palette {
 
@@ -311,7 +340,7 @@ impl<'env> SubChunk<'env> {
             match palette.search_index(state_ptr) {
                 Some(sid) => return Some(sid as u32),
                 None => {
-                    if global_palette.has_state(state) {
+                    if self.env.blocks.has_state(state) {
                         match palette.insert_index(state_ptr) {
                             Some(sid) => {
                                 if sid as u64 > self.blocks.max_value() {
@@ -334,13 +363,13 @@ impl<'env> SubChunk<'env> {
 
         }
 
-        global_palette.get_sid_from(state)
+        self.env.blocks.get_sid_from(state)
 
     }
 
     fn use_global_blocks(&mut self) {
         if let Some(ref local_palette) = self.blocks_palette {
-            let global_palette = self.env.blocks();
+            let global_palette = &self.env.blocks;
             let new_byte_size = PackedArray::calc_min_byte_size(global_palette.states_count() as u64);
             self.blocks.resize_byte_and_replace(new_byte_size, move |sid| unsafe {
                 global_palette.get_sid_from(std::mem::transmute(
@@ -354,13 +383,13 @@ impl<'env> SubChunk<'env> {
     // BIOMES //
 
     pub fn get_biome(&self, x: u8, y: u8, z: u8) -> &'static Biome {
-        let sid = self.biomes.get(calc_biome_3d_index(x >> 2, y >> 2, z >> 2)).unwrap() as u16;
-        self.env.biomes().get_biome_from(sid).unwrap()
+        let sid = self.biomes.get(calc_biome_index(x >> 2, y >> 2, z >> 2)).unwrap() as u16;
+        self.env.biomes.get_biome_from(sid).unwrap()
     }
 
     pub fn set_biome(&mut self, x: u8, y: u8, z: u8, biome: &'static Biome) -> ChunkResult<()> {
-        let idx = calc_biome_3d_index(x >> 2, y >> 2, z >> 2);
-        match self.env.biomes().get_sid_from(biome) {
+        let idx = calc_biome_index(x >> 2, y >> 2, z >> 2);
+        match self.env.biomes.get_sid_from(biome) {
             Some(sid) => {
                 self.biomes.set(idx, sid as u64);
                 Ok(())
@@ -369,4 +398,40 @@ impl<'env> SubChunk<'env> {
         }
     }
 
+}
+
+
+#[derive(Debug, Clone, Copy)]
+pub struct ChunkHeight {
+    pub min: i8,
+    pub max: i8
+}
+
+impl ChunkHeight {
+
+    /// Return `true` if the given chunk Y coordinate is valid for the specified height.
+    #[inline]
+    pub fn includes(self, cy: i8) -> bool {
+        return self.min <= cy && cy <= self.max;
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        (self.max - self.min) as usize
+    }
+
+}
+
+
+#[inline]
+fn calc_block_index(x: u8, y: u8, z: u8) -> usize {
+    debug_assert!(x < 16 && y < 16 && z < 16, "x: {}, y: {}, z: {}", x, y, z);
+    x as usize | ((z as usize) << 4) | ((y as usize) << 8)
+}
+
+
+#[inline]
+fn calc_biome_index(x: u8, y: u8, z: u8) -> usize {
+    debug_assert!(x < 4 && y < 4 && z < 4, "x: {}, y: {}, z: {}", x, y, z);
+    x as usize | ((z as usize) << 2) | ((y as usize) << 4)
 }

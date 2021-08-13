@@ -1,12 +1,13 @@
 use std::io::{Error as IoError, Result as IoResult, Seek, SeekFrom, Read, Write, Cursor, ErrorKind};
 use std::fs::{File, OpenOptions};
+use std::fmt::Arguments;
 use std::path::PathBuf;
 
 use flate2::read::{GzDecoder, ZlibDecoder};
 use flate2::write::{GzEncoder, ZlibEncoder};
 use flate2::Compression;
+use thiserror::Error;
 use bit_vec::BitVec;
-use std::fmt::Arguments;
 
 
 const SECTOR_SIZE: u64 = 4096;
@@ -16,56 +17,30 @@ const MAX_CHUNK_SIZE: u64 = MAX_SECTOR_LENGTH * SECTOR_SIZE;
 
 
 /// Error type used together with `RegionResult` for every call on region file methods.
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum RegionError {
-    /// The region file is shorter than 8192 bytes.
-    FileTooSmall,
-    /// The region file size is not a multiple of 4096 (4096 = 1 sector).
-    FileNotPadded,
-    /// The region file has an invalid chunk metadata that leads to sectors out of the range.
-    IllegalMetadata,
-    /// The required chunk is empty, it has no sector allocated in the region file.
+    #[error("The region file was not found in the level directory at {0}.")]
+    FileNotFound(PathBuf),
+    #[error("The region file size ({0}) is shorter than 8192 bytes.")]
+    FileTooSmall(u64),
+    #[error("The region file size ({0}) is not a multiple of 4096 (4096 = 1 sector).")]
+    FileNotPadded(u64),
+    #[error("The region file has an invalid chunk (#{0}) metadata that leads to sectors out of the range.")]
+    IllegalMetadata(u16),
+    #[error("The required chunk is empty, it has no sector allocated in the region file.")]
     EmptyChunk,
-    /// The compression method in the chunk header is unknown, the ID is given as parameter.
+    #[error("The compression method {0} in the chunk header is unknown.")]
     UnknownCompression(u8),
-    /// The external chunk file was not found. This is used if the chunk is too large.
+    #[error("The external chunk file was not found. This is used if the chunk is too large.")]
     ExternalChunkNotFound,
-    /// No more sectors are available in the region file, really unlikely to happen.
+    #[error("No more sectors are available in the region file, really unlikely to happen.")]
     OutOfSectors,
-    /// For common IO errors that can happen and can't be reduced to another `RegionError`.
-    Io(IoError)
+    #[error("{0}")]
+    Io(#[from] IoError)
 }
 
 /// A result type with an error of type `RegionError`, it is used in region file methods.
 pub type RegionResult<T> = Result<T, RegionError>;
-
-
-#[inline]
-fn calc_chunk_metadata_index(cx: i32, cz: i32) -> usize {
-    (cx & 31) as usize | (((cz & 31) as usize) << 5)
-}
-
-#[inline]
-fn get_region_file_path(dir: &PathBuf, rx: i32, rz: i32) -> PathBuf {
-    dir.join(format!("r.{}.{}.mca", rx, rz))
-}
-
-#[inline]
-fn get_chunk_file_path(dir: &PathBuf, cx: i32, cz: i32) -> PathBuf {
-    dir.join(format!("c.{}.{}.mcc", cx, cz))
-}
-
-#[inline]
-fn fill_sectors(sectors: &mut BitVec, from: usize, length: usize, value: bool) {
-    for sector in from..(from + length) {
-        sectors.set(sector, value);
-    }
-}
-
-/// Internal function used to pass to `.map_err` of `IoResult`.
-fn map_io_err(e: IoError) -> RegionError {
-    RegionError::Io(e)
-}
 
 
 /// This structure holds a region file and all its metadata, it is used
@@ -83,24 +58,35 @@ pub struct RegionFile {
 
 impl RegionFile {
 
+    /// Build a new region file, this method will open the region file from the given directory
+    /// and the region coordinates. The directory should be the one of region, not the level dir.
+    /// This method can return the following errors:
+    /// - `RegionError::FileTooSmall` The given file is too small, smaller than 2 sectors.
+    /// - `RegionError::FileNotPadded` The file size is not a multiple of sector size, 4096 bytes.
+    /// - `RegionError::IllegalMetadata` Failed to parse one of the chunk's metadata.
+    /// - `RegionError::Io` An IO error happened.
     pub fn new(dir: PathBuf, rx: i32, rz: i32) -> RegionResult<Self> {
 
+        let file_path = get_region_file_path(&dir, rx, rz);
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
-            .open(get_region_file_path(&dir, rx, rz))
-            .map_err(map_io_err)?;
+            .open(&file_path)
+            .map_err(|err| match err.kind() {
+                ErrorKind::NotFound => RegionError::FileNotFound(file_path),
+                _ => RegionError::Io(err)
+            })?;
 
-        let file_len = file.seek(SeekFrom::End(0)).map_err(map_io_err)?;
+        let file_len = file.seek(SeekFrom::End(0))?;
 
         // The following conditions are used to fix the file
         if file_len < 8192 {
-            return Err(RegionError::FileTooSmall);
+            return Err(RegionError::FileTooSmall(file_len));
         } else if (file_len & 0xFFF) != 0 {
-            return Err(RegionError::FileNotPadded);
+            return Err(RegionError::FileNotPadded(file_len));
         }
 
-        file.seek(SeekFrom::Start(0)).map_err(map_io_err)?;
+        file.seek(SeekFrom::Start(0))?;
 
         // The sectors_count take the two headers sectors into account.
         let sectors_count = file_len / SECTOR_SIZE;
@@ -109,19 +95,21 @@ impl RegionFile {
         let mut metadata = [ChunkMetadata { location: 0, timestamp: 0 }; 1024];
 
         // Reading the first sector containing location information of each chunk.
-        for meta in &mut metadata {
+        for (idx, meta) in metadata.iter_mut().enumerate() {
 
             let mut data = [0u8; 4];
-            file.read_exact(&mut data).map_err(map_io_err)?;
+            file.read_exact(&mut data)?;
             meta.location = u32::from_be_bytes(data);
 
             let offset = meta.offset();
             let length = meta.length();
 
-            if length != 0 && (offset + length) <= sectors_count {
-                fill_sectors(&mut sectors, offset as usize - 2, length as usize, false);
-            } else {
-                return Err(RegionError::IllegalMetadata);
+            if length != 0 {
+                if (offset + length) <= sectors_count {
+                    fill_sectors(&mut sectors, offset as usize - 2, length as usize, false);
+                } else {
+                    return Err(RegionError::IllegalMetadata(idx as u16));
+                }
             }
 
         }
@@ -129,7 +117,7 @@ impl RegionFile {
         // Reading the second sector containing last modification times for each chunk.
         for meta in &mut metadata {
             let mut data = [0u8; 4];
-            file.read_exact(&mut data).map_err(map_io_err)?;
+            file.read_exact(&mut data)?;
             meta.timestamp = u32::from_be_bytes(data);
         }
 
@@ -145,26 +133,33 @@ impl RegionFile {
     // Metadata //
 
     pub fn has_chunk(&self, cx: i32, cz: i32) -> bool {
-        self.metadata[calc_chunk_metadata_index(cx, cz)].length() != 0
+        self.metadata[calc_chunk_index_from_pos(cx, cz)].length() != 0
     }
 
     // Reading //
 
+    /// Get a reader for a specific chunk, the position is not checked and you must ensure that
+    /// the chunk belong to this region. Some errors can be returned by this method:
+    /// - `RegionError::EmptyChunk` The chunk is not yet saved in the region.
+    /// - `RegionError::UnknownCompression` The compression method can't be decoded.
+    /// - `RegionError::ExternalChunkNotFound` The chunk should be saved externally but its file
+    /// is not found.
+    /// - `RegionError::Io` An IO error happened.
     pub fn get_chunk_reader(&mut self, cx: i32, cz: i32) -> RegionResult<Box<dyn Read>> {
 
-        let metadata = self.metadata[calc_chunk_metadata_index(cx, cz)];
+        let metadata = self.metadata[calc_chunk_index_from_pos(cx, cz)];
         if metadata.length() == 0 {
             return Err(RegionError::EmptyChunk);
         }
 
-        self.file.seek(SeekFrom::Start(metadata.offset() * SECTOR_SIZE)).map_err(map_io_err)?;
+        self.file.seek(SeekFrom::Start(metadata.offset() * SECTOR_SIZE))?;
 
         let mut length_data = [0u8; 4];
-        self.file.read_exact(&mut length_data).map_err(map_io_err)?;
+        self.file.read_exact(&mut length_data)?;
         let data_length = u32::from_be_bytes(length_data) - 1;
 
         let mut compression_id = [0u8; 1];
-        self.file.read_exact(&mut compression_id).map_err(map_io_err)?;
+        self.file.read_exact(&mut compression_id)?;
         let compression_id = compression_id[0];
 
         let compression = CompressionMethod::from_id(compression_id)
@@ -183,12 +178,12 @@ impl RegionFile {
             };
 
             let mut data = Vec::new();
-            external_file.read_to_end(&mut data).map_err(map_io_err)?;
+            external_file.read_to_end(&mut data)?;
             data
 
         } else {
             let mut data = vec![0u8; data_length as usize];
-            self.file.read_exact(&mut data[..]).map_err(map_io_err)?;
+            self.file.read_exact(&mut data[..])?;
             data
         };
 
@@ -224,7 +219,7 @@ impl RegionFile {
 
     fn write_chunk(&mut self, cx: i32, cz: i32, data: &[u8], method: CompressionMethod) -> RegionResult<()> {
 
-        let metadata_index = calc_chunk_metadata_index(cx, cz);
+        let metadata_index = calc_chunk_index_from_pos(cx, cz);
         let mut metadata = self.metadata[metadata_index];
         let mut offset = metadata.offset();
         let mut length = metadata.length();
@@ -289,8 +284,7 @@ impl RegionFile {
                 debug_assert!(length < needed_length);
                 let missing_length = needed_length - length;
 
-                self.file.set_len((missing_length + self.sectors.len() as u64 + 2) * SECTOR_SIZE)
-                    .map_err(map_io_err)?;
+                self.file.set_len((missing_length + self.sectors.len() as u64 + 2) * SECTOR_SIZE)?;
 
                 self.sectors.extend((0..missing_length).map(|_| true));
 
@@ -301,27 +295,19 @@ impl RegionFile {
 
             // Update metadata for new offset and length.
             metadata.set_location(offset, length);
-            self.write_metadata(metadata_index, metadata).map_err(map_io_err)?;
+            self.write_metadata(metadata_index, metadata)?;
 
         }
 
         // Actually write the data
         if external {
-
-            self.write_chunk_at(offset, 1, &[], method, true)
-                .map_err(map_io_err)?;
-
-            File::create(get_chunk_file_path(&self.dir, cx, cz))
-                .map_err(map_io_err)?
-                .write_all(data)
-                .map_err(map_io_err)
-
+            self.write_chunk_at(offset, 1, &[], method, true)?;
+            File::create(get_chunk_file_path(&self.dir, cx, cz))?.write_all(data)?;
         } else {
-
-            self.write_chunk_at(offset, needed_byte_length as u32, data, method, false)
-                .map_err(map_io_err)
-
+            self.write_chunk_at(offset, needed_byte_length as u32, data, method, false)?;
         }
+
+        Ok(())
 
     }
 
@@ -346,30 +332,30 @@ impl RegionFile {
 
 
 #[derive(Copy, Clone, Debug)]
-pub struct ChunkMetadata {
+struct ChunkMetadata {
     location: u32,
     timestamp: u32
 }
 
 impl ChunkMetadata {
 
-    pub fn offset(&self) -> u64 {
+    fn offset(&self) -> u64 {
         ((self.location >> 8) & 0xFFFFFF) as u64
     }
 
-    pub fn length(&self) -> u64 {
+    fn length(&self) -> u64 {
         (self.location & 0xFF) as u64
     }
 
-    pub fn timestamp(&self) -> u32 {
+    fn timestamp(&self) -> u32 {
         self.timestamp
     }
 
-    pub fn set_location(&mut self, offset: u64, length: u64) {
+    fn set_location(&mut self, offset: u64, length: u64) {
         self.location = (((offset & 0xFFFFFF) as u32) << 8) | ((length & 0xFF) as u32);
     }
 
-    pub fn set_timestamp(&mut self, timestamp: u32) {
+    fn set_timestamp(&mut self, timestamp: u32) {
         self.timestamp = timestamp;
     }
 
@@ -478,4 +464,37 @@ impl Write for ChunkWriter<'_> {
         self.inner_write().write_fmt(fmt)
     }
 
+}
+
+
+#[inline]
+fn calc_chunk_index_from_pos(cx: i32, cz: i32) -> usize {
+    (cx & 31) as usize | (((cz & 31) as usize) << 5)
+}
+
+#[inline]
+fn calc_chunk_pos_from_index(index: usize) -> (u8, u8) {
+    ((index & 31) as u8, ((index >> 5) & 31) as u8)
+}
+
+#[inline]
+fn get_region_file_path(dir: &PathBuf, rx: i32, rz: i32) -> PathBuf {
+    dir.join(format!("r.{}.{}.mca", rx, rz))
+}
+
+#[inline]
+fn get_chunk_file_path(dir: &PathBuf, cx: i32, cz: i32) -> PathBuf {
+    dir.join(format!("c.{}.{}.mcc", cx, cz))
+}
+
+#[inline]
+fn fill_sectors(sectors: &mut BitVec, from: usize, length: usize, value: bool) {
+    for sector in from..(from + length) {
+        sectors.set(sector, value);
+    }
+}
+
+#[inline]
+pub fn calc_region_pos(cx: i32, cz: i32) -> (i32, i32) {
+    (cx >> 5, cz >> 5)
 }

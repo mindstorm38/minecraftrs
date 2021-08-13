@@ -1,8 +1,14 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
-pub mod generic;
-pub mod version;
-pub mod packed;
+mod generic;
+mod version;
+mod packed;
+mod cache;
+
+pub use generic::*;
+pub use version::*;
+pub use packed::*;
+pub use cache::*;
 
 
 /// A static thread-safe unique 32 bits identifier generate.
