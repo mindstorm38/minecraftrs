@@ -11,8 +11,8 @@ use crate::world::chunk::{Chunk, ChunkStatus};
 pub enum DecodeError {
     #[error("Unknown block state '{0}' in the palette for the chunk environments.")]
     UnknownBlockState(String),
-    #[error("Unknown value '{1}' for block property '{0}'")]
-    UnknownBlockProperty(String, String),
+    #[error("Unknown property value: {0}")]
+    UnknownBlockProperty(String),
     #[error("The NBT raw data cannot be decoded: {0}")]
     Nbt(#[from] TagDecodeError),
     #[error("The chunk's NBT structure is malformed and some fields are missing or are of the wrong type: {0}")]
@@ -74,6 +74,9 @@ pub fn decode_chunk(root: CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeEr
             println!("==== SECTION {} ====", cy);
 
             if let Ok(palette) = section.get_compound_tag_vec("Palette") {
+
+                let mut palette_states = Vec::new();
+
                 for block in palette {
 
                     let block_name = block.get_str("Name")?;
@@ -85,16 +88,19 @@ pub fn decode_chunk(root: CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeEr
                     if let Ok(block_properties) = block.get_compound_tag("Properties") {
                         for (prop_name, prop_value_tag) in block_properties.iter() {
                             if let Tag::String(prop_value) = prop_value_tag {
-                                block_state = block_state.with_raw(prop_name, &prop_value)
-                                    .ok_or_else(|| DecodeError::UnknownBlockProperty(
-                                        prop_name.to_string(),
-                                        prop_value.clone()
-                                    ))?;
+                                block_state = block_state
+                                    .with_raw(prop_name, &prop_value)
+                                    .ok_or_else(|| DecodeError::UnknownBlockProperty(format!("{}/{}={}", block_name, prop_name, prop_value)))?;
                             }
                         }
                     }
 
+                    palette_states.push(block_state);
+
                 }
+
+                println!("palette_states: {}", palette_states.len().next_power_of_two());
+
             }
 
         }

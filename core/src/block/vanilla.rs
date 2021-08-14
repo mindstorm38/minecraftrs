@@ -90,8 +90,8 @@ properties! {
     pub PROP_DISARMED: bool("disarmed");
     pub PROP_EGGS: int("eggs", 4);  // Real is 1 to 4
     pub PROP_HATCH: int("hatch", 3);
-    pub PROP_LIQUID_LEVEL: int("level", 8);
-    pub PROP_LIQUID_FALLING: bool("falling");
+    pub PROP_LIQUID_LEVEL: int("level", 16);  // Internally split by minecraft, static/moving.
+    // pub PROP_LIQUID_FALLING: bool("falling");
     pub PROP_IN_WALL: bool("in_wall");
     pub PROP_CONDITIONAL: bool("conditional");
     pub PROP_DRAG: bool("drag");
@@ -289,8 +289,9 @@ blocks_specs! {
     pub SPEC_CAVE_VINES_PLANT: [PROP_BERRIES, PROP_AGE_26];
     pub SPEC_SMALL_DRIPLEAF: [PROP_DOUBLE_BLOCK_HALF, PROP_WATERLOGGED, PROP_HORIZONTAL_FACING];
 
-    pub SPEC_STATIC_LIQUID: [PROP_LIQUID_FALLING];
-    pub SPEC_FLOWING_LIQUID: [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL];
+    // pub SPEC_STATIC_LIQUID: [PROP_LIQUID_FALLING];
+    // pub SPEC_FLOWING_LIQUID: [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL];
+    pub SPEC_LIQUID: [PROP_LIQUID_LEVEL];
 
     pub SPEC_DISPENSER: [PROP_FACING, PROP_TRIGGERED];
     pub SPEC_DROPPER: [PROP_FACING, PROP_TRIGGERED];
@@ -425,16 +426,17 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     DARK_OAK_SAPLING "dark_oak_sapling",
 
     BEDROCK "bedrock",
-    WATER "water" SPEC_STATIC_LIQUID,
-    FLOWING_WATER "flowing_water" SPEC_FLOWING_LIQUID,
-    LAVA "lava" SPEC_STATIC_LIQUID,
-    FLOWING_LAVA "flowing_lava" SPEC_FLOWING_LIQUID,
+    WATER "water" SPEC_LIQUID,
+    LAVA "lava" SPEC_LIQUID,
     SAND "sand",
     RED_SAND "red_sand",
     GRAVEL "gravel",
     GOLD_ORE "gold_ore",
+    DEEPSLATE_GOLD_ORE "deepslate_gold_ore",
     IRON_ORE "iron_ore",
+    DEEPSLATE_IRON_ORE "deepslate_iron_ore",
     COAL_ORE "coal_ore",
+    DEEPSLATE_COAL_ORE "deepslate_coal_ore",
     NETHER_GOLD_ORE "nether_gold_ore",
 
     OAK_LOG "oak_log" SPEC_AXIS,
@@ -476,6 +478,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     WET_SPONGE "wet_sponge",
     GLASS "glass",
     LAPIS_ORE "lapis_ore",
+    DEEPSLATE_LAPIS_ORE "deepslate_lapis_ore",
     LAPIS_BLOCK "lapis_block",
     DISPENSER "dispenser" SPEC_DISPENSER,
     SANDSTONE "sandstone",
@@ -533,6 +536,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     CHEST "chest" SPEC_CHEST,
     REDSTONE_WIRE "redstone_wire" SPEC_REDSTONE_WIRE,
     DIAMOND_ORE "diamond_ore",
+    DEEPSLATE_DIAMOND_ORE "deepslate_diamond_ore",
     DIAMOND_BLOCK "diamond_block",
     CRAFTING_TABLE "crafting_table",
     WHEAT "wheat" SPEC_CROP,
@@ -569,6 +573,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     DARK_OAK_PRESSURE_PLATE "dark_oak_pressure_plate" SPEC_PRESSURE_PLATE,
 
     REDSTONE_ORE "redstone_ore" SPEC_LIT,
+    DEEPSLATE_REDSTONE_ORE "deepslate_redstone_ore" SPEC_LIT,
     REDSTONE_TORCH "redstone_torch" SPEC_LIT,
     REDSTONE_WALL_TORCH "redstone_wall_torch" SPEC_WALL_REDSTONE_TORCH,
     STONE_BUTTON "stone_button" SPEC_BUTTON,
@@ -650,6 +655,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     COCOA "cocoa" SPEC_COCOA,
     SANDSTONE_STAIRS "sandstone_stairs" SPEC_STAIRS,
     EMERALD_ORE "emerald_ore",
+    DEEPSLATE_EMERALD_ORE "deepslate_emerald_ore",
     ENDER_CHEST "ender_chest" SPEC_ENDER_CHEST,
     TRIPWIRE_HOOK "tripwire_hook" SPEC_TRIPWIRE_HOOK,
     TRIPWIRE "tripwire" SPEC_TRIPWIRE,
