@@ -122,9 +122,9 @@ impl BlockState {
 
     /// Get a block state property value if the property exists.
     pub fn get<T, P>(&self, property: &P) -> Option<T>
-        where
-            T: PropertySerializable,
-            P: Property<T>
+    where
+        T: PropertySerializable,
+        P: Property<T>
     {
 
         let prop = self.get_block().get_shared_prop(&property.name())?;
@@ -137,9 +137,9 @@ impl BlockState {
     }
 
     pub fn expect<T, P>(&self, property: &P) -> T
-        where
-            T: PropertySerializable,
-            P: Property<T>
+    where
+        T: PropertySerializable,
+        P: Property<T>
     {
         self.get(property).unwrap()
     }
@@ -147,9 +147,9 @@ impl BlockState {
     /// Try to get this a neighbor with all the same properties excepts the given one with the given
     /// value, if the property or its value is not valid for the block, None is returned.
     pub fn with<T, P>(&self, property: &P, value: T) -> Option<&BlockState>
-        where
-            T: PropertySerializable,
-            P: Property<T>
+    where
+        T: PropertySerializable,
+        P: Property<T>
     {
 
         let block = self.get_block();

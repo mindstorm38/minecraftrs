@@ -42,6 +42,7 @@ where
 }
 
 
+/// A boolean block property.
 pub struct BoolProperty(pub &'static str);
 
 impl UntypedProperty for BoolProperty {
@@ -69,6 +70,7 @@ impl Property<bool> for BoolProperty {
 }
 
 
+/// An unsigned 8-bits integer block property.
 pub struct IntProperty(pub &'static str, pub u8);
 
 impl UntypedProperty for IntProperty {
@@ -97,6 +99,7 @@ impl Property<u8> for IntProperty {
 }
 
 
+/// An enum block property, this property use an external statically defined array of values.
 pub struct EnumProperty<T: PropertySerializable + Eq>(pub &'static str, pub &'static [T]);
 
 impl<T> UntypedProperty for EnumProperty<T>
@@ -131,6 +134,8 @@ where
 }
 
 
+/// An enum block property, the difference with `EnumProperty` is that it uses a const generic to
+/// store values directly inside the structure.
 pub struct ArrayEnumProperty<T: PropertySerializable + Eq, const N: usize>(pub &'static str, pub [T; N]);
 
 impl<T, const N: usize> UntypedProperty for ArrayEnumProperty<T, N>
@@ -187,9 +192,8 @@ macro_rules! inner_property {
     ($v:vis $id:ident: bool($name:literal)) => {
         $v static $id: $crate::block::BoolProperty = $crate::block::BoolProperty($name);
     };
-    ($v:vis $id:ident: enum($name:literal, $enum_type:ty, $values_id:ident, [$($value:ident),+])) => {
-        static $values_id: [$enum_type; $crate::count!($($value)+)] = [$(<$enum_type>::$value),+];
-        $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);
+    ($v:vis $id:ident: enum($name:literal, $enum_type:ty, [$($value:ident),+])) => {
+        $v static $id: $crate::block::ArrayEnumProperty<$enum_type, {$crate::count!($($value)+)}> = $crate::block::ArrayEnumProperty($name, [$(<$enum_type>::$value),+]);
     };
     ($v:vis $id:ident: enum($name:literal, $enum_type:ty, $values_id:ident)) => {
         $v static $id: $crate::block::EnumProperty<$enum_type> = $crate::block::EnumProperty($name, &$values_id);

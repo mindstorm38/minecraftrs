@@ -228,8 +228,9 @@ pub trait StaticBlocks {
 /// This registry maps unique blocks and block states IDs to save IDs (SID).
 pub struct GlobalBlocks<'a> {
     next_sid: u32,
-    blocks_to_sid: HashMap<u32, u32>,
-    sid_to_states: Vec<&'a BlockState>
+    block_to_sid: HashMap<u32, u32>,
+    sid_to_state: Vec<&'a BlockState>,
+    name_to_block: HashMap<&'static str, &'a BlockState>
 }
 
 #[cfg(feature = "vanilla_blocks")]
@@ -248,8 +249,9 @@ impl<'a> GlobalBlocks<'a> {
     pub fn new() -> GlobalBlocks<'a> {
         GlobalBlocks {
             next_sid: 0,
-            blocks_to_sid: HashMap::new(),
-            sid_to_states: Vec::new()
+            block_to_sid: HashMap::new(),
+            sid_to_state: Vec::new(),
+            name_to_block: HashMap::new()
         }
     }
 
@@ -259,47 +261,59 @@ impl<'a> GlobalBlocks<'a> {
         let states_count = states.len();
         let uid = self.next_sid;
         self.next_sid = uid.checked_add(states_count as u32).ok_or(())?;
-        self.blocks_to_sid.insert(block.uid, uid);
-        self.sid_to_states.reserve(states_count);
+        self.block_to_sid.insert(block.uid, uid);
+        self.name_to_block.insert(block.name, block.get_default_state());
+        self.sid_to_state.reserve(states_count);
         for state in states {
-            self.sid_to_states.push(state);
+            self.sid_to_state.push(state);
         }
         Ok(())
     }
 
     pub fn register_static(&mut self, static_blocks: &'a Pin<Box<impl StaticBlocks>>) -> Result<(), ()> {
-        self.blocks_to_sid.reserve(static_blocks.blocks_count());
-        self.sid_to_states.reserve(static_blocks.states_count());
+        self.block_to_sid.reserve(static_blocks.blocks_count());
+        self.name_to_block.reserve(static_blocks.blocks_count());
+        self.sid_to_state.reserve(static_blocks.states_count());
         for block in static_blocks.iter_blocks() {
             self.register(block)?;
         }
         Ok(())
     }
 
+    /// Get the save ID from the given state.
     pub fn get_sid_from(&self, state: &BlockState) -> Option<u32> {
         let block_uid = state.get_block().uid;
-        let block_offset = *self.blocks_to_sid.get(&block_uid)?;
+        let block_offset = *self.block_to_sid.get(&block_uid)?;
         Some(block_offset + state.get_index() as u32)
     }
 
+    /// Get the block state from the given save ID.
     pub fn get_state_from(&self, sid: u32) -> Option<&'a BlockState> {
-        Some(*self.sid_to_states.get(sid as usize)?)
+        Some(*self.sid_to_state.get(sid as usize)?)
     }
 
+    /// Get the default state from the given block name.
+    pub fn get_state_from_name(&self, name: &str) -> Option<&'a BlockState> {
+        self.name_to_block.get(name).cloned()
+    }
+
+    /// Return true if the palette contains the given block state.
     pub fn has_state(&self, state: &BlockState) -> bool {
-        self.blocks_to_sid.contains_key(&state.get_block().uid)
+        self.block_to_sid.contains_key(&state.get_block().uid)
     }
 
+    /// Check if the given state is registered in this palette, `Ok` is returned if true, in
+    /// the other case `Err` is returned with the error created by the given `err` closure.
     pub fn check_state<'z, E>(&self, state: &'z BlockState, err: impl FnOnce() -> E) -> Result<&'z BlockState, E> {
         if self.has_state(state) { Ok(state) } else { Err(err()) }
     }
 
     pub fn blocks_count(&self) -> usize {
-        self.blocks_to_sid.len()
+        self.block_to_sid.len()
     }
 
     pub fn states_count(&self) -> usize {
-        self.sid_to_states.len()
+        self.sid_to_state.len()
     }
 
 }
@@ -317,7 +331,7 @@ macro_rules! blocks_specs {
 
 #[macro_export]
 macro_rules! blocks {
-    ($struct_id:ident $static_id:ident [
+    ($struct_id:ident $static_id:ident $block_namespace:literal [
         $(
             $block_id:ident $block_name:literal $($spec_id:ident)?
         ),*
@@ -351,7 +365,7 @@ macro_rules! blocks {
                 };
 
                 let mut reg = Box::pin(Self {
-                    $($block_id: inc(Block::new($block_name, $crate::inner_blocks_spec!($($spec_id)?))),)*
+                    $($block_id: inc(Block::new(concat!($block_namespace, ':', $block_name), $crate::inner_blocks_spec!($($spec_id)?))),)*
                     blocks: Vec::with_capacity(blocks_count),
                     states_count,
                     _marker: PhantomPinned

@@ -108,30 +108,30 @@ properties! {
     pub PROP_WEST: bool("west");
     pub PROP_BOTTOM: bool("bottom");
 
-    pub PROP_HORIZONTAL_FACING: enum("facing", Direction, HORIZONTAL_FACING, [
+    pub PROP_HORIZONTAL_FACING: enum("facing", Direction, [
         East, North, South, West
     ]);
 
-    pub PROP_FACING: enum("facing", Direction, FACING, [
+    pub PROP_FACING: enum("facing", Direction, [
         Down, East, North, South, Up, West
     ]);
 
-    pub PROP_AXIS: enum("axis", Axis, AXIS, [X, Y, Z]);
-    pub PROP_HORIZONTAL_AXIS: enum("axis", Axis, HORIZONTAL_AXIS, [X, Z]);
+    pub PROP_AXIS: enum("axis", Axis, [X, Y, Z]);
+    pub PROP_HORIZONTAL_AXIS: enum("axis", Axis, [X, Z]);
 
-    pub PROP_BAMBOO_LEAVES: enum("leaves", BambooLeaves, BAMBOO_LEAVES, [Large, None, Small]);
-    pub PROP_BED_PART: enum("part", BedPart, BED_PART, [Foot, Head]);
+    pub PROP_BAMBOO_LEAVES: enum("leaves", BambooLeaves, [Large, None, Small]);
+    pub PROP_BED_PART: enum("part", BedPart, [Foot, Head]);
 
-    pub PROP_BELL_ATTACHMENT: enum("attachment", Face, BELL_ATTACHMENT, [
+    pub PROP_BELL_ATTACHMENT: enum("attachment", Face, [
         Ceiling, DoubleWall, Floor, SingleWall
     ]);
 
-    pub PROP_FACE: enum("face", Face, FACE, [Ceiling, Floor, Wall]);
-    pub PROP_DOUBLE_BLOCK_HALF: enum("half", DoubleBlockHalf, DOUBLE_BLOCK_HALF, [Lower, Upper]);
-    pub PROP_DOOR_HINGE: enum("hinge", DoorHingeSide, DOOR_HINGE, [Left, Right]);
-    pub PROP_HALF: enum("half", Half, HALF, [Top, Bottom]);
+    pub PROP_FACE: enum("face", Face, [Ceiling, Floor, Wall]);
+    pub PROP_DOUBLE_BLOCK_HALF: enum("half", DoubleBlockHalf, [Lower, Upper]);
+    pub PROP_DOOR_HINGE: enum("hinge", DoorHingeSide, [Left, Right]);
+    pub PROP_HALF: enum("half", Half, [Top, Bottom]);
 
-    pub PROP_COLOR: enum("color", DyeColor, COLOR, [
+    pub PROP_COLOR: enum("color", DyeColor, [
         White,
         Orange,
         Magenta,
@@ -150,7 +150,7 @@ properties! {
         Black
     ]);
 
-    pub PROP_INSTRUMENT: enum("instrument", Instrument, INSTRUMENT, [
+    pub PROP_INSTRUMENT: enum("instrument", Instrument, [
         Banjo,
         BassDrum,
         Bass,
@@ -169,7 +169,7 @@ properties! {
         Xylophone
     ]);
 
-    pub PROP_RAIL_SHAPE: enum("shape", RailShape, RAIL_SHAPE, [
+    pub PROP_RAIL_SHAPE: enum("shape", RailShape, [
         EastWest,
         NorthEast,
         NorthSouth,
@@ -182,25 +182,13 @@ properties! {
         AscendingWest
     ]);
 
-    pub PROP_RAIL_SHAPE_SPECIAL: enum("shape", RailShape, RAIL_SHAPE_SPECIAL, [
+    pub PROP_RAIL_SHAPE_SPECIAL: enum("shape", RailShape, [
         EastWest, NorthSouth, AscendingEast, AscendingNorth, AscendingSouth, AscendingWest
     ]);
 
-    pub PROP_COMPARATOR_MODE: enum("mode", ComparatorMode, COMPARATOR_MODE, [
+    pub PROP_COMPARATOR_MODE: enum("mode", ComparatorMode, [
         Compare, Subtract
     ]);
-
-    /*pub PROP_OVERWORLD_WOOD_TYPE: enum("wood_type", WoodType, OVERWORLD_WOOD_TYPE, [
-        Oak, Spruce, Birch, Jungle, Acacia, DarkOak //, Crimson, Warped
-    ]);
-
-    pub PROP_NETHER_WOOD_TYPE: enum("wood_type", WoodType, NETHER_WOOD_TYPE, [
-        Crimson, Warped
-    ]);
-
-    pub PROP_ALL_WOOD_TYPE: enum("wood_type", WoodType, ALL_WOOD_TYPE, [
-        Oak, Spruce, Birch, Jungle, Acacia, DarkOak, Crimson, Warped
-    ]);*/
 
     pub PROP_REDSTONE_EAST: enum("east", RedstoneWireMode, REDSTONE_MODE);
     pub PROP_REDSTONE_NORTH: enum("north", RedstoneWireMode, REDSTONE_MODE);
@@ -212,26 +200,26 @@ properties! {
     pub PROP_WALL_SOUTH: enum("south", WallSide, WALL_SIDE);
     pub PROP_WALL_WEST: enum("west", WallSide, WALL_SIDE);
 
-    pub PROP_CHEST_TYPE: enum("type", ChestType, CHEST_TYPE, [Single, Left, Right]);
-    pub PROP_SLAB_TYPE: enum("type", SlabType, SLAB_TYPE, [Top, Bottom, Double]);
+    pub PROP_CHEST_TYPE: enum("type", ChestType, [Single, Left, Right]);
+    pub PROP_SLAB_TYPE: enum("type", SlabType, [Top, Bottom, Double]);
 
-    pub PROP_COMMAND_BLOCK_TYPE: enum("type", CommandBlockType, COMMAND_BLOCK_TYPE, [
+    pub PROP_COMMAND_BLOCK_TYPE: enum("type", CommandBlockType, [
         Impulse, Repeating, Chain
     ]);
 
-    pub PROP_STRUCTURE_MODE: enum("mode", StructureMode, STRUCTURE_MODE, [
+    pub PROP_STRUCTURE_MODE: enum("mode", StructureMode, [
         Save, Load, Corner, Data
     ]);
 
-    pub PROP_CORAL_TYPE: enum("type", CoralType, CORAL_TYPE, [
+    pub PROP_CORAL_TYPE: enum("type", CoralType, [
         Tube, Brain, Bubble, Fire, Horn
     ]);
 
-    pub PROP_STAIRS_SHAPE: enum("shape", StairsShape, STAIRS_SHAPE, [
+    pub PROP_STAIRS_SHAPE: enum("shape", StairsShape, [
         Straight, InnerLeft, InnerRight, OuterLeft, OuterRight
     ]);
 
-    pub PROP_POT_CONTENT: enum("content", PotContent, POT_CONTENT, [
+    pub PROP_POT_CONTENT: enum("content", PotContent, [
         None,
         OakSapling,
         SpruceSapling,
@@ -264,7 +252,7 @@ properties! {
         WarpedRoots
     ]);
 
-    pub PROP_JIGSAW_ORIENTATION: enum("orientation", FrontAndTop, JIGSAW_ORIENTATION, [
+    pub PROP_JIGSAW_ORIENTATION: enum("orientation", FrontAndTop, [
         DownEast,
         DownNorth,
         DownSouth,
@@ -407,7 +395,7 @@ blocks_specs! {
 // Some block has been merged to avoid defining dozen of wooden variations
 // for example, for compatibility with Minecraft these blocks may need
 // extensions or a specified module for the conversion.
-blocks!(VanillaBlocksStruct VanillaBlocks [
+blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
 
     AIR "air", // Moved here to be the first default block
 
