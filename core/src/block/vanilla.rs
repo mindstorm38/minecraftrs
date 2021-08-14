@@ -99,6 +99,7 @@ properties! {
     pub PROP_LEAVES_DISTANCE: int("distance", 7);
     pub PROP_CANDLES: int("candles", 4);  // Real is 1 to 4
     pub PROP_BERRIES: bool("berries");
+    pub PROP_LIGHT_LEVEL: int("level", 16);
 
     pub PROP_DOWN: bool("down");
     pub PROP_EAST: bool("east");
@@ -215,39 +216,6 @@ properties! {
         Straight, InnerLeft, InnerRight, OuterLeft, OuterRight
     ]);
 
-    /*pub PROP_POT_CONTENT: enum("content", PotContent, [
-        None,
-        OakSapling,
-        SpruceSapling,
-        BirchSapling,
-        JungleSapling,
-        AcaciaSapling,
-        DarkOakSapling,
-        Fern,
-        Dandelion,
-        Poppy,
-        BlueOrchid,
-        Allium,
-        AzureBluet,
-        RedTulip,
-        OrangeTulip,
-        WhiteTulip,
-        PinkTulip,
-        OxeyeDaisy,
-        Cornflower,
-        LilyOfTheValley,
-        WitherRose,
-        RedMushroom,
-        BrownMushroom,
-        DeadBush,
-        Cactus,
-        Bamboo,
-        CrimsonFungus,
-        WarpedFungus,
-        CrimsonRoots,
-        WarpedRoots
-    ]);*/
-
     pub PROP_JIGSAW_ORIENTATION: enum("orientation", FrontAndTop, [
         DownEast,
         DownNorth,
@@ -299,13 +267,12 @@ blocks_specs! {
     pub SPEC_LEAVES: [PROP_LEAVES_DISTANCE, PROP_PERSISTENT];
     pub SPEC_FARMLAND: [PROP_FARMLAND_MOISTURE];
     pub SPEC_SNOW: [PROP_SNOW_LAYERS];
-    pub SPEC_MUSHROOM_BLOCK: [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
     pub SPEC_VINE: [PROP_UP, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
-    pub SPEC_CHORUS_PLANT: [PROP_DOWN, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_UP, PROP_WEST];
     pub SPEC_CORAL: [PROP_CORAL_TYPE];
     pub SPEC_SEA_PICKLE: [PROP_PICKLES, PROP_WATERLOGGED];
     pub SPEC_BAMBOO: [PROP_BAMBOO_AGE, PROP_BAMBOO_LEAVES, PROP_BAMBOO_STAGE];
     pub SPEC_BIG_DRIPLEAF: [PROP_WATERLOGGED, PROP_HORIZONTAL_FACING, PROP_DRIPLEAF_TILT];
+    pub SPEC_GLOW_LICHEN: [PROP_WATERLOGGED, PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
 
     pub SPEC_CROP: [PROP_AGE_8];
     pub SPEC_BEETROOTS: [PROP_AGE_4];
@@ -344,7 +311,7 @@ blocks_specs! {
     pub SPEC_JUKEBOX: [PROP_HAS_RECORD];
     pub SPEC_REPEATER: [PROP_REPEATER_DELAY, PROP_HORIZONTAL_FACING, PROP_LOCKED, PROP_POWERED];
     pub SPEC_TRAPDOOR: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
-    pub SPEC_CAULDRON: [PROP_CAULDRON_LEVEL];
+    pub SPEC_WATER_CAULDRON: [PROP_CAULDRON_LEVEL];
     pub SPEC_TRIPWIRE_HOOK: [PROP_ATTACHED, PROP_HORIZONTAL_FACING, PROP_POWERED];
     pub SPEC_TRIPWIRE: [PROP_ATTACHED, PROP_DISARMED, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_WEST, PROP_POWERED];
     pub SPEC_COMMAND_BLOCK: [PROP_COMMAND_BLOCK_TYPE, PROP_HORIZONTAL_FACING, PROP_CONDITIONAL];
@@ -361,9 +328,10 @@ blocks_specs! {
     pub SPEC_COMPOSTER: [PROP_COMPOSTER_LEVEL];
     pub SPEC_STRUCTURE_BLOCK: [PROP_STRUCTURE_MODE];
     pub SPEC_JIGSAW: [PROP_JIGSAW_ORIENTATION];
+    pub SPEC_LIGHT: [PROP_LIGHT_LEVEL, PROP_WATERLOGGED];
 
-    pub SPEC_RAIL_SPECIAL: [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED];
-    pub SPEC_RAIL: [PROP_RAIL_SHAPE];
+    pub SPEC_RAIL_SPECIAL: [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED, PROP_WATERLOGGED];
+    pub SPEC_RAIL: [PROP_RAIL_SHAPE, PROP_WATERLOGGED];
 
     pub SPEC_PISTON: [PROP_STICKY, PROP_FACING, PROP_EXTENDED];
     pub SPEC_PISTON_HEAD: [PROP_FACING, PROP_STICKY, PROP_SHORT];
@@ -416,6 +384,7 @@ blocks_specs! {
     pub SPEC_LIT: [PROP_LIT];
     pub SPEC_COLORED_LIT: [PROP_LIT, PROP_COLOR];
     pub SPEC_REDSTONE_POWER: [PROP_REDSTONE_POWER];
+    pub SPEC_MULTIFACE: [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
 
 }
 
@@ -643,9 +612,9 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     INFESTED_MOSSY_STONE_BRICKS "infested_mossy_stone_bricks",
     INFESTED_CRACKED_STONE_BRICKS "infested_cracked_stone_bricks",
     INFESTED_CHISELED_STONE_BRICKS "infested_chiseled_stone_bricks",
-    BROWN_MUSHROOM_BLOCK "brown_mushroom_block" SPEC_MUSHROOM_BLOCK,
-    RED_MUSHROOM_BLOCK "red_mushroom_block" SPEC_MUSHROOM_BLOCK,
-    MUSHROOM_STEM "mushroom_stem" SPEC_MUSHROOM_BLOCK,
+    BROWN_MUSHROOM_BLOCK "brown_mushroom_block" SPEC_MULTIFACE,
+    RED_MUSHROOM_BLOCK "red_mushroom_block" SPEC_MULTIFACE,
+    MUSHROOM_STEM "mushroom_stem" SPEC_MULTIFACE,
     IRON_BARS "iron_bars" SPEC_BARS,
     CHAIN "chain" SPEC_AXIS_WATERLOGGED,
     GLASS_PANE "glass_pane" SPEC_BARS,
@@ -655,6 +624,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     PUMPKIN_STEM "pumpkin_stem" SPEC_CROP,
     MELON_STEM "melon_stem" SPEC_CROP,
     VINE "vine" SPEC_VINE,
+    GLOW_LICHEN "glow_lichen" SPEC_GLOW_LICHEN,
     BRICK_STAIRS "brick_stairs" SPEC_STAIRS,
     STONE_BRICK_STAIRS "stone_brick_stairs" SPEC_STAIRS,
     MYCELIUM "mycelium" SPEC_GRASS,
@@ -663,13 +633,19 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     NETHER_BRICK_FENCE "nether_brick_fence" SPEC_BARS,
     NETHER_BRICK_STAIRS "nether_brick_stairs" SPEC_STAIRS,
     NETHER_WART "nether_wart" SPEC_NETHER_WART,
+
     ENCHANTING_TABLE "enchanting_table",
     BREWING_STAND "brewing_stand" SPEC_BREWING_STAND,
-    CAULDRON "cauldron" SPEC_CAULDRON,
+
+    CAULDRON "cauldron",
+    WATER_CAULDRON "water_cauldron" SPEC_WATER_CAULDRON,
+    LAVA_CAULDRON "lava_cauldron",
+
     END_PORTAL "end_portal",
     END_PORTAL_FRAME "end_portal_frame" SPEC_END_PORTAL,
     END_STONE "end_stone",
     DRAGON_EGG "dragon_egg",
+
     REDSTONE_LAMP "redstone_lamp" SPEC_LIT,
     COCOA "cocoa" SPEC_COCOA,
     SANDSTONE_STAIRS "sandstone_stairs" SPEC_STAIRS,
@@ -755,6 +731,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     STAINED_GLASS_PANE "stained_glass_pane" SPEC_COLORED_BARS, // Merged
     SLIME_BLOCK "slime_block",
     BARRIER "barrier",
+    LIGHT "light" SPEC_LIGHT,
     IRON_TRAPDOOR "iron_trapdoor" SPEC_TRAPDOOR,
     PRISMARINE "prismarine",
     PRISMARINE_BRICKS "prismarine_bricks",
@@ -830,14 +807,14 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     DARK_OAK_DOOR "dark_oak_door" SPEC_DOOR,
 
     END_ROD "end_rod" SPEC_FACING,
-    CHORUS_PLANT "chorus_plant" SPEC_CHORUS_PLANT,
+    CHORUS_PLANT "chorus_plant" SPEC_MULTIFACE,
     CHORUS_FLOWER "chorus_flower" SPEC_CHORUS_FLOWER,
     PURPUR_BLOCK "purpur_block",
     PURPUR_PILLAR "purpur_pillar" SPEC_AXIS,
     PURPUR_STAIRS "purpur_stairs" SPEC_STAIRS,
     END_STONE_BRICKS "end_stone_bricks",
     BEETROOTS "beetroots" SPEC_BEETROOTS,
-    GRASS_PATH "grass_path",
+    DIRT_PATH "dirt_path",
     END_GATEWAY "end_gateway",
     FROSTED_ICE "frosted_ice" SPEC_FROSTED_ICE,
     MAGMA_BLOCK "magma_block",
@@ -1034,6 +1011,8 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     SCULK_SENSOR "sculk_sensor" SPEC_SCULK_SENSOR,
 
     COPPER_BLOCK "copper_block" SPEC_COPPER_BLOCK,  // Merged
+    COPPER_ORE "copper_ore",
+    DEEPSLATE_COPPER_ORE "deepslate_copper_ore",
     CUT_COPPER "cut_copper" SPEC_COPPER_BLOCK,  // Merged
     CUT_COPPER_STAIRS "cut_copper_stairs" SPEC_COPPER_STAIRS,  // Merged
     CUT_COPPER_SLAB "cut_copper_slab" SPEC_COPPER_SLAB,  // Merged
@@ -1189,40 +1168,6 @@ def_enum_serializable!(WallSide {
     Low: "low",
     Tall: "tall"
 });
-
-/*def_enum_serializable!(PotContent {
-    // TODO: PotContent is my worst idea, maybe "unmerge" pots.
-    None: "none",
-    OakSapling: "oak_sapling",
-    SpruceSapling: "spruce_sapling",
-    BirchSapling: "birch_sapling",
-    JungleSapling: "jungle_sapling",
-    AcaciaSapling: "acacia_sapling",
-    DarkOakSapling: "dark_oak_sapling",
-    Fern: "fern",
-    Dandelion: "dandelion",
-    Poppy: "poppy",
-    BlueOrchid: "blue_orchid",
-    Allium: "allium",
-    AzureBluet: "azure_bluet",
-    RedTulip: "red_tulip",
-    OrangeTulip: "orange_tulip",
-    WhiteTulip: "white_tulip",
-    PinkTulip: "pink_tulip",
-    OxeyeDaisy: "oxeye_daisy",
-    Cornflower: "cornflower",
-    LilyOfTheValley: "lily_of_the_valley",
-    WitherRose: "wither_rose",
-    RedMushroom: "red_mushroom",
-    BrownMushroom: "brown_mushroom",
-    DeadBush: "dead_bush",
-    Cactus: "cactus",
-    Bamboo: "bamboo",
-    CrimsonFungus: "crimson_fungus",
-    WarpedFungus: "warped_fungus",
-    CrimsonRoots: "crimson_roots",
-    WarpedRoots: "warped_roots"
-});*/
 
 def_enum_serializable!(SlabType {
     Top: "top",
