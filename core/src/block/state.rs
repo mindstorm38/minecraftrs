@@ -103,10 +103,12 @@ impl BlockState {
 
     }
 
+    #[inline]
     pub fn get_index(&self) -> u16 {
         self.index
     }
 
+    #[inline]
     pub fn get_block(&self) -> &Block {
         // SAFETY: This pointer is always valid since:
         //  - block state must be owned by a Block, and this Block must be pined in a box
@@ -114,6 +116,7 @@ impl BlockState {
         unsafe { self.block.as_ref() }
     }
 
+    /// Really unsafe method, should only be called by `Block` constructor.
     #[inline]
     pub(super) fn set_block(&mut self, block: NonNull<Block>) {
         // This method is called once in Block::new
@@ -144,18 +147,30 @@ impl BlockState {
         self.get(property).unwrap()
     }
 
-    /// Try to get this a neighbor with all the same properties excepts the given one with the given
+    /// Try to get a neighbor with all the same properties excepts the given one with the given
     /// value, if the property or its value is not valid for the block, None is returned.
     pub fn with<T, P>(&self, property: &P, value: T) -> Option<&BlockState>
     where
         T: PropertySerializable,
         P: Property<T>
     {
+        let prop = self.get_block().get_shared_prop(&property.name())?;
+        self.with_unchecked(prop, property.encode(value)?)
+    }
 
-        let block = self.get_block();
-        let prop = block.get_shared_prop(&property.name())?;
+    /// Try to get a neighbor with all the same properties excepts the given one with the given
+    /// value, if the property or its value is not valid for the block, None is returned.
+    ///
+    /// This version of `with` method take raw property name and value as strings.
+    pub fn with_raw(&self, prop_name: &str, prop_value: &str) -> Option<&BlockState> {
+        let prop = self.get_block().get_shared_prop(prop_name)?;
+        self.with_unchecked(prop, prop.prop.prop_from_string(prop_value)?)
+    }
 
-        let new_value = property.encode(value)? as isize;
+    #[inline]
+    fn with_unchecked(&self, prop: &SharedProperty, prop_value: u8) -> Option<&BlockState> {
+
+        let new_value = prop_value as isize;
         let current_value = self.properties[prop.index] as isize;
 
         Some(if new_value == current_value {
@@ -163,7 +178,7 @@ impl BlockState {
         } else {
             let value_diff = new_value - current_value;
             let neighbor_index = (self.index as isize + value_diff * prop.period as isize) as usize;
-            block.get_state_unchecked(neighbor_index)
+            self.get_block().get_state_unchecked(neighbor_index)
         })
 
     }

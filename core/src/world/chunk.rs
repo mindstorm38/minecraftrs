@@ -85,7 +85,7 @@ impl Chunk {
             cz,
             env,
             status: ChunkStatus::Empty,
-            sub_chunks: Vec::with_capacity(height.len()),
+            sub_chunks: (0..height.len()).map(|_| None).collect(),
             sub_chunks_offset: height.min,
             inhabited_time: 0
         }
@@ -96,6 +96,11 @@ impl Chunk {
     #[inline]
     pub fn get_position(&self) -> (i32, i32) {
         (self.cx, self.cz)
+    }
+
+    #[inline]
+    pub fn get_env(&self) -> &LevelEnv {
+        &self.env
     }
 
     #[inline]
@@ -154,11 +159,6 @@ impl Chunk {
         }
     }
 
-    // Internal
-    fn calc_chunk_offset(&self, cy: i8) -> Option<usize> {
-        cy.checked_sub(self.sub_chunks_offset).map(|v| v as usize)
-    }
-
     /// Return the number of sub chunks in the height of this chunk.
     pub fn get_sub_chunks_count(&self) -> usize {
         self.sub_chunks.len()
@@ -170,6 +170,11 @@ impl Chunk {
             min: self.sub_chunks_offset,
             max: self.sub_chunks_offset + self.sub_chunks.len() as i8
         }
+    }
+
+    // Internal
+    fn calc_chunk_offset(&self, cy: i8) -> Option<usize> {
+        cy.checked_sub(self.sub_chunks_offset).map(|v| v as usize)
     }
 
     // BLOCKS //
@@ -411,7 +416,7 @@ impl ChunkHeight {
 
     /// Return `true` if the given chunk Y coordinate is valid for the specified height.
     #[inline]
-    pub fn includes(self, cy: i8) -> bool {
+    pub fn contains(self, cy: i8) -> bool {
         return self.min <= cy && cy <= self.max;
     }
 

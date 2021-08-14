@@ -180,12 +180,12 @@ impl Block {
     }
 
     /// Internal method for neighbor and values resolution of `BlockState`.
-    fn get_shared_prop(&self, name: &'static str) -> Option<&SharedProperty> {
+    fn get_shared_prop(&self, name: &str) -> Option<&SharedProperty> {
         match &self.states {
             BlockStorage::Single(_) => None,
             BlockStorage::Complex {
                 properties, ..
-            } => properties.get(&name)
+            } => properties.get(name)
         }
     }
 

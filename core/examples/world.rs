@@ -30,10 +30,10 @@ fn main() {
     println!("Level height: {:?}", level.get_height());
 
     level.request_chunk(0, 0);
-    level.request_chunk(1, 0);
-    level.request_chunk(2, 0);
-    level.request_chunk(3, 0);
-    level.request_chunk(31, 0);
+    //level.request_chunk(1, 0);
+    //level.request_chunk(2, 0);
+    //level.request_chunk(3, 0);
+    //level.request_chunk(31, 0);
 
     loop {
 

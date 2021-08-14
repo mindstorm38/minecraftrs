@@ -1,7 +1,7 @@
 use std::io::Read;
 
 use nbt::decode::{read_compound_tag, TagDecodeError};
-use nbt::{CompoundTag, CompoundTagError};
+use nbt::{CompoundTag, Tag, CompoundTagError};
 use thiserror::Error;
 
 use crate::world::chunk::{Chunk, ChunkStatus};
@@ -9,6 +9,10 @@ use crate::world::chunk::{Chunk, ChunkStatus};
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
+    #[error("Unknown block state '{0}' in the palette for the chunk environments.")]
+    UnknownBlockState(String),
+    #[error("Unknown value '{1}' for block property '{0}'")]
+    UnknownBlockProperty(String, String),
     #[error("The NBT raw data cannot be decoded: {0}")]
     Nbt(#[from] TagDecodeError),
     #[error("The chunk's NBT structure is malformed and some fields are missing or are of the wrong type: {0}")]
@@ -30,7 +34,7 @@ pub fn decode_chunk_from_reader(reader: &mut impl Read, chunk: &mut Chunk) -> Re
 /// Decode a chunk from its NBT data.
 pub fn decode_chunk(root: CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeError> {
 
-    let data_version = root.get_i32("DataVersion")?;
+    let _data_version = root.get_i32("DataVersion")?;
     let level = root.get_compound_tag("Level")?;
 
     let actual_cx = level.get_i32("xPos")?;
@@ -43,7 +47,7 @@ pub fn decode_chunk(root: CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeEr
                     cx, cz, actual_cx, actual_cz)));
     }
 
-    let status = match level.get_str("Status")? {
+    chunk.set_status(match level.get_str("Status")? {
         "empty" => ChunkStatus::Empty,
         "structure_starts" => ChunkStatus::StructureStarts,
         "structure_references" => ChunkStatus::StructureReferences,
@@ -60,13 +64,40 @@ pub fn decode_chunk(root: CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeEr
         unknown_status => {
             return Err(DecodeError::Malformed(format!("Unknown status: {}.", unknown_status)));
         }
-    };
+    });
 
     let sections = level.get_compound_tag_vec("Sections")?;
     for section in sections {
+        let cy = section.get_i8("Y")?;
+        if chunk.get_height().contains(cy) {
 
+            println!("==== SECTION {} ====", cy);
 
+            if let Ok(palette) = section.get_compound_tag_vec("Palette") {
+                for block in palette {
 
+                    let block_name = block.get_str("Name")?;
+
+                    let mut block_state = chunk.get_env().blocks
+                        .get_state_from_name(block_name)
+                        .ok_or_else(|| DecodeError::UnknownBlockState(block_name.to_string()))?;
+
+                    if let Ok(block_properties) = block.get_compound_tag("Properties") {
+                        for (prop_name, prop_value_tag) in block_properties.iter() {
+                            if let Tag::String(prop_value) = prop_value_tag {
+                                block_state = block_state.with_raw(prop_name, &prop_value)
+                                    .ok_or_else(|| DecodeError::UnknownBlockProperty(
+                                        prop_name.to_string(),
+                                        prop_value.clone()
+                                    ))?;
+                            }
+                        }
+                    }
+
+                }
+            }
+
+        }
     }
 
     Ok(())

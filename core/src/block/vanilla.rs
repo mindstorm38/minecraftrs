@@ -1,4 +1,4 @@
-use crate::{blocks, properties, blocks_specs, impl_enum_serializable};
+use crate::{blocks, properties, blocks_specs, impl_enum_serializable, def_enum_serializable};
 use crate::util::{Direction, Axis, DyeColor};
 
 
@@ -11,13 +11,11 @@ impl_enum_serializable!(Direction {
     Down: "down"
 });
 
-
 impl_enum_serializable!(Axis {
     X: "x",
     Y: "y",
     Z: "z"
 });
-
 
 impl_enum_serializable!(DyeColor {
     White: "white",
@@ -99,6 +97,8 @@ properties! {
     pub PROP_DRAG: bool("drag");
     pub PROP_PERSISTENT: bool("persistent");
     pub PROP_LEAVES_DISTANCE: int("distance", 7);
+    pub PROP_CANDLES: int("candles", 4);  // Real is 1 to 4
+    pub PROP_BERRIES: bool("berries");
 
     pub PROP_DOWN: bool("down");
     pub PROP_EAST: bool("east");
@@ -108,13 +108,9 @@ properties! {
     pub PROP_WEST: bool("west");
     pub PROP_BOTTOM: bool("bottom");
 
-    pub PROP_HORIZONTAL_FACING: enum("facing", Direction, [
-        East, North, South, West
-    ]);
-
-    pub PROP_FACING: enum("facing", Direction, [
-        Down, East, North, South, Up, West
-    ]);
+    pub PROP_HORIZONTAL_FACING: enum("facing", Direction, [East, North, South, West]);
+    pub PROP_VERTICAL_DIRECTION: enum("vertical_direction", Direction, [Up, Down]);
+    pub PROP_FACING: enum("facing", Direction, [Down, East, North, South, Up, West]);
 
     pub PROP_AXIS: enum("axis", Axis, [X, Y, Z]);
     pub PROP_HORIZONTAL_AXIS: enum("axis", Axis, [X, Z]);
@@ -219,7 +215,7 @@ properties! {
         Straight, InnerLeft, InnerRight, OuterLeft, OuterRight
     ]);
 
-    pub PROP_POT_CONTENT: enum("content", PotContent, [
+    /*pub PROP_POT_CONTENT: enum("content", PotContent, [
         None,
         OakSapling,
         SpruceSapling,
@@ -250,7 +246,7 @@ properties! {
         WarpedFungus,
         CrimsonRoots,
         WarpedRoots
-    ]);
+    ]);*/
 
     pub PROP_JIGSAW_ORIENTATION: enum("orientation", FrontAndTop, [
         DownEast,
@@ -267,13 +263,40 @@ properties! {
         SouthUp
     ]);
 
+    pub PROP_SCULK_SENSOR_PHASE: enum("sculk_sensor_phase", SculkSensorPhase, [
+        Inactive,
+        Active,
+        Cooldown
+    ]);
+
+    pub PROP_OXYDATION_STATE: enum("oxydation_state", OxydationState, [
+        Unaffected,
+        Exposed,
+        Weathered,
+        Oxidized
+    ]);
+
+    pub PROP_DRIPSTONE_THICKNESS: enum("thickness", DripstoneThickness, [
+        TipMerge,
+        Tip,
+        Frustum,
+        Middle,
+        Base
+    ]);
+
+    pub PROP_DRIPLEAF_TILT: enum("tilt", DripleafTilt, [
+        None,
+        Unstable,
+        Partial,
+        Full
+    ]);
+
 }
 
 blocks_specs! {
 
     pub SPEC_GRASS: [PROP_SNOWY];
     pub SPEC_LEAVES: [PROP_LEAVES_DISTANCE, PROP_PERSISTENT];
-    // pub SPEC_PLANKS: [PROP_ALL_WOOD_TYPE];
     pub SPEC_FARMLAND: [PROP_FARMLAND_MOISTURE];
     pub SPEC_SNOW: [PROP_SNOW_LAYERS];
     pub SPEC_MUSHROOM_BLOCK: [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
@@ -282,6 +305,7 @@ blocks_specs! {
     pub SPEC_CORAL: [PROP_CORAL_TYPE];
     pub SPEC_SEA_PICKLE: [PROP_PICKLES, PROP_WATERLOGGED];
     pub SPEC_BAMBOO: [PROP_BAMBOO_AGE, PROP_BAMBOO_LEAVES, PROP_BAMBOO_STAGE];
+    pub SPEC_BIG_DRIPLEAF: [PROP_WATERLOGGED, PROP_HORIZONTAL_FACING, PROP_DRIPLEAF_TILT];
 
     pub SPEC_CROP: [PROP_AGE_8];
     pub SPEC_BEETROOTS: [PROP_AGE_4];
@@ -294,6 +318,9 @@ blocks_specs! {
     pub SPEC_KELP: [PROP_AGE_26];
     pub SPEC_NETHER_VINE: [PROP_AGE_26];
     pub SPEC_SWEET_BERRY_BUSH: [PROP_AGE_4];
+    pub SPEC_CAVE_VINES: [PROP_BERRIES];
+    pub SPEC_CAVE_VINES_PLANT: [PROP_BERRIES, PROP_AGE_26];
+    pub SPEC_SMALL_DRIPLEAF: [PROP_DOUBLE_BLOCK_HALF, PROP_WATERLOGGED, PROP_HORIZONTAL_FACING];
 
     pub SPEC_STATIC_LIQUID: [PROP_LIQUID_FALLING];
     pub SPEC_FLOWING_LIQUID: [PROP_LIQUID_FALLING, PROP_LIQUID_LEVEL];
@@ -307,20 +334,16 @@ blocks_specs! {
     pub SPEC_BED: [PROP_COLOR, PROP_HORIZONTAL_FACING, PROP_BED_PART, PROP_OCCUPIED];
     pub SPEC_BREWING_STAND: [PROP_HAS_BOTTLE_0, PROP_HAS_BOTTLE_1, PROP_HAS_BOTTLE_2];
     pub SPEC_BUTTON: [PROP_HORIZONTAL_FACING, PROP_POWERED, PROP_FACE];
-    // pub SPEC_WOODEN_BUTTON: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_POWERED, PROP_FACE];
     pub SPEC_CHEST: [PROP_HORIZONTAL_FACING, PROP_CHEST_TYPE, PROP_WATERLOGGED];
     pub SPEC_ENDER_CHEST: [PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
     pub SPEC_REDSTONE_WIRE: [PROP_REDSTONE_POWER, PROP_REDSTONE_EAST, PROP_REDSTONE_NORTH, PROP_REDSTONE_SOUTH, PROP_REDSTONE_WEST];
     pub SPEC_LEVER: [PROP_FACE, PROP_HORIZONTAL_FACING, PROP_POWERED];
     pub SPEC_PRESSURE_PLATE: [PROP_POWERED];
-    // pub SPEC_WOODEN_PRESSURE_PLATE: [PROP_ALL_WOOD_TYPE, PROP_POWERED];
     pub SPEC_DOOR: [PROP_DOUBLE_BLOCK_HALF, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED];
-    // pub SPEC_WOODEN_DOOR: [PROP_ALL_WOOD_TYPE, PROP_DOUBLE_BLOCK_HALF, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_DOOR_HINGE, PROP_POWERED];
     pub SPEC_WALL_REDSTONE_TORCH: [PROP_HORIZONTAL_FACING, PROP_LIT];
     pub SPEC_JUKEBOX: [PROP_HAS_RECORD];
     pub SPEC_REPEATER: [PROP_REPEATER_DELAY, PROP_HORIZONTAL_FACING, PROP_LOCKED, PROP_POWERED];
     pub SPEC_TRAPDOOR: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
-    // pub SPEC_WOODEN_TRAPDOOR: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
     pub SPEC_CAULDRON: [PROP_CAULDRON_LEVEL];
     pub SPEC_TRIPWIRE_HOOK: [PROP_ATTACHED, PROP_HORIZONTAL_FACING, PROP_POWERED];
     pub SPEC_TRIPWIRE: [PROP_ATTACHED, PROP_DISARMED, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_WEST, PROP_POWERED];
@@ -350,20 +373,16 @@ blocks_specs! {
     pub SPEC_WALL_TORCH: [PROP_HORIZONTAL_FACING];
     pub SPEC_FIRE: [PROP_AGE_16, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST, PROP_UP];
     pub SPEC_STAIRS: [PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
-    // pub SPEC_WOODEN_STAIRS: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
     pub SPEC_SLAB: [PROP_SLAB_TYPE];
-    // pub SPEC_WOODEN_SLAB: [PROP_ALL_WOOD_TYPE, PROP_SLAB_TYPE];
-    pub SPEC_SIGN: [/*PROP_ALL_WOOD_TYPE, */PROP_ROTATION, PROP_WATERLOGGED];
-    pub SPEC_WALL_SIGN: [/*PROP_ALL_WOOD_TYPE, */PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
+    pub SPEC_SIGN: [PROP_ROTATION, PROP_WATERLOGGED];
+    pub SPEC_WALL_SIGN: [PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
     pub SPEC_LADDER: [PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
     pub SPEC_NETHER_PORTAL: [PROP_HORIZONTAL_AXIS];
     pub SPEC_CAKE: [PROP_CAKE_BITES];
     pub SPEC_BARS: [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
-    pub SPEC_BARS_COLORED: [PROP_COLOR, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
-    // pub SPEC_WOODEN_FENCE: [PROP_ALL_WOOD_TYPE, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
+    pub SPEC_COLORED_BARS: [PROP_COLOR, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
     pub SPEC_WALL: [PROP_UP, PROP_WALL_EAST, PROP_WALL_NORTH, PROP_WALL_SOUTH, PROP_WALL_WEST, PROP_WATERLOGGED];
     pub SPEC_FENCE_GATE: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
-    // pub SPEC_WOODEN_FENCE_GATE: [PROP_ALL_WOOD_TYPE, PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
     pub SPEC_END_PORTAL: [PROP_END_PORTAL_EYE, PROP_HORIZONTAL_FACING];
     pub SPEC_SKULL: [PROP_ROTATION];
     pub SPEC_WALL_SKULL: [PROP_HORIZONTAL_FACING];
@@ -376,23 +395,33 @@ blocks_specs! {
     pub SPEC_CAMPFIRE: [PROP_HORIZONTAL_FACING, PROP_LIT, PROP_SIGNAL_FIRE, PROP_WATERLOGGED];
     pub SPEC_BEEHIVE: [PROP_HORIZONTAL_FACING, PROP_HONEY_LEVEL];
     pub SPEC_GLAZED_TERRACOTA: [PROP_COLOR, PROP_HORIZONTAL_FACING];
+    pub SPEC_CANDLE: [PROP_CANDLES, PROP_LIT, PROP_WATERLOGGED];
+    pub SPEC_COLORED_CANDLE: [PROP_COLOR, PROP_CANDLES, PROP_LIT, PROP_WATERLOGGED];
+    pub SPEC_SCULK_SENSOR: [PROP_SCULK_SENSOR_PHASE, PROP_REDSTONE_POWER, PROP_WATERLOGGED];
+    pub SPEC_LIGHTNING_ROD: [PROP_FACING, PROP_POWERED, PROP_WATERLOGGED];
+    pub SPEC_POINTED_DRIPSTONE: [PROP_VERTICAL_DIRECTION, PROP_DRIPSTONE_THICKNESS, PROP_WATERLOGGED];
 
+    pub SPEC_COPPER_BLOCK: [PROP_OXYDATION_STATE];
+    pub SPEC_COPPER_STAIRS: [PROP_OXYDATION_STATE, PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
+    pub SPEC_COPPER_SLAB: [PROP_OXYDATION_STATE, PROP_SLAB_TYPE];
+
+    pub SPEC_WATERLOGGED: [PROP_WATERLOGGED];
     pub SPEC_COLORED: [PROP_COLOR];
     pub SPEC_AXIS: [PROP_AXIS];
+    pub SPEC_AXIS_WATERLOGGED: [PROP_WATERLOGGED, PROP_AXIS];
     pub SPEC_HORIZONTAL_FACING: [PROP_HORIZONTAL_FACING];
     pub SPEC_FACING: [PROP_FACING];
-    pub SPEC_AXIS_WATERLOGGED: [PROP_AXIS, PROP_WATERLOGGED];
+    pub SPEC_FACING_WATERLOGGED: [PROP_WATERLOGGED, PROP_FACING];
+    pub SPEC_HORIZONTAL_FACING_WATERLOGGED: [PROP_WATERLOGGED, PROP_HORIZONTAL_FACING];
     pub SPEC_LIT: [PROP_LIT];
-    pub SPEC_WATERLOGGED: [PROP_WATERLOGGED];
+    pub SPEC_COLORED_LIT: [PROP_LIT, PROP_COLOR];
     pub SPEC_REDSTONE_POWER: [PROP_REDSTONE_POWER];
-    // pub SPEC_NETHER_WOOD_TYPE: [PROP_NETHER_WOOD_TYPE];
-    // pub SPEC_OVERWORLD_WOOD_TYPE : [PROP_OVERWORLD_WOOD_TYPE];
 
 }
 
 
 // Same order as defined in MC code
-// Some block has been merged to avoid defining dozen of wooden variations
+// Some block has been merged to avoid defining dozen of variations
 // for example, for compatibility with Minecraft these blocks may need
 // extensions or a specified module for the conversion.
 blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
@@ -418,7 +447,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_PLANKS "jungle_planks",
     ACACIA_PLANKS "acacia_planks",
     DARK_OAK_PLANKS "dark_oak_planks",
-    // PLANKS "planks" SPEC_PLANKS, // Merged
 
     OAK_SAPLING "oak_sapling",
     SPRUCE_SAPLING "spruce_sapling",
@@ -426,7 +454,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_SAPLING "jungle_sapling",
     ACACIA_SAPLING "acacia_sapling",
     DARK_OAK_SAPLING "dark_oak_sapling",
-    // SAPLING "sapling" SPEC_OVERWORLD_WOOD_TYPE, // Merged
 
     BEDROCK "bedrock",
     WATER "water" SPEC_STATIC_LIQUID,
@@ -447,7 +474,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_LOG "jungle_log" SPEC_AXIS,
     ACACIA_LOG "acacia_log" SPEC_AXIS,
     DARK_OAK_LOG "dark_oak_log" SPEC_AXIS,
-    // LOG "log" SPEC_OVERWORLD_WOOD_TYPE, // Merged
 
     STRIPPED_OAK_LOG "stripped_oak_log" SPEC_AXIS,
     STRIPPED_SPRUCE_LOG "stripped_spruce_log" SPEC_AXIS,
@@ -455,7 +481,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     STRIPPED_JUNGLE_LOG "stripped_jungle_log" SPEC_AXIS,
     STRIPPED_ACACIA_LOG "stripped_acacia_log" SPEC_AXIS,
     STRIPPED_DARK_OAK_LOG "stripped_dark_oak_log" SPEC_AXIS,
-    // STRIPPED_LOG "stripped_log" SPEC_OVERWORLD_WOOD_TYPE, // Merged
 
     OAK_WOOD "oak_wood" SPEC_AXIS,
     SPRUCE_WOOD "spruce_wood" SPEC_AXIS,
@@ -463,7 +488,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_WOOD "jungle_wood" SPEC_AXIS,
     ACACIA_WOOD "acacia_wood" SPEC_AXIS,
     DARK_OAK_WOOD "dark_oak_wood" SPEC_AXIS,
-    // WOOD "wood" SPEC_OVERWORLD_WOOD_TYPE, // Merged
 
     STRIPPED_OAK_WOOD "stripped_oak_wood" SPEC_AXIS,
     STRIPPED_SPRUCE_WOOD "stripped_spruce_wood" SPEC_AXIS,
@@ -471,7 +495,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     STRIPPED_JUNGLE_WOOD "stripped_jungle_wood" SPEC_AXIS,
     STRIPPED_ACACIA_WOOD "stripped_acacia_wood" SPEC_AXIS,
     STRIPPED_DARK_OAK_WOOD "stripped_dark_oak_wood" SPEC_AXIS,
-    // STRIPPED_WOOD "stripped_wood" SPEC_OVERWORLD_WOOD_TYPE, // Merged
 
     OAK_LEAVES "oak_leaves" SPEC_LEAVES,
     SPRUCE_LEAVES "spruce_leaves" SPEC_LEAVES,
@@ -479,7 +502,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_LEAVES "jungle_leaves" SPEC_LEAVES,
     ACACIA_LEAVES "acacia_leaves" SPEC_LEAVES,
     DARK_OAK_LEAVES "dark_oak_leaves" SPEC_LEAVES,
-    // LEAVES "leaves" SPEC_OVERWORLD_WOOD_TYPE, // Merged
 
     SPONGE "sponge",
     WET_SPONGE "wet_sponge",
@@ -538,7 +560,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_STAIRS "jungle_stairs" SPEC_STAIRS,
     ACACIA_STAIRS "acacia_stairs" SPEC_STAIRS,
     DARK_OAK_STAIRS "dark_oak_stairs" SPEC_STAIRS,
-    // WOODEN_STAIRS "wooden_stairs" SPEC_WOODEN_STAIRS, // Merged
 
     CHEST "chest" SPEC_CHEST,
     REDSTONE_WIRE "redstone_wire" SPEC_REDSTONE_WIRE,
@@ -555,7 +576,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_SIGN "jungle_sign" SPEC_SIGN,
     ACACIA_SIGN "acacia_sign" SPEC_SIGN,
     DARK_OAK_SIGN "dark_oak_sign" SPEC_SIGN,
-    // SIGN "sign" SPEC_SIGN, // Merged
 
     LADDER "ladder" SPEC_LADDER,
     RAIL "rail" SPEC_RAIL,
@@ -567,7 +587,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_WALL_SIGN "jungle_wall_sign" SPEC_WALL_SIGN,
     ACACIA_WALL_SIGN "acacia_wall_sign" SPEC_WALL_SIGN,
     DARK_OAK_WALL_SIGN "dark_oak_wall_sign" SPEC_WALL_SIGN,
-    // WALL_SIGN "wall_sign" SPEC_WALL_SIGN, // Merged
 
     LEVER "lever" SPEC_LEVER,
     STONE_PRESSURE_PLATE "stone_pressure_plate" SPEC_PRESSURE_PLATE,
@@ -579,7 +598,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_PRESSURE_PLATE "jungle_pressure_plate" SPEC_PRESSURE_PLATE,
     ACACIA_PRESSURE_PLATE "acacia_pressure_plate" SPEC_PRESSURE_PLATE,
     DARK_OAK_PRESSURE_PLATE "dark_oak_pressure_plate" SPEC_PRESSURE_PLATE,
-    // WOODEN_PRESSURE_PLATE "wooden_pressure_plate" SPEC_WOODEN_PRESSURE_PLATE, // Merged
 
     REDSTONE_ORE "redstone_ore" SPEC_LIT,
     REDSTONE_TORCH "redstone_torch" SPEC_LIT,
@@ -614,7 +632,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_TRAPDOOR "jungle_trapdoor" SPEC_TRAPDOOR,
     ACACIA_TRAPDOOR "acacia_trapdoor" SPEC_TRAPDOOR,
     DARK_OAK_TRAPDOOR "dark_oak_trapdoor" SPEC_TRAPDOOR,
-    // WOODEN_TRAPDOOR "wooden_trapdoor" SPEC_WOODEN_TRAPDOOR, // Merged
 
     STONE_BRICKS "stone_bricks",
     MOSSY_STONE_BRICKS "mossy_stone_bricks",
@@ -665,7 +682,33 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     BEACON "beacon",
     COBBLESTONE_WALL "cobblestone_wall" SPEC_WALL,
     MOSSY_COBBLESTONE_WALL "mossy_cobblestone_wall" SPEC_WALL,
-    // FLOWER_POT "flower_pot"         [PROP_POT_CONTENT], // Merged TODO
+
+    FLOWER_POT "flower_pot",
+    POTTED_OAK_SAPLING "potted_oak_sapling",
+    POTTED_SPRUCE_SAPLING "potted_spruce_sapling",
+    POTTED_BIRCH_SAPLING "potted_birch_sapling",
+    POTTED_JUNGLE_SAPLING "potted_jungle_sapling",
+    POTTED_ACACIA_SAPLING "potted_acacia_sapling",
+    POTTED_DARK_OAK_SAPLING "potted_dark_oak_sapling",
+    POTTED_FERN "potted_fern",
+    POTTED_DANDELION "potted_dandelion",
+    POTTED_POPPY "potted_poppy",
+    POTTED_BLUE_ORCHID "potted_blue_orchid",
+    POTTED_ALLIUM "potted_allium",
+    POTTED_AZURE_BLUET "potted_azure_bluet",
+    POTTED_RED_TULIP "potted_red_tulip",
+    POTTED_ORANGE_TULIP "potted_orange_tulip",
+    POTTED_WHITE_TULIP "potted_white_tulip",
+    POTTED_PINK_TULIP "potted_pink_tulip",
+    POTTED_OXEYE_DAISY "potted_oxeye_daisy",
+    POTTED_CORNFLOWER "potted_cornflower",
+    POTTED_LILY_OF_THE_VALLEY "potted_lily_of_the_valley",
+    POTTED_WITHER_ROSE "potted_wither_rose",
+    POTTED_RED_MUSHROOM "potted_red_mushroom",
+    POTTED_BROWN_MUSHROOM "potted_brown_mushroom",
+    POTTED_DEAD_BUSH "potted_dead_bush",
+    POTTED_CACTUS "potted_cactus",
+
     CARROTS "carrots" SPEC_CROP,
     POTATOES "potatoes" SPEC_CROP,
 
@@ -675,7 +718,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_BUTTON "jungle_button" SPEC_BUTTON,
     ACACIA_BUTTON "acacia_button" SPEC_BUTTON,
     DARK_OAK_BUTTON "dark_oak_button" SPEC_BUTTON,
-    // WOODEN_BUTTON "wooden_button" SPEC_WOODEN_BUTTON, // Merged
 
     // Skulls
     SKELETON_SKULL "skeleton_skull" SPEC_SKULL,
@@ -710,7 +752,7 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     DROPPER "dropper" SPEC_DROPPER,
     TERRACOTTA "terracotta",
     COLORED_TERRACOTTA "colored_terracotta" SPEC_COLORED, // Merged
-    STAINED_GLASS_PANE "stained_glass_pane" SPEC_BARS_COLORED, // Merged
+    STAINED_GLASS_PANE "stained_glass_pane" SPEC_COLORED_BARS, // Merged
     SLIME_BLOCK "slime_block",
     BARRIER "barrier",
     IRON_TRAPDOOR "iron_trapdoor" SPEC_TRAPDOOR,
@@ -747,7 +789,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_SLAB "jungle_slab" SPEC_SLAB,
     ACACIA_SLAB "acacia_slab" SPEC_SLAB,
     DARK_OAK_SLAB "dark_oak_slab" SPEC_SLAB,
-    // WOODEN_SLAB "wooden_slab" SPEC_WOODEN_SLAB, // Merged
 
     STONE_SLAB "stone_slab" SPEC_SLAB,
     SMOOTH_STONE_SLAB "smooth_stone_slab" SPEC_SLAB,
@@ -773,7 +814,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
     ACACIA_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
     DARK_OAK_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
-    // WOODEN_FENCE_GATE "wooden_fence_gate" SPEC_WOODEN_FENCE_GATE, // Merged
 
     OAK_FENCE "oak_fence" SPEC_BARS,
     SPRUCE_FENCE "spruce_fence" SPEC_BARS,
@@ -781,7 +821,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_FENCE "jungle_fence" SPEC_BARS,
     ACACIA_FENCE "acacia_fence" SPEC_BARS,
     DARK_OAK_FENCE "dark_oak_fence" SPEC_BARS,
-    // WOODEN_FENCE "wooden_fence" SPEC_WOODEN_FENCE, // Merged
 
     OAK_DOOR "oak_door" SPEC_DOOR,
     SPRUCE_DOOR "spruce_door" SPEC_DOOR,
@@ -789,7 +828,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     JUNGLE_DOOR "jungle_door" SPEC_DOOR,
     ACACIA_DOOR "acacia_door" SPEC_DOOR,
     DARK_OAK_DOOR "dark_oak_door" SPEC_DOOR,
-    // WOODEN_DOOR "wooden_door" SPEC_WOODEN_DOOR, // Merged
 
     END_ROD "end_rod" SPEC_FACING,
     CHORUS_PLANT "chorus_plant" SPEC_CHORUS_PLANT,
@@ -826,9 +864,13 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     SEA_PICKLE "sea_pickle" SPEC_SEA_PICKLE,
     BLUE_ICE "blue_ice",
     CONDUIT "conduit" SPEC_WATERLOGGED,
+
     BAMBOO_SAPLING "bamboo_sapling",
     BAMBOO "bamboo" SPEC_BAMBOO,
+    POTTED_BAMBOO "potted_bamboo",
+
     // TODO: VOID_AIR, CAVE_AIR (skip them?)
+
     BUBBLE_COLUMN "bubble_column" SPEC_BUBBLE_COLUMN,
     POLISHED_GRANITE_STAIRS "polished_granite_stairs" SPEC_STAIRS,
     SMOOTH_RED_SANDSTONE_STAIRS "smooth_red_sandstone_stairs" SPEC_STAIRS,
@@ -903,14 +945,6 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     CRIMSON_FUNGUS "crimson_fungus",
     CRIMSON_ROOTS "crimson_roots",
 
-    /*STEM "stem" SPEC_NETHER_WOOD_TYPE, // Merged
-    STRIPPED_STEM "stripped_stem" SPEC_NETHER_WOOD_TYPE, // Merged
-    HYPHAE "hyphae" SPEC_NETHER_WOOD_TYPE, // Merged
-    STRIPPED_HYPHAE "stripped_hyphae" SPEC_NETHER_WOOD_TYPE, // Merged
-    NYLIUM "nylium" SPEC_NETHER_WOOD_TYPE, // Merged
-    FUNGUS "fungus" SPEC_NETHER_WOOD_TYPE, // Merged
-    ROOTS "roots" SPEC_NETHER_WOOD_TYPE, // Merged*/
-
     NETHER_SPROUTS "nether_sprouts",
     SHROOMLIGHT "shroomlight",
     WEEPING_VINES "weeping_vines" SPEC_NETHER_VINE,
@@ -953,6 +987,12 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     ANCIENT_DEBRIS "ancient_debris",
     CRYING_OBSIDIAN "crying_obsidian",
     RESPAWN_ANCHOR "respawn_anchor" SPEC_RESPAWN_ANCHOR,
+
+    POTTED_CRIMSON_FUNGUS "potted_crimson_fungus",
+    POTTED_WARPED_FUNGUS "potted_warped_fungus",
+    POTTED_CRIMSON_ROOTS "potted_crimson_roots",
+    POTTED_WARPED_ROOTS "potted_warped_roots",
+
     LODESTONE "lodestone",
     BLACKSTONE "blackstone",
     BLACKSTONE_STAIRS "blackstone_stairs" SPEC_STAIRS,
@@ -975,45 +1015,96 @@ blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
     CRACKED_NETHER_BRICKS "cracked_nether_bricks",
     QUARTZ_BRICKS "quartz_bricks",
 
+    CANDLE "candle" SPEC_CANDLE,
+    COLORED_CANDLE "candle" SPEC_COLORED_CANDLE,  // Merged
+    CANDLE_CAKE "candle_cake" SPEC_LIT,
+    COLORED_CANDLE_CAKE "candle_cake" SPEC_COLORED_LIT,  // Merged
+
+    AMETHYST_BLOCK "amethyst_block",
+    BUDDING_AMETHYST "budding_amethyst",
+    AMETHYST_CLUSTER "amethyst_cluster" SPEC_FACING_WATERLOGGED,
+    LARGE_AMETHYST_BUD "large_amethyst_bud" SPEC_FACING_WATERLOGGED,
+    MEDIUM_AMETHYST_BUD "medium_amethyst_bud" SPEC_FACING_WATERLOGGED,
+    SMALL_AMETHYST_BUD "small_amethyst_bud" SPEC_FACING_WATERLOGGED,
+
+    TUFF "tuff",
+    CALCITE "calcite",
+    TINTED_GLASS "tinted_glass",
+    POWDER_SNOW "powder_snow",
+    SCULK_SENSOR "sculk_sensor" SPEC_SCULK_SENSOR,
+
+    COPPER_BLOCK "copper_block" SPEC_COPPER_BLOCK,  // Merged
+    CUT_COPPER "cut_copper" SPEC_COPPER_BLOCK,  // Merged
+    CUT_COPPER_STAIRS "cut_copper_stairs" SPEC_COPPER_STAIRS,  // Merged
+    CUT_COPPER_SLAB "cut_copper_slab" SPEC_COPPER_SLAB,  // Merged
+    WAXED_COPPER_BLOCK "copper_block" SPEC_COPPER_BLOCK,  // Merged
+    WAXED_CUT_COPPER "cut_copper" SPEC_COPPER_BLOCK,  // Merged
+    WAXED_CUT_COPPER_STAIRS "cut_copper_stairs" SPEC_COPPER_STAIRS,  // Merged
+    WAXED_CUT_COPPER_SLAB "cut_copper_slab" SPEC_COPPER_SLAB,  // Merged
+
+    LIGHTNING_ROD "lightning_rod" SPEC_LIGHTNING_ROD,
+
+    POINTED_DRIPSTONE "pointed_dripstone" SPEC_POINTED_DRIPSTONE,
+    DRIPSTONE_BLOCK "dripstone_block",
+
+    CAVE_VINES "cave_vines" SPEC_CAVE_VINES,
+    CAVE_VINES_PLANT "cave_vines_plant" SPEC_CAVE_VINES_PLANT,
+    SPORE_BLOSSOM "spore_blossom",
+    AZALEA "azalea",
+    FLOWERING_AZALEA "flowering_azalea",
+    MOSS_CARPET "moss_carpet",
+    MOSS_BLOCK "moss_block",
+    BIG_DRIPLEAF "big_dripleaf" SPEC_BIG_DRIPLEAF,
+    BIG_DRIPLEAF_STEM "big_dripleaf_stem" SPEC_HORIZONTAL_FACING_WATERLOGGED,
+    SMALL_DRIPLEAF "small_dripleaf" SPEC_SMALL_DRIPLEAF,
+    HANGING_ROOTS "hanging_roots" SPEC_WATERLOGGED,
+    ROOTED_DIRT "rooted_dirt",
+
+    DEEPSLATE "deepslate" SPEC_AXIS,
+    COBBLED_DEEPSLATE "cobbled_deepslate",
+    COBBLED_DEEPSLATE_STAIRS "cobbled_deepslate_stairs" SPEC_STAIRS,
+    COBBLED_DEEPSLATE_SLAB "cobbled_deepslate_slab" SPEC_SLAB,
+    COBBLED_DEEPSLATE_WALL "cobbled_deepslate_wall" SPEC_WALL,
+    POLISHED_DEEPSLATE "polished_deepslate",
+    POLISHED_DEEPSLATE_STAIRS "polished_deepslate_stairs" SPEC_STAIRS,
+    POLISHED_DEEPSLATE_SLAB "polished_deepslate_slab" SPEC_SLAB,
+    POLISHED_DEEPSLATE_WALL "polished_deepslate_wall" SPEC_WALL,
+    DEEPSLATE_TILES "deepslate_tiles",
+    DEEPSLATE_TILE_STAIRS "deepslate_tile_stairs" SPEC_STAIRS,
+    DEEPSLATE_TILE_SLAB "deepslate_tile_slab" SPEC_SLAB,
+    DEEPSLATE_TILE_WALL "deepslate_tile_wall" SPEC_WALL,
+    DEEPSLATE_BRICKS "deepslate_bricks",
+    DEEPSLATE_BRICK_STAIRS "deepslate_brick_stairs" SPEC_STAIRS,
+    DEEPSLATE_BRICK_SLAB "deepslate_brick_slab" SPEC_SLAB,
+    DEEPSLATE_BRICK_WALL "deepslate_brick_wall" SPEC_WALL,
+    CHISELED_DEEPSLATE "chiseled_deepslate",
+    CRACKED_DEEPSLATE_BRICKS "cracked_deepslate_bricks",
+    CRACKED_DEEPSLATE_TILES "cracked_deepslate_tiles",
+    INFESTED_DEEPSLATE "infested_deepslate" SPEC_AXIS,
+    SMOOTH_BASALT "smooth_basalt",
+
+    RAW_IRON_BLOCK "raw_iron_block",
+    RAW_COPPER_BLOCK "raw_copper_block",
+    RAW_GOLD_BLOCK "raw_gold_block",
+
+    POTTED_AZALEA "potted_azalea_bush",
+    POTTED_FLOWERING_AZALEA "potted_flowering_azalea_bush",
+
 ]);
 
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BambooLeaves {
-    None,
-    Large,
-    Small
-}
-
-impl_enum_serializable!(BambooLeaves {
+def_enum_serializable!(BambooLeaves {
     None: "none",
     Large: "large",
     Small: "small"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BedPart {
-    Foot,
-    Head
-}
-
-impl_enum_serializable!(BedPart {
+def_enum_serializable!(BedPart {
     Foot: "foot",
     Head: "head"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Face {
-    Ceiling,
-    Floor,
-    Wall,
-    DoubleWall,
-    SingleWall
-}
-
-impl_enum_serializable!(Face {
+def_enum_serializable!(Face {
     Ceiling: "ceiling",
     Floor: "floor",
     Wall: "wall",
@@ -1021,28 +1112,7 @@ impl_enum_serializable!(Face {
     SingleWall: "single_wall"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Instrument {
-    Banjo,
-    BassDrum,
-    Bass,
-    Bell,
-    Bit,
-    Chime,
-    CowBell,
-    Didjeridoo,
-    Flute,
-    Guitar,
-    Harp,
-    Hat,
-    IronXylophone,
-    Pling,
-    Snare,
-    Xylophone
-}
-
-impl_enum_serializable!(Instrument {
+def_enum_serializable!(Instrument {
     Banjo: "banjo",
     BassDrum: "basedrum",
     Bass: "bass",
@@ -1061,22 +1131,7 @@ impl_enum_serializable!(Instrument {
     Xylophone: "xylophone"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum RailShape {
-    EastWest,
-    NorthEast,
-    NorthSouth,
-    NorthWest,
-    SouthEast,
-    SouthWest,
-    AscendingEast,
-    AscendingNorth,
-    AscendingSouth,
-    AscendingWest
-}
-
-impl_enum_serializable!(RailShape {
+def_enum_serializable!(RailShape {
     EastWest: "east_west",
     NorthEast: "north_east",
     NorthSouth: "north_south",
@@ -1089,118 +1144,39 @@ impl_enum_serializable!(RailShape {
     AscendingWest: "ascending_west"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ComparatorMode {
-    Compare,
-    Subtract
-}
-
-impl_enum_serializable!(ComparatorMode {
+def_enum_serializable!(ComparatorMode {
     Compare: "compare",
     Subtract: "subtract"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum RedstoneWireMode {
-    None,
-    Side,
-    Up
-}
-
-impl_enum_serializable!(RedstoneWireMode {
+def_enum_serializable!(RedstoneWireMode {
     None: "none",
     Side: "side",
     Up: "up"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum DoubleBlockHalf {
-    Lower,
-    Upper
-}
-
-impl_enum_serializable!(DoubleBlockHalf {
+def_enum_serializable!(DoubleBlockHalf {
     Lower: "lower",
     Upper: "upper"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Half {
-    Top,
-    Bottom
-}
-
-impl_enum_serializable!(Half {
+def_enum_serializable!(Half {
     Top: "top",
     Bottom: "bottom"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum DoorHingeSide {
-    Left,
-    Right
-}
-
-impl_enum_serializable!(DoorHingeSide {
+def_enum_serializable!(DoorHingeSide {
     Left: "left",
     Right: "right"
 });
 
-
-/*#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum WoodType {
-    Oak,
-    Spruce,
-    Birch,
-    Jungle,
-    Acacia,
-    DarkOak,
-    Crimson,
-    Warped
-}
-
-impl_enum_serializable!(WoodType {
-    Oak: "oak",
-    Spruce: "spruce",
-    Birch: "birch",
-    Jungle: "jungle",
-    Acacia: "acacia",
-    DarkOak: "dark_oak",
-    Crimson: "crimson",
-    Warped: "warped"
-});*/
-
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ChestType {
-    Single,
-    Left,
-    Right
-}
-
-impl_enum_serializable!(ChestType {
+def_enum_serializable!(ChestType {
     Single: "single",
     Left: "left",
     Right: "right"
 });
 
-
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum StairsShape {
-    Straight,
-    InnerLeft,
-    InnerRight,
-    OuterLeft,
-    OuterRight
-}
-
-impl_enum_serializable!(StairsShape {
+def_enum_serializable!(StairsShape {
     Straight: "straight",
     InnerLeft: "inner_left",
     InnerRight: "inner_right",
@@ -1208,57 +1184,14 @@ impl_enum_serializable!(StairsShape {
     OuterRight: "outer_right"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum WallSide {
-    None,
-    Low,
-    Tall
-}
-
-impl_enum_serializable!(WallSide {
+def_enum_serializable!(WallSide {
     None: "none",
     Low: "low",
     Tall: "tall"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum PotContent {
+/*def_enum_serializable!(PotContent {
     // TODO: PotContent is my worst idea, maybe "unmerge" pots.
-    None,
-    OakSapling,
-    SpruceSapling,
-    BirchSapling,
-    JungleSapling,
-    AcaciaSapling,
-    DarkOakSapling,
-    Fern,
-    Dandelion,
-    Poppy,
-    BlueOrchid,
-    Allium,
-    AzureBluet,
-    RedTulip,
-    OrangeTulip,
-    WhiteTulip,
-    PinkTulip,
-    OxeyeDaisy,
-    Cornflower,
-    LilyOfTheValley,
-    WitherRose,
-    RedMushroom,
-    BrownMushroom,
-    DeadBush,
-    Cactus,
-    Bamboo,
-    CrimsonFungus,
-    WarpedFungus,
-    CrimsonRoots,
-    WarpedRoots
-}
-
-impl_enum_serializable!(PotContent {
     None: "none",
     OakSapling: "oak_sapling",
     SpruceSapling: "spruce_sapling",
@@ -1289,47 +1222,21 @@ impl_enum_serializable!(PotContent {
     WarpedFungus: "warped_fungus",
     CrimsonRoots: "crimson_roots",
     WarpedRoots: "warped_roots"
-});
+});*/
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum SlabType {
-    Top,
-    Bottom,
-    Double
-}
-
-impl_enum_serializable!(SlabType {
+def_enum_serializable!(SlabType {
     Top: "top",
     Bottom: "bottom",
     Double: "double"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum CommandBlockType {
-    Impulse,
-    Repeating,
-    Chain
-}
-
-impl_enum_serializable!(CommandBlockType {
+def_enum_serializable!(CommandBlockType {
     Impulse: "impulse",
     Repeating: "repeating",
     Chain: "chain"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum CoralType {
-    Tube,
-    Brain,
-    Bubble,
-    Fire,
-    Horn
-}
-
-impl_enum_serializable!(CoralType {
+def_enum_serializable!(CoralType {
     Tube: "tube",
     Brain: "brain",
     Bubble: "bubble",
@@ -1337,40 +1244,14 @@ impl_enum_serializable!(CoralType {
     Horn: "horn"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum StructureMode {
-    Save,
-    Load,
-    Corner,
-    Data
-}
-
-impl_enum_serializable!(StructureMode {
+def_enum_serializable!(StructureMode {
     Save: "save",
     Load: "load",
     Corner: "corner",
     Data: "data"
 });
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum FrontAndTop {
-    DownEast,
-    DownNorth,
-    DownSouth,
-    DownWest,
-    UpEast,
-    UpNorth,
-    UpSouth,
-    UpWest,
-    WestUp,
-    EastUp,
-    NorthUp,
-    SouthUp
-}
-
-impl_enum_serializable!(FrontAndTop {
+def_enum_serializable!(FrontAndTop {
     DownEast: "down_east",
     DownNorth: "down_north",
     DownSouth: "down_south",
@@ -1383,4 +1264,32 @@ impl_enum_serializable!(FrontAndTop {
     EastUp: "east_up",
     NorthUp: "north_up",
     SouthUp: "south_up"
+});
+
+def_enum_serializable!(SculkSensorPhase {
+    Inactive: "inactive",
+    Active: "active",
+    Cooldown: "cooldown"
+});
+
+def_enum_serializable!(OxydationState {
+    Unaffected: "unaffected",
+    Exposed: "exposed",
+    Weathered: "weathered",
+    Oxidized: "oxidized"
+});
+
+def_enum_serializable!(DripstoneThickness {
+    TipMerge: "tip_merge",
+    Tip: "tip",
+    Frustum: "frustum",
+    Middle: "middle",
+    Base: "base"
+});
+
+def_enum_serializable!(DripleafTilt {
+    None: "none",
+    Unstable: "unstable",
+    Partial: "partial",
+    Full: "full"
 });

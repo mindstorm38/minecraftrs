@@ -6,7 +6,6 @@ use std::mem::size_of;
 
 fn main() {
 
-    println!();
     println!("==== LOADING STATES ====");
     let start = Instant::now();
     &*VanillaBlocks;

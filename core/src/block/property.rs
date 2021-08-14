@@ -219,3 +219,18 @@ macro_rules! impl_enum_serializable {
         }
     };
 }
+
+
+#[macro_export]
+macro_rules! def_enum_serializable {
+    ($enum_id:ident { $($item_id:ident: $item_name:literal),* }) => {
+
+        #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+        pub enum $enum_id {
+            $($item_id),*
+        }
+
+        $crate::impl_enum_serializable!($enum_id { $($item_id: $item_name),* });
+
+    };
+}
