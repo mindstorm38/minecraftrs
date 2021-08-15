@@ -5,6 +5,7 @@ use nbt::{CompoundTag, Tag, CompoundTagError};
 use thiserror::Error;
 
 use crate::world::chunk::{Chunk, ChunkStatus};
+use crate::util::PackedArray;
 
 
 #[derive(Error, Debug)]
@@ -66,40 +67,83 @@ pub fn decode_chunk(root: CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeEr
         }
     });
 
+    let env = chunk.clone_env();
+
     let sections = level.get_compound_tag_vec("Sections")?;
     for section in sections {
+
         let cy = section.get_i8("Y")?;
-        if chunk.get_height().contains(cy) {
+
+        if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy, None) {
 
             println!("==== SECTION {} ====", cy);
 
-            if let Ok(palette) = section.get_compound_tag_vec("Palette") {
+            if let Ok(packed_data) = section.get_i64_vec("BlockStates") {
 
                 let mut palette_states = Vec::new();
 
-                for block in palette {
+                if let Ok(palette) = section.get_compound_tag_vec("Palette") {
+                    for block in palette {
 
-                    let block_name = block.get_str("Name")?;
+                        let block_name = block.get_str("Name")?;
 
-                    let mut block_state = chunk.get_env().blocks
-                        .get_state_from_name(block_name)
-                        .ok_or_else(|| DecodeError::UnknownBlockState(block_name.to_string()))?;
+                        let mut block_state = env.blocks
+                            .get_state_from_name(block_name)
+                            .ok_or_else(|| DecodeError::UnknownBlockState(block_name.to_string()))?;
 
-                    if let Ok(block_properties) = block.get_compound_tag("Properties") {
-                        for (prop_name, prop_value_tag) in block_properties.iter() {
-                            if let Tag::String(prop_value) = prop_value_tag {
-                                block_state = block_state
-                                    .with_raw(prop_name, &prop_value)
-                                    .ok_or_else(|| DecodeError::UnknownBlockProperty(format!("{}/{}={}", block_name, prop_name, prop_value)))?;
+                        if let Ok(block_properties) = block.get_compound_tag("Properties") {
+                            for (prop_name, prop_value_tag) in block_properties.iter() {
+                                if let Tag::String(prop_value) = prop_value_tag {
+                                    block_state = block_state
+                                        .with_raw(prop_name, &prop_value)
+                                        .ok_or_else(|| DecodeError::UnknownBlockProperty(format!("{}/{}={}", block_name, prop_name, prop_value)))?;
+                                }
                             }
                         }
+
+                        palette_states.push(block_state);
+
                     }
-
-                    palette_states.push(block_state);
-
                 }
 
-                println!("palette_states: {}", palette_states.len().next_power_of_two());
+                if palette_states.is_empty() {
+                    // SAFETY: We can unwrap because save ID 0 presence is
+                    //         checked by level at creation.
+                    palette_states.push(env.blocks.get_state_from(0).unwrap());
+                }
+
+                let byte_size = PackedArray::calc_min_byte_size(palette_states.len() as u64 - 1).max(4);
+                let values_per_cell = PackedArray::values_per_cell(byte_size);
+                let value_mask = PackedArray::calc_mask(byte_size);
+
+                let mut x = 0;
+                let mut z = 0;
+                let mut y = 0;
+
+                'packed: for cell in packed_data {
+                    let mut cell = *cell as u64;
+                    for _ in 0..values_per_cell {
+
+                        let value = cell & value_mask;
+                        let state = palette_states[value as usize];
+                        sub_chunk.set_block(x, y, z, state);
+                        cell >>= byte_size;
+
+                        x += 1;
+                        if x > 15 {
+                            x = 0;
+                            z += 1;
+                            if z > 15 {
+                                z = 0;
+                                y += 1;
+                                if y > 15 {
+                                    break'packed;
+                                }
+                            }
+                        }
+
+                    }
+                }
 
             }
 

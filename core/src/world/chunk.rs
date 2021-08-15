@@ -104,6 +104,11 @@ impl Chunk {
     }
 
     #[inline]
+    pub fn clone_env(&self) -> Arc<LevelEnv> {
+        Arc::clone(&self.env)
+    }
+
+    #[inline]
     pub fn get_status(&self) -> ChunkStatus {
         self.status
     }
@@ -286,7 +291,8 @@ impl SubChunk {
         };
 
         // This is 7 bits for current vanilla biomes, this only take 64 octets of storage.
-        let biomes_byte_size = PackedArray::calc_min_byte_size(env.biomes.biomes_count() as u64);
+        // Subtracting 1 because the maximum biome save ID is the maximum value.
+        let biomes_byte_size = PackedArray::calc_min_byte_size(env.biomes.biomes_count() as u64 - 1);
 
         // The palettes are initialized with an initial state and biome (usually air and void, if
         // vanilla environment), this is required because the packed array has default values of 0,

@@ -1,9 +1,9 @@
 
 
 pub struct PackedArray {
-    byte_size: u8,
-    length: usize,
     cells: Vec<u64>,
+    length: usize,
+    byte_size: u8,
 }
 
 impl PackedArray {
@@ -27,16 +27,29 @@ impl PackedArray {
         };
 
         Self {
+            cells: vec![default_value; Self::needed_cells(length, byte_size)],
             length,
             byte_size,
-            cells: vec![default_value; Self::needed_cells(length, byte_size)]
         }
 
     }
 
+    pub fn from_raw(cells: Vec<u64>, length: usize, byte_size: u8) -> Option<Self> {
+        Self::check_byte_size(byte_size);
+        if cells.len() >= Self::needed_cells(length, byte_size) {
+            Some(Self {
+                cells,
+                length,
+                byte_size
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn get(&self, index: usize) -> Option<u64> {
         if index < self.length {
-            let (cell_index, bit_index) = self.get_indexes(index);
+            let (cell_index, bit_index) = self.get_indices(index);
             let cell = self.cells[cell_index];
             Some((cell >> bit_index) & Self::calc_mask(self.byte_size))
         } else {
@@ -48,7 +61,7 @@ impl PackedArray {
         if index < self.length {
             let mask = Self::calc_mask(self.byte_size);
             if value <= mask {
-                let (cell_index, bit_index) = self.get_indexes(index);
+                let (cell_index, bit_index) = self.get_indices(index);
                 let cell = &mut self.cells[cell_index];
                 *cell = (*cell & !(mask << bit_index)) | (value << bit_index); // Clear and Set
             } else {
@@ -59,7 +72,7 @@ impl PackedArray {
         }
     }
 
-    fn get_indexes(&self, index: usize) -> (usize, usize) {
+    fn get_indices(&self, index: usize) -> (usize, usize) {
         let vpc = Self::values_per_cell(self.byte_size);
         let cell_index = index / vpc;
         let bit_index = (index % vpc) * self.byte_size as usize;
@@ -180,18 +193,18 @@ impl PackedArray {
     // Utils //
 
     #[inline]
-    fn values_per_cell(byte_size: u8) -> usize {
+    pub fn values_per_cell(byte_size: u8) -> usize {
         64 / byte_size as usize
     }
 
     #[inline]
-    fn needed_cells(length: usize, byte_size: u8) -> usize {
+    pub fn needed_cells(length: usize, byte_size: u8) -> usize {
         let vpc = Self::values_per_cell(byte_size);
         (length + vpc - 1) / vpc
     }
 
     #[inline]
-    fn calc_mask(byte_size: u8) -> u64 {
+    pub fn calc_mask(byte_size: u8) -> u64 {
         if byte_size == 64 {
             u64::MAX
         } else {
@@ -200,13 +213,13 @@ impl PackedArray {
     }
 
     #[inline]
-    fn check_byte_size(byte_size: u8) {
-        assert!(byte_size <= 64, "Byte size is greater than 64.");
+    pub fn calc_min_byte_size(value: u64) -> u8 {
+        (u64::BITS - value.leading_zeros()) as u8
     }
 
     #[inline]
-    pub fn calc_min_byte_size(value: u64) -> u8 {
-        (u64::BITS - value.leading_zeros()) as u8
+    fn check_byte_size(byte_size: u8) {
+        assert!(byte_size <= 64, "Byte size is greater than 64.");
     }
 
 }
