@@ -29,8 +29,8 @@ fn main() {
 
     println!("Level height: {:?}", level.get_height());
 
-    for cx in 0..4 {
-        for cz in 0..4 {
+    for cx in 0..2 {
+        for cz in 0..2 {
             level.request_chunk(cx, cz);
         }
     }

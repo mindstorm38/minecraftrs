@@ -36,14 +36,13 @@ impl<'a> From<CompoundTagError<'a>> for DecodeError {
 
 /// Decode the NBT data from a reader and delegate chunk decoding to `decode_chunk`.
 pub fn decode_chunk_from_reader(reader: &mut impl Read, chunk: &mut Chunk) -> Result<(), DecodeError> {
-    let start = Instant::now();
-    let ret = decode_chunk(read_compound_tag(reader)?, chunk);
-    println!("Decoded chunk in {}ms", start.elapsed().as_millis());
-    ret
+    decode_chunk(read_compound_tag(reader)?, chunk)
 }
 
 /// Decode a chunk from its NBT data.
 pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeError> {
+
+    let global_start = Instant::now();
 
     let data_version = tag_root.get_i32("DataVersion")?;
     let tag_level = tag_root.get_compound_tag("Level")?;
@@ -127,13 +126,13 @@ pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
     };
 
     // Sections
+    let start = Instant::now();
     for tag_section in tag_level.get_compound_tag_vec("Sections")? {
 
         let cy = tag_section.get_i8("Y")?;
 
         if let Some(chunk_offset) = chunk.get_chunk_offset(cy) {
 
-            // SAFETY: We can unwrap because options is None, according to the method doc.
             let mut sub_chunk = SubChunk::new_default(Arc::clone(&env));
 
             if let Ok(tag_packed_blocks) = tag_section.get_i64_vec("BlockStates") {
@@ -172,6 +171,9 @@ pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
         }
 
     }
+
+    println!("time to process sections: {}ms", start.elapsed().as_secs_f32() * 1000.0);
+    println!("time to process chunk: {}ms", global_start.elapsed().as_secs_f32() * 1000.0);
 
     Ok(())
 
