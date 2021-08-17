@@ -183,6 +183,17 @@ impl BlockState {
 
     }
 
+    /// Iterate over representations of each property of this state.
+    /// No iterator is returned if the underlying block as no other state as this one.
+    pub fn iter_raw_states<'a>(&'a self) -> Option<impl Iterator<Item = (&'static str, String)> + 'a> {
+        self.get_block().get_shared_props().map(move |props| {
+            props.iter().map(move |(&name, shared)| {
+                let raw_value = self.properties[shared.index];
+                (name, shared.prop.prop_to_string(raw_value).unwrap())
+            })
+        })
+    }
+
 }
 
 
@@ -190,19 +201,9 @@ impl Debug for BlockState {
 
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
 
-        let reprs = match self.get_block().get_shared_props() {
-            None => HashMap::new(),
-            Some(shared_properties) => {
-                let mut reprs = HashMap::new();
-                for shared_prop in shared_properties.values() {
-                    let prop = shared_prop.prop;
-                    reprs.insert(
-                        prop.name(),
-                        prop.prop_to_string(self.properties[shared_prop.index]).unwrap()
-                    );
-                }
-                reprs
-            }
+        let reprs = match self.iter_raw_states() {
+            Some(it) => it.collect(),
+            None => Vec::with_capacity(0)
         };
 
         f.debug_struct("BlockState")

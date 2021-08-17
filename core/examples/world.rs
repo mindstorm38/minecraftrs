@@ -29,24 +29,15 @@ fn main() {
 
     println!("Level height: {:?}", level.get_height());
 
-    level.request_chunk(0, 0);
-    //level.request_chunk(1, 0);
-    //level.request_chunk(2, 0);
-    //level.request_chunk(3, 0);
-    //level.request_chunk(31, 0);
-
-    loop {
-
-        level.load_chunks();
-
-        if let Some(_) = level.get_storage().get_chunk(0, 0) {
-            break
+    for cx in 0..4 {
+        for cz in 0..4 {
+            level.request_chunk(cx, cz);
         }
-
-        std::thread::sleep(Duration::from_secs(1));
-
     }
 
-    println!("========================");
+    loop {
+        level.load_chunks();
+        std::thread::sleep(Duration::from_secs(1));
+    }
 
 }

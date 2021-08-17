@@ -46,6 +46,7 @@ enum BlockStorage {
     Single(BlockState),
     /// Storage when there is single or multiple properties. This type of storage
     /// implies that all owned states must have BlockStateProperties::Some.
+    /// By using this storage you assert that properties map is not empty.
     Complex {
         states: Vec<BlockState>,
         properties: HashMap<&'static str, SharedProperty>,
@@ -189,7 +190,8 @@ impl Block {
         }
     }
 
-    /// Internal method for Debug implementation of `BlockState`.
+    /// Internal method for Debug implementation of `BlockState` and values iteration.
+    /// None is returned if there is no properties and the block has a single state.
     fn get_shared_props(&self) -> Option<&HashMap<&'static str, SharedProperty>> {
         match &self.states {
             BlockStorage::Single(_) => None,

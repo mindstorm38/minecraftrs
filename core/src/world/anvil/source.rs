@@ -9,7 +9,7 @@ use std::fs::File;
 use crossbeam_channel::{Sender, Receiver, RecvTimeoutError, unbounded, bounded};
 use nbt::{CompoundTag, decode::read_gzip_compound_tag};
 
-use crate::world::chunk::{Chunk, ChunkHeight};
+use crate::world::chunk::{Chunk};
 use crate::util::TimedCache;
 use crate::world::source::{
     LevelSource, LevelSourceError, LevelSourceResult, LevelSourcePollResult,
@@ -46,24 +46,6 @@ impl AnvilLevelSourceBuilder {
 }
 
 impl LevelSourceBuilder<AnvilLevelSource> for AnvilLevelSourceBuilder {
-
-    fn get_height(&self) -> ChunkHeight {
-
-        let mut height = ChunkHeight { min: 0, max: 15 };
-
-        let data = self.metadata.get_compound_tag("Data").unwrap();
-        let worldgen = data.get_compound_tag("WorldGenSettings").unwrap();
-        let dimensions = worldgen.get_compound_tag("dimensions").unwrap();
-        let overworld = dimensions.get_compound_tag("minecraft:overworld").unwrap();
-        let generator = overworld.get_compound_tag("generator").unwrap();
-
-        if let Ok("minecraft:amplified") = generator.get_str("settings") {
-            height.max = 31;
-        }
-
-        height
-
-    }
 
     fn build(self, chunk_builder: ChunkBuilder) -> AnvilLevelSource {
         AnvilLevelSource::new(self.dir, chunk_builder)

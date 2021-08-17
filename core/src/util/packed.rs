@@ -270,6 +270,17 @@ where
 /// value found in each cell. What means "aligned" is that value
 /// cannot be defined on two different cells, if there is remaining
 /// space in cells, it is ignored.
+///
+/// The first value in a cell is composed of the first least significant
+/// 'byte size' bits. For exemple with two cells and byte size of 13
+/// (underscore are unused padding bits):
+///
+/// ```text
+/// cell #0: ____________3333333333333222222222222211111111111110000000000000
+/// cell #1: ____________7777777777777666666666666655555555555554444444444444
+/// ```
+///
+/// As you can see, in this configured, only 8 values can be stored.
 pub struct UnpackAlignedIter<I> {
     inner: I,
     byte_size: u8,

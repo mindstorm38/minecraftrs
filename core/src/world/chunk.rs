@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use thiserror::Error;
 
-use crate::util::{PackedArray, Palette};
-use crate::block::BlockState;
+use crate::util::{PackedArray, Palette, cast_vec_ref_to_ptr};
+use crate::block::{BlockState};
 use crate::biome::Biome;
 use super::level::LevelEnv;
 
@@ -65,7 +65,7 @@ pub struct Chunk {
     cz: i32,
     /// The level environment with block and biomes global palettes.
     env: Arc<LevelEnv>,
-    /// The array of sub chunks, defined once with a specific size depending on the height.
+    /// The array of sub chunks, defined once with a specifica size depending on the height.
     sub_chunks: Vec<Option<SubChunk>>,
     /// The offset of the
     sub_chunks_offset: i8,
@@ -146,6 +146,17 @@ impl Chunk {
 
     }
 
+    /// Replace the sub chunk at the given Y chunk coordinate by the given one.
+    ///
+    /// # Panics (debug only):
+    /// The method panics if the given sub chunk has not the same sub chunk environment as self.
+    pub fn replace_sub_chunk(&mut self, cy: i8, sub_chunk: SubChunk) -> ChunkResult<&mut SubChunk> {
+        debug_assert!(Arc::ptr_eq(&self.env, &sub_chunk.env));
+        let offset = self.calc_chunk_offset(cy).ok_or(ChunkError::SubChunkOutOfRange)?;
+        let container = self.sub_chunks.get_mut(offset).ok_or(ChunkError::SubChunkOutOfRange)?;
+        Ok(container.insert(sub_chunk))
+    }
+
     /// Get a sub chunk reference at a specified index.
     pub fn get_sub_chunk(&self, cy: i8) -> Option<&SubChunk> {
         let offset = self.calc_chunk_offset(cy)?;
@@ -173,13 +184,27 @@ impl Chunk {
     pub fn get_height(&self) -> ChunkHeight {
         ChunkHeight {
             min: self.sub_chunks_offset,
-            max: self.sub_chunks_offset + self.sub_chunks.len() as i8
+            max: self.sub_chunks_offset + self.sub_chunks.len() as i8 - 1
         }
     }
 
-    // Internal
-    fn calc_chunk_offset(&self, cy: i8) -> Option<usize> {
+    /// Return the linear non-negative offset of the chunk at the given position,
+    /// the position can be negative. None is returned if overflow occurred.
+    ///
+    /// As its name implies, this method only calculate the offset, the returned
+    /// offset might be out of the chunk's height.
+    pub fn calc_chunk_offset(&self, cy: i8) -> Option<usize> {
         cy.checked_sub(self.sub_chunks_offset).map(|v| v as usize)
+    }
+
+    /// Return the linear non-negative offset of the chunk at the given position,
+    /// the position can be negative. None is returned if the chunk position is
+    /// not within the chunk's height.
+    pub fn get_chunk_offset(&self, cy: i8) -> Option<usize> {
+        match self.calc_chunk_offset(cy) {
+            Some(off) if off < self.sub_chunks.len() => Some(off),
+            _ => None
+        }
     }
 
     // BLOCKS //
@@ -267,10 +292,20 @@ pub struct SubChunk {
 unsafe impl Send for SubChunk {}
 unsafe impl Sync for SubChunk {}
 
+// Palette capacity must ensure that most of the chunks will be supported AND that the palette
+// lookup is fast, but because the lookup is O(N) we have to find a balanced capacity.
+const BLOCKS_PALETTE_CAPACITY: usize = 128;
+
 
 impl SubChunk {
 
-    fn new(env: Arc<LevelEnv>, options: Option<&SubChunkOptions>) -> ChunkResult<Self> {
+    /// Build a new sub chunk, you can pass Some SubChunkOptions if you want to change the
+    /// default block state or biome.
+    ///
+    /// If no options is given or both `SubChunkOptions::default_block` and
+    /// `SubChunkOptions::default_biome` are None, then the method will never return an
+    /// `ChunkError`.
+    pub fn new(env: Arc<LevelEnv>, options: Option<&SubChunkOptions>) -> ChunkResult<Self> {
 
         let default_state = match options {
             Some(SubChunkOptions { default_block: Some(default_block), .. }) => {
@@ -290,20 +325,35 @@ impl SubChunk {
             _ => 0
         };
 
-        // This is 7 bits for current vanilla biomes, this only take 64 octets of storage.
-        // Subtracting 1 because the maximum biome save ID is the maximum value.
-        let biomes_byte_size = PackedArray::calc_min_byte_size(env.biomes.biomes_count() as u64 - 1);
+        let biomes_byte_size = Self::get_biomes_byte_size(&env);
 
         // The palettes are initialized with an initial state and biome (usually air and void, if
         // vanilla environment), this is required because the packed array has default values of 0,
         // and they must have a corresponding valid value in palettes, at least at the beginning.
         Ok(SubChunk {
             env,
-            blocks_palette: Some(Palette::new(Some(default_state), 128)),
+            blocks_palette: Some(Palette::new(Some(default_state), BLOCKS_PALETTE_CAPACITY)),
             blocks: PackedArray::new(BLOCKS_DATA_SIZE, 4, None),
             biomes: PackedArray::new(BIOMES_DATA_SIZE, biomes_byte_size, Some(default_biome as u64))
         })
 
+    }
+
+    /// Build a new sub chunk using the default block and default biome to fill it.
+    pub fn new_default(env: Arc<LevelEnv>) -> Self {
+        Self::new(env, None).unwrap()
+    }
+
+    #[inline]
+    fn get_blocks_byte_size(env: &LevelEnv) -> u8 {
+        PackedArray::calc_min_byte_size(env.blocks.states_count() as u64 - 1)
+    }
+
+    #[inline]
+    fn get_biomes_byte_size(env: &LevelEnv) -> u8 {
+        // This is 7 bits for current vanilla biomes, this only take 64 octets of storage.
+        // Subtracting 1 because the maximum biome save ID is the maximum value.
+        PackedArray::calc_min_byte_size(env.biomes.biomes_count() as u64 - 1)
     }
 
     // BLOCKS //
@@ -380,15 +430,58 @@ impl SubChunk {
 
     fn use_global_blocks(&mut self) {
         if let Some(ref local_palette) = self.blocks_palette {
+            let new_byte_size = Self::get_blocks_byte_size(&self.env);
             let global_palette = &self.env.blocks;
-            let new_byte_size = PackedArray::calc_min_byte_size(global_palette.states_count() as u64);
-            self.blocks.resize_byte_and_replace(new_byte_size, move |sid| unsafe {
-                global_palette.get_sid_from(std::mem::transmute(
-                    local_palette.get_item(sid as usize).unwrap()
-                )).unwrap() as u64
+            self.blocks.resize_byte_and_replace(new_byte_size, move |sid| {
+                let state = local_palette.get_item(sid as usize).unwrap();
+                global_palette.get_sid_from(unsafe { std::mem::transmute(state) }).unwrap() as u64
             });
             self.blocks_palette = None;
         }
+    }
+
+    /// # Safety:
+    /// You must ensure that the given palette contains only valid states for this
+    /// chunk's level's environment.
+    ///
+    /// The blocks iterator must return only valid indices for the given palette.
+    pub unsafe fn set_blocks_raw<I>(&mut self, palette: Vec<&'static BlockState>, mut blocks: I)
+    where
+        I: Iterator<Item = u64>
+    {
+
+        assert_ne!(palette.len(), 0, "Palette length is zero.");
+
+        if palette.len() <= BLOCKS_PALETTE_CAPACITY {
+
+            let palette = cast_vec_ref_to_ptr(palette);
+            let byte_size = PackedArray::calc_min_byte_size(palette.len() as u64 - 1).max(4);
+            self.blocks_palette.insert(Palette::from_raw(palette, BLOCKS_PALETTE_CAPACITY));
+
+            // We resize raw because we don't care of the old content, and the new byte size might
+            // be smaller than the old one.
+            self.blocks.resize_raw(byte_size);
+            self.blocks.replace(|_| {
+                blocks.next().unwrap_or(0)
+            });
+
+        } else {
+
+            self.blocks_palette = None;
+
+            let byte_size = Self::get_blocks_byte_size(&self.env);
+            let global_blocks = &self.env.blocks;
+
+            self.blocks.resize_raw(byte_size);
+            self.blocks.replace(|_| {
+                let palette_idx = blocks.next().unwrap_or(0);
+                let state = palette[palette_idx as usize];
+                // SAFETY: We can unwrap because this is an safety condition of the method.
+                global_blocks.get_sid_from(state).unwrap() as u64
+            });
+
+        }
+
     }
 
     // BIOMES //
@@ -407,6 +500,24 @@ impl SubChunk {
             },
             None => Err(ChunkError::IllegalBiome)
         }
+    }
+
+    pub fn set_biomes<I>(&mut self, mut biomes: I)
+    where
+        I: Iterator<Item = &'static Biome>,
+        I: ExactSizeIterator
+    {
+
+        assert_eq!(biomes.len(), BIOMES_DATA_SIZE);
+        let global_biomes = &self.env.biomes;
+
+        self.biomes.replace(|v| {
+            // SAFETY: Unwrap should be safe to use because we have checked length.
+            let biome: &'static Biome = biomes.next().unwrap();
+            // If the biome is invalid, we keep the old biome.
+            global_biomes.get_sid_from(biome).map(|sid| sid as u64).unwrap_or(v)
+        });
+
     }
 
 }
@@ -428,7 +539,7 @@ impl ChunkHeight {
 
     #[inline]
     pub fn len(&self) -> usize {
-        (self.max - self.min) as usize
+        (self.max - self.min + 1) as usize
     }
 
 }

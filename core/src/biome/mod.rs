@@ -11,6 +11,7 @@ pub mod legacy;
 
 
 /// A basic biome structure. Allow extensions for modifying.
+#[derive(Debug)]
 pub struct Biome {
     uid: u32,
     name: &'static str,
