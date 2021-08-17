@@ -1,13 +1,16 @@
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::mem::ManuallyDrop;
 
 mod generic;
 mod version;
 mod packed;
+mod palette;
 mod cache;
 
 pub use generic::*;
 pub use version::*;
 pub use packed::*;
+pub use palette::*;
 pub use cache::*;
 
 
@@ -41,6 +44,19 @@ impl UidGenerator {
         }
     }
 
+}
+
+
+pub unsafe fn cast_vec<Src, Dst>(src: Vec<Src>) -> Vec<Dst> {
+    debug_assert_eq!(std::mem::size_of::<Src>(), std::mem::size_of::<Dst>());
+    debug_assert_eq!(std::mem::align_of::<Src>(), std::mem::align_of::<Dst>());
+    let mut src = ManuallyDrop::new(src);
+    let (ptr, len, cap) = (src.as_mut_ptr(), src.len(), src.capacity());
+    Vec::from_raw_parts(ptr as *mut Dst, len, cap)
+}
+
+pub fn cast_vec_ref_to_ptr<T>(src: Vec<&'static T>) -> Vec<*const T> {
+    unsafe { cast_vec(src) }
 }
 
 

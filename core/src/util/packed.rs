@@ -1,10 +1,15 @@
 
-
+/// A packed array is an array of cell (`u64`) with a fixed length and a varying bits
+/// length (byte size) that allows it to store multiple values in the same cell.
+///
+/// Its content can be modified and queried by using methods of this method, the byte
+/// size can also be changed and methods allows to replace its content in-place.
 pub struct PackedArray {
     cells: Vec<u64>,
     length: usize,
     byte_size: u8,
 }
+
 
 impl PackedArray {
 
@@ -15,7 +20,7 @@ impl PackedArray {
         let default_value = match default {
             Some(default) if default != 0 => {
                 assert!(default <= Self::calc_mask(byte_size), "Given default value does not fit in {} bits.", byte_size);
-                let vpc = Self::values_per_cell(byte_size);
+                let vpc = Self::calc_values_per_cell(byte_size);
                 let mut value = default;
                 for _ in 1..vpc {
                     value <<= byte_size;
@@ -27,16 +32,16 @@ impl PackedArray {
         };
 
         Self {
-            cells: vec![default_value; Self::needed_cells(length, byte_size)],
+            cells: vec![default_value; Self::calc_cells_capacity(length, byte_size)],
             length,
             byte_size,
         }
 
     }
 
-    pub fn from_raw(cells: Vec<u64>, length: usize, byte_size: u8) -> Option<Self> {
+    pub fn from_raw(length: usize, byte_size: u8, cells: Vec<u64>) -> Option<Self> {
         Self::check_byte_size(byte_size);
-        if cells.len() >= Self::needed_cells(length, byte_size) {
+        if cells.len() >= Self::calc_cells_capacity(length, byte_size) {
             Some(Self {
                 cells,
                 length,
@@ -73,36 +78,35 @@ impl PackedArray {
     }
 
     fn get_indices(&self, index: usize) -> (usize, usize) {
-        let vpc = Self::values_per_cell(self.byte_size);
+        let vpc = Self::calc_values_per_cell(self.byte_size);
         let cell_index = index / vpc;
         let bit_index = (index % vpc) * self.byte_size as usize;
         (cell_index, bit_index)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = u64> + '_ {
-        let byte_size = self.byte_size as usize;
-        let vpc = Self::values_per_cell(self.byte_size);
-        let mask = Self::calc_mask(self.byte_size);
-        self.cells
-            .iter()
-            .flat_map(move |&cell| {
-                (0..vpc).map(move |idx| (cell >> (idx * byte_size)) & mask)
-            })
-            .take(self.length)
+    #[inline]
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = u64> + 'a {
+        self.cells.iter().copied().unpack_aligned(self.byte_size).take(self.length)
     }
 
-    pub fn replace(&mut self, replacer: impl Fn(u64) -> u64) {
+    pub fn replace(&mut self, mut replacer: impl FnMut(u64) -> u64) {
         let byte_size = self.byte_size as usize;
-        let vpc = Self::values_per_cell(self.byte_size);
+        let vpc = Self::calc_values_per_cell(self.byte_size);
         let mask = Self::calc_mask(self.byte_size);
+        let mut index = 0;
         for mut_cell in &mut self.cells {
-            let mut cell = *mut_cell;
+            let mut old_cell = *mut_cell;
+            let mut new_cell = 0;
             for value_index in 0..vpc {
                 let bit_index = value_index * byte_size;
-                let new_value = replacer((cell >> bit_index) & mask);
-                cell = (cell & !(mask << bit_index)) | (new_value << bit_index);
+                new_cell |= (replacer(old_cell & mask) & mask) << bit_index;
+                old_cell >>= self.byte_size;
+                index += 1;
+                if index >= self.length {
+                    break;
+                }
             }
-            *mut_cell = cell;
+            *mut_cell = new_cell;
         }
     }
 
@@ -110,13 +114,13 @@ impl PackedArray {
         self.internal_resize_byte::<fn(u64) -> u64>(new_byte_size, None);
     }
 
-    pub fn resize_byte_and_replace(&mut self, new_byte_size: u8, replacer: impl Fn(u64) -> u64) {
+    pub fn resize_byte_and_replace(&mut self, new_byte_size: u8, replacer: impl FnMut(u64) -> u64) {
         self.internal_resize_byte(new_byte_size, Some(replacer));
     }
 
-    fn internal_resize_byte<F>(&mut self, new_byte_size: u8, replacer: Option<F>)
+    fn internal_resize_byte<F>(&mut self, new_byte_size: u8, mut replacer: Option<F>)
     where
-        F: Fn(u64) -> u64
+        F: FnMut(u64) -> u64
     {
 
         if new_byte_size == self.byte_size {
@@ -135,10 +139,10 @@ impl PackedArray {
         let old_mask = Self::calc_mask(old_byte_size);
         let new_mask = Self::calc_mask(new_byte_size);
 
-        let new_cells_cap = Self::needed_cells(self.length, new_byte_size);
+        let new_cells_cap = Self::calc_cells_capacity(self.length, new_byte_size);
 
-        let old_vpc = Self::values_per_cell(old_byte_size);
-        let new_vpc = Self::values_per_cell(new_byte_size);
+        let old_vpc = Self::calc_values_per_cell(old_byte_size);
+        let new_vpc = Self::calc_values_per_cell(new_byte_size);
 
         let old_byte_size = old_byte_size as usize;
         let new_byte_size = new_byte_size as usize;
@@ -158,7 +162,7 @@ impl PackedArray {
                     let new_cell_index = index / new_vpc;
                     let new_bit_index = (index % new_vpc) * new_byte_size;
 
-                    if let Some(ref replacer) = replacer {
+                    if let Some(ref mut replacer) = replacer {
                         value = replacer(value);
                     }
 
@@ -169,6 +173,17 @@ impl PackedArray {
             }
         }
 
+    }
+
+    pub unsafe fn set_cell(&mut self, index: usize, cell: u64) {
+        self.cells[index] = cell;
+    }
+
+    pub unsafe fn resize_raw(&mut self, new_byte_size: u8) {
+        Self::check_byte_size(new_byte_size);
+        self.byte_size = new_byte_size;
+        let new_cells_cap = Self::calc_cells_capacity(self.length, new_byte_size);
+        self.cells.resize(new_cells_cap, 0u64);
     }
 
     #[inline]
@@ -190,16 +205,21 @@ impl PackedArray {
         Self::calc_mask(self.byte_size)
     }
 
+    #[inline]
+    pub fn cells_len(&self) -> usize {
+        self.cells.len()
+    }
+
     // Utils //
 
     #[inline]
-    pub fn values_per_cell(byte_size: u8) -> usize {
+    pub fn calc_values_per_cell(byte_size: u8) -> usize {
         64 / byte_size as usize
     }
 
     #[inline]
-    pub fn needed_cells(length: usize, byte_size: u8) -> usize {
-        let vpc = Self::values_per_cell(byte_size);
+    pub fn calc_cells_capacity(length: usize, byte_size: u8) -> usize {
+        let vpc = Self::calc_values_per_cell(byte_size);
         (length + vpc - 1) / vpc
     }
 
@@ -225,63 +245,76 @@ impl PackedArray {
 }
 
 
-pub struct Palette<T>(Vec<T>);
+// Custom iterators //
 
-impl<T> Palette<T>
+/// An iterator extension trait for unpacking aligned values from an u64 iterator.
+pub trait PackedIterator: Iterator<Item = u64> + Sized {
+
+    #[inline]
+    fn unpack_aligned(self, byte_size: u8) -> UnpackAlignedIter<Self> {
+        UnpackAlignedIter::new(self, byte_size)
+    }
+
+}
+
+impl<I> PackedIterator for I
 where
-    T: Clone + Copy + Eq
+    I: Iterator<Item = u64> + Sized
+{
+    // Defaults are not redefined //
+}
+
+
+/// An iterator to unpack aligned values in from an u64 iterator.
+/// This iterator only requires an byte size and will output every
+/// value found in each cell. What means "aligned" is that value
+/// cannot be defined on two different cells, if there is remaining
+/// space in cells, it is ignored.
+pub struct UnpackAlignedIter<I> {
+    inner: I,
+    byte_size: u8,
+    mask: u64,
+    vpc: usize,
+    index: usize,
+    value: u64
+}
+
+impl<I> UnpackAlignedIter<I>
+where
+    I: Iterator<Item = u64>
 {
 
-    pub fn new_default(capacity: usize) -> Self
-    where
-        T: Default
-    {
-        Self::new(None, capacity)
-    }
-
-    pub fn new(default: Option<T>, capacity: usize) -> Self {
-        assert_ne!(capacity, 0, "Given capacity is zero.");
-        let mut items = Vec::with_capacity(capacity);
-        if let Some(default) = default {
-            items.resize(1, default);
-        }
-        Self(items)
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    #[inline]
-    pub fn clear(&mut self) {
-        self.0.clear()
-    }
-
-    pub fn ensure_index(&mut self, target_item: T) -> Option<usize> {
-        match self.search_index(target_item) {
-            Some(index) => Some(index),
-            None => self.insert_index(target_item)
+    pub fn new(inner: I, byte_size: u8) -> Self {
+        Self {
+            inner,
+            byte_size,
+            mask: PackedArray::calc_mask(byte_size),
+            vpc: PackedArray::calc_values_per_cell(byte_size),
+            index: 0,
+            value: 0
         }
     }
 
-    pub fn insert_index(&mut self, target_item: T) -> Option<usize> {
-        let length = self.0.len();
-        if length < self.0.capacity() {
-            self.0.push(target_item);
-            Some(length)
-        } else {
-            None
+}
+
+impl<I> Iterator for UnpackAlignedIter<I>
+where
+    I: Iterator<Item = u64>
+{
+
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+
+        if self.index % self.vpc == 0 {
+            self.value = self.inner.next()?;
         }
-    }
 
-    pub fn search_index(&self, target_item: T) -> Option<usize> {
-        return self.0.iter()
-            .position(|item| *item == target_item);
-    }
+        let ret = self.value & self.mask;
+        self.value >>= self.byte_size;
+        self.index += 1;
+        Some(ret)
 
-    pub fn get_item(&self, index: usize) -> Option<T> {
-        self.0.get(index).copied()
     }
 
 }
@@ -293,18 +326,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn packed_valid_byte_size() {
+    fn valid_byte_size() {
         PackedArray::new(1, 64, None);
     }
 
     #[test]
     #[should_panic]
-    fn packed_invalid_byte_size() {
+    fn invalid_byte_size() {
         PackedArray::new(1, 65, None);
     }
 
     #[test]
-    fn packed_min_byte_size() {
+    fn min_byte_size() {
         assert_eq!(PackedArray::calc_min_byte_size(63), 6);
         assert_eq!(PackedArray::calc_min_byte_size(64), 7);
         assert_eq!(PackedArray::calc_min_byte_size(127), 7);
@@ -312,37 +345,37 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn packed_invalid_default_value() {
+    fn invalid_default_value() {
         PackedArray::new(1, 4, Some(16));
     }
 
     #[test]
     #[should_panic]
-    fn packed_invalid_value() {
+    fn invalid_value() {
         let mut array = PackedArray::new(1, 4, None);
         array.set(0, 16);
     }
 
     #[test]
     #[should_panic]
-    fn packed_oor_get() {
+    fn out_of_range_get() {
         PackedArray::new(10, 4, None).get(10).unwrap();
     }
 
     #[test]
     #[should_panic]
-    fn packed_oor_set() {
+    fn out_of_range_set() {
         PackedArray::new(10, 4, None).set(10, 15);
     }
 
     #[test]
     #[should_panic]
-    fn packed_invalid_resize() {
+    fn invalid_resize() {
         PackedArray::new(10, 4, None).resize_byte(4);
     }
 
     #[test]
-    fn packed() {
+    fn valid_usage() {
 
         const LEN: usize = 32;
 
@@ -352,59 +385,53 @@ mod tests {
         assert_eq!(array.cells[0], u64::MAX);
         assert_eq!(array.cells[1], u64::MAX);
 
-        for i in 0..LEN {
-            assert_eq!(array.get(i).unwrap(), 15);
+        for value in array.iter() {
+            assert_eq!(value, 15, "construction failed");
         }
 
         array.set(2, 3);
 
-        for i in 0..LEN {
-            assert_eq!(array.get(i).unwrap(), if i == 2 { 3 } else { 15 });
+        for (i, value) in array.iter().enumerate() {
+            assert_eq!(value, if i == 2 { 3 } else { 15 }, "set failed");
         }
 
         array.replace(|val| val / 2);
 
-        for i in 0..LEN {
-            assert_eq!(array.get(i).unwrap(), if i == 2 { 1 } else { 7 });
+        for (i, value) in array.iter().enumerate() {
+            assert_eq!(value, if i == 2 { 1 } else { 7 }, "replace failed");
         }
 
         array.resize_byte(5);
-        assert_eq!(array.cells.len(), 3);
-        assert_eq!(array.byte_size, 5);
+        assert_eq!(array.cells.len(), 3, "resize failed to change cells len");
+        assert_eq!(array.byte_size, 5, "resize failed to set the new byte size");
 
-        for i in 0..LEN {
-            assert_eq!(array.get(i).unwrap(), if i == 2 { 1 } else { 7 });
+        for (i, value) in array.iter().enumerate() {
+            assert_eq!(value, if i == 2 { 1 } else { 7 }, "resize failed to transform values");
         }
 
         array.resize_byte_and_replace(16, |val| val * 5678);
-        assert_eq!(array.cells.len(), 8);
-        assert_eq!(array.byte_size, 16);
+        assert_eq!(array.cells.len(), 8, "resize and replace failed to change cells len");
+        assert_eq!(array.byte_size, 16, "resize and replace failed to set the new byte size");
 
-        for i in 0..LEN {
-            assert_eq!(array.get(i).unwrap(), if i == 2 { 5678 } else { 7 * 5678 });
+        for (i, value) in array.iter().enumerate() {
+            assert_eq!(value, if i == 2 { 5678 } else { 7 * 5678 }, "resize and replace failed to transform values");
         }
 
     }
 
     #[test]
-    #[should_panic]
-    fn palette_invalid_capacity() {
-        Palette::new(Some("default"), 0);
-    }
+    fn iter_unpack_aligned() {
 
-    #[test]
-    fn palette() {
+        let raw = [u64::MAX, u64::MAX, u64::MAX];
 
-        let mut palette = Palette::new(Some("default"), 5);
-        assert_eq!(palette.get_item(0).unwrap(), "default");
-        assert_eq!(palette.search_index("default").unwrap(), 0);
-        assert_eq!(palette.ensure_index("default").unwrap(), 0);
+        assert!(raw.iter().copied().unpack_aligned(4).all(|v| v == 15), "byte size = 4, wrong values");
+        assert_eq!(raw.iter().copied().unpack_aligned(4).count(), 48, "byte size = 4, invalid values count");
 
-        assert_eq!(palette.ensure_index("str1").unwrap(), 1);
-        assert_eq!(palette.ensure_index("str2").unwrap(), 2);
-        assert_eq!(palette.ensure_index("str3").unwrap(), 3);
-        assert_eq!(palette.ensure_index("str4").unwrap(), 4);
-        assert!(palette.ensure_index("str5").is_none());
+        assert!(raw.iter().copied().unpack_aligned(16).all(|v| v == 65_535), "byte size = 16, wrong values");
+        assert_eq!(raw.iter().copied().unpack_aligned(16).count(), 12, "byte size = 16, invalid values count");
+
+        assert!(raw.iter().copied().unpack_aligned(33).all(|v| v == 0x0001_FFFF_FFFF), "byte size = 33, wrong values");
+        assert_eq!(raw.iter().copied().unpack_aligned(33).count(), 3, "byte size = 33, invalid values count");
 
     }
 
