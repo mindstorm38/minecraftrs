@@ -30,7 +30,7 @@ impl LevelEnv {
         }
     }
 
-    #[cfg(all(feature = "vanilla_blocks", feature = "vanilla_biomes"))]
+    #[cfg(feature = "vanilla")]
     pub fn new_vanilla() -> Result<Self, ()> {
         Ok(Self::new(GlobalBlocks::new_vanilla()?, GlobalBiomes::new_vanilla()?))
     }

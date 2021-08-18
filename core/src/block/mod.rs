@@ -9,13 +9,12 @@ use crate::util::{UidGenerator, RwGenericMap, GuardedRef, GuardedMut};
 
 mod state;
 mod property;
+
 pub use state::*;
 pub use property::*;
 
-#[cfg(feature = "vanilla_blocks")]
+#[cfg(feature = "vanilla")]
 pub mod vanilla;
-//#[cfg(feature = "vanilla_blocks")]
-//pub mod legacy;
 
 
 /// A basic block defined by a name, its states, properties or extensions.
@@ -235,7 +234,7 @@ pub struct GlobalBlocks<'a> {
     name_to_block: HashMap<&'static str, &'a BlockState>
 }
 
-#[cfg(feature = "vanilla_blocks")]
+#[cfg(feature = "vanilla")]
 impl GlobalBlocks<'static> {
 
     pub fn new_vanilla() -> Result<GlobalBlocks<'static>, ()> {

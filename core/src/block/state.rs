@@ -197,6 +197,14 @@ impl BlockState {
 }
 
 
+// Custom implementation for static block state references.
+impl PartialEq for &'static BlockState {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(*self, *other)
+    }
+}
+
+
 impl Debug for BlockState {
 
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {

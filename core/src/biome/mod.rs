@@ -4,9 +4,9 @@ use std::any::Any;
 
 use crate::util::{UidGenerator, RwGenericMap, GuardedRef, GuardedMut};
 
-#[cfg(feature = "vanilla_biomes")]
+#[cfg(feature = "vanilla")]
 pub mod vanilla;
-#[cfg(feature = "vanilla_biomes")]
+#[cfg(feature = "vanilla")]
 pub mod legacy;
 
 
@@ -66,7 +66,7 @@ pub struct GlobalBiomes<'a> {
     sid_to_biomes: Vec<&'a Biome>
 }
 
-#[cfg(feature = "vanilla_biomes")]
+#[cfg(feature = "vanilla")]
 impl GlobalBiomes<'static> {
 
     pub fn new_vanilla() -> Result<GlobalBiomes<'static>, ()> {
