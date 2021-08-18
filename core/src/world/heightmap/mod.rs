@@ -1,8 +1,5 @@
 use crate::block::BlockState;
 
-#[cfg(feature = "vanilla")]
-pub mod vanilla;
-
 
 /// A structure used to statically define an heightmap type that
 pub struct HeightmapType {

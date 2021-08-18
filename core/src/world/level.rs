@@ -13,26 +13,21 @@ use super::chunk::{Chunk, ChunkHeight};
 /// `Level`s through an `Arc<LevelEnv>`.
 pub struct LevelEnv {
     /// Actual blocks register.
-    pub blocks: GlobalBlocks<'static>,
+    pub blocks: GlobalBlocks,
     /// Actual biomes register.
-    pub biomes: GlobalBiomes<'static>
+    pub biomes: GlobalBiomes
 }
 
 impl LevelEnv {
 
     pub fn new(
-        blocks: GlobalBlocks<'static>,
-        biomes: GlobalBiomes<'static>
+        blocks: GlobalBlocks,
+        biomes: GlobalBiomes
     ) -> Self {
         LevelEnv {
             blocks,
             biomes
         }
-    }
-
-    #[cfg(feature = "vanilla")]
-    pub fn new_vanilla() -> Result<Self, ()> {
-        Ok(Self::new(GlobalBlocks::new_vanilla()?, GlobalBiomes::new_vanilla()?))
     }
 
 }

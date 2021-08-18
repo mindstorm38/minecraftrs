@@ -178,14 +178,14 @@ impl Debug for dyn UntypedProperty {
 
 
 #[macro_export]
-macro_rules! properties {
+macro_rules! blocks_properties {
     ($($v:vis $id:ident: $type_token:tt $params_token:tt;)*) => {
-        $($crate::inner_property!($v $id: $type_token $params_token);)*
+        $($crate::blocks_inner_property!($v $id: $type_token $params_token);)*
     };
 }
 
 #[macro_export]
-macro_rules! inner_property {
+macro_rules! blocks_inner_property {
     ($v:vis $id:ident: int($name:literal, $count:literal)) => {
         $v static $id: $crate::block::IntProperty = $crate::block::IntProperty($name, $count);
     };

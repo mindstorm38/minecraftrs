@@ -1,5 +1,6 @@
 use std::io::{Error as IoError, Result as IoResult, Seek, SeekFrom, Read, Write, Cursor, ErrorKind};
 use std::fs::{File, OpenOptions};
+use std::time::SystemTime;
 use std::fmt::Arguments;
 use std::path::PathBuf;
 
@@ -295,9 +296,12 @@ impl RegionFile {
 
             // Update metadata for new offset and length.
             metadata.set_location(offset, length);
-            self.write_metadata(metadata_index, metadata)?;
 
         }
+
+        // Update metadata for new timestamp.
+        metadata.set_timestamp_now();
+        self.write_metadata(metadata_index, metadata)?;
 
         // Actually write the data
         if external {
@@ -347,16 +351,25 @@ impl ChunkMetadata {
         (self.location & 0xFF) as u64
     }
 
-    fn timestamp(&self) -> u32 {
-        self.timestamp
-    }
-
     fn set_location(&mut self, offset: u64, length: u64) {
         self.location = (((offset & 0xFFFFFF) as u32) << 8) | ((length & 0xFF) as u32);
     }
 
+    #[inline]
+    fn timestamp(&self) -> u32 {
+        self.timestamp
+    }
+
+    #[inline]
     fn set_timestamp(&mut self, timestamp: u32) {
         self.timestamp = timestamp;
+    }
+
+    fn set_timestamp_now(&mut self) {
+        self.set_timestamp(SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map(|dur| dur.as_secs() as u32)
+            .unwrap_or(0));
     }
 
 }

@@ -10,8 +10,5 @@ keywords = ["minecraft", "mc", "vanilla"]
 categories = ["games", "mathematics"]
 license = "Apache-2.0"
 
-[features]
-vanilla = []
-
 [dependencies]
 mc-core = { path = "../core" }

@@ -32,11 +32,7 @@ pub struct BlockState {
     block: NonNull<Block>
 }
 
-// Sync is implemented because a block state can be referenced between threads, no data race can
-// happen since it is never mutated. The `NonNull` block field prevents the default implementation
-// of `Sync`, but every state should be stored in a pined box of block.
-// It is not made Send because states are internal to blocks which are statics and should not be
-// moved, then block states can't be moved.
+unsafe impl Send for BlockState {}
 unsafe impl Sync for BlockState {}
 
 
@@ -109,7 +105,7 @@ impl BlockState {
     }
 
     #[inline]
-    pub fn get_block(&self) -> &Block {
+    pub fn get_block(&self) -> &'static Block {
         // SAFETY: This pointer is always valid since:
         //  - block state must be owned by a Block, and this Block must be pined in a box
         //  - this function is not called before the pointer initialization (before set_block)
@@ -123,6 +119,11 @@ impl BlockState {
         self.block = block;
     }
 
+    #[inline]
+    fn get_block_shared_prop(&self, name: &str) -> Option<&SharedProperty> {
+        self.get_block().get_storage().get_shared_prop(name)
+    }
+
     /// Get a block state property value if the property exists.
     pub fn get<T, P>(&self, property: &P) -> Option<T>
     where
@@ -130,7 +131,7 @@ impl BlockState {
         P: Property<T>
     {
 
-        let prop = self.get_block().get_shared_prop(&property.name())?;
+        let prop = self.get_block_shared_prop(&property.name())?;
         if prop.prop.type_id() == property.type_id() {
             property.decode(self.properties[prop.index])
         } else {
@@ -154,7 +155,7 @@ impl BlockState {
         T: PropertySerializable,
         P: Property<T>
     {
-        let prop = self.get_block().get_shared_prop(&property.name())?;
+        let prop = self.get_block_shared_prop(&property.name())?;
         self.with_unchecked(prop, property.encode(value)?)
     }
 
@@ -163,7 +164,7 @@ impl BlockState {
     ///
     /// This version of `with` method take raw property name and value as strings.
     pub fn with_raw(&self, prop_name: &str, prop_value: &str) -> Option<&BlockState> {
-        let prop = self.get_block().get_shared_prop(prop_name)?;
+        let prop = self.get_block_shared_prop(prop_name)?;
         self.with_unchecked(prop, prop.prop.prop_from_string(prop_value)?)
     }
 
@@ -178,7 +179,7 @@ impl BlockState {
         } else {
             let value_diff = new_value - current_value;
             let neighbor_index = (self.index as isize + value_diff * prop.period as isize) as usize;
-            self.get_block().get_state_unchecked(neighbor_index)
+            self.get_block().get_storage().get_state_unchecked(neighbor_index)
         })
 
     }
@@ -186,7 +187,7 @@ impl BlockState {
     /// Iterate over representations of each property of this state.
     /// No iterator is returned if the underlying block as no other state as this one.
     pub fn iter_raw_states<'a>(&'a self) -> Option<impl Iterator<Item = (&'static str, String)> + 'a> {
-        self.get_block().get_shared_props().map(move |props| {
+        self.get_block().get_storage().get_shared_props().map(move |props| {
             props.iter().map(move |(&name, shared)| {
                 let raw_value = self.properties[shared.index];
                 (name, shared.prop.prop_to_string(raw_value).unwrap())

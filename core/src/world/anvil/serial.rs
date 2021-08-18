@@ -20,7 +20,7 @@ pub enum DecodeError {
     #[error("Unknown property value: {0}")]
     UnknownBlockProperty(String),
     #[error("Unknown biome ID: {0}")]
-    UnknownBiome(u8),
+    UnknownBiome(i32),
     #[error("The NBT raw data cannot be decoded: {0}")]
     Nbt(#[from] TagDecodeError),
     #[error("The chunk's NBT structure is malformed and some fields are missing or are of the wrong type: {0}")]
@@ -82,6 +82,7 @@ pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
 
     // Biomes are computed before section decoding, biome references are stored in a
     // vec of 64 or `height.len() * 64` biomes, this depends on the used format.
+    let start = Instant::now();
     let biomes: Option<Vec<&'static Biome>> = match tag_level.get_i32_vec("Biomes").ok() {
         Some(raw_biomes) => {
 
@@ -98,8 +99,8 @@ pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
 
                 for _ in 0..4 {
                     for idx in FROM_2D_INDICES {
-                        let id = raw_biomes[idx] as u8;
-                        vec.push(crate::biome::legacy::from_id(id)
+                        let id = raw_biomes[idx];
+                        vec.push(env.biomes.get_biome_from_id(id)
                             .ok_or_else(|| DecodeError::UnknownBiome(id))?);
                     }
                 }
@@ -111,8 +112,8 @@ pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
                 let mut vec = Vec::with_capacity(raw_biomes.len());
 
                 for id in raw_biomes {
-                    vec.push(crate::biome::legacy::from_id(*id as u8)
-                        .ok_or_else(|| DecodeError::UnknownBiome(*id as u8))?);
+                    vec.push(env.biomes.get_biome_from_id(*id)
+                        .ok_or_else(|| DecodeError::UnknownBiome(*id))?);
                 }
 
                 Some(vec)
@@ -124,6 +125,7 @@ pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
         },
         None => None
     };
+    println!("time to process biomes: {}ms", start.elapsed().as_secs_f32() * 1000.0);
 
     // Sections
     let start = Instant::now();
@@ -166,7 +168,8 @@ pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
                 }
             }
 
-            chunk.replace_sub_chunk(cy, sub_chunk);
+            // SAFETY: We can unwrap because we have already checked the validity of 'cy'.
+            chunk.replace_sub_chunk(cy, sub_chunk).unwrap();
 
         }
 
@@ -185,7 +188,8 @@ fn decode_block_state(tag_block: &CompoundTag, env: &LevelEnv) -> Result<&'stati
     let block_name = tag_block.get_str("Name")?;
 
     let mut block_state = env.blocks
-        .get_state_from_name(block_name)
+        .get_block_from_name(block_name)
+        .map(|block| block.get_default_state())
         .ok_or_else(|| DecodeError::UnknownBlockState(block_name.to_string()))?;
 
     if let Ok(block_properties) = tag_block.get_compound_tag("Properties") {

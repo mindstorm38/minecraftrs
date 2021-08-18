@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::mem::ManuallyDrop;
+use std::hash::{Hash, Hasher};
 
 mod generic;
 mod version;
@@ -60,59 +61,42 @@ pub fn cast_vec_ref_to_ptr<T>(src: Vec<&'static T>) -> Vec<*const T> {
 }
 
 
-/// Cardinal direction used in-game.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Direction {
-    East,  // +X
-    West,  // -X
-    South, // +Z
-    North, // -Z
-    Up,    // +Y
-    Down,  // -Y
-}
+/// A transparent pointer type used to store references with static lifetime as a
+/// raw constant pointer. This is used internally as a pointer key for hash maps.
+/// This type implements `Send + Sync` because this type of pointer is always valid.
+#[repr(transparent)]
+pub struct StaticPtr<T>(pub *const T);
+unsafe impl<T> Send for StaticPtr<T> {}
+unsafe impl<T> Sync for StaticPtr<T> {}
 
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Axis {
-    X,
-    Y,
-    Z
-}
-
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[repr(u8)]
-pub enum DyeColor {
-    White,
-    Orange,
-    Magenta,
-    LightBlue,
-    Yellow,
-    Lime,
-    Pink,
-    Gray,
-    LightGray,
-    Cyan,
-    Purple,
-    Blue,
-    Brown,
-    Green,
-    Red,
-    Black
-}
-
-impl DyeColor {
-    pub fn get_index(self) -> u8 {
-        unsafe { std::mem::transmute(self) }
+impl<T> Hash for StaticPtr<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
     }
 }
 
+impl<T> PartialEq for StaticPtr<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
+    }
+}
 
+impl<T> Eq for StaticPtr<T> {}
+
+
+/// A macro used internally to MinecraftRS to count the number of tokens you give
+/// to the macro and return the count as usize.
 #[macro_export]
 macro_rules! count {
     () => (0usize);
-    ( $x:tt $($xs:tt)* ) => (1usize + $crate::count!($($xs)*));
+    ($x0:tt $x1:tt $x2:tt $x3:tt $x4:tt $x5:tt $x6:tt $x7:tt
+     $x8:tt $x9:tt $x10:tt $x11:tt $x12:tt $x13:tt $x14:tt $x15:tt $($xs:tt)*) => (16usize + $crate::count!($($xs)*));
+    ($x0:tt $x1:tt $x2:tt $x3:tt $x4:tt $x5:tt $x6:tt $x7:tt $($xs:tt)*) => (8usize + $crate::count!($($xs)*));
+    ($x0:tt $x1:tt $x2:tt $x3:tt $($xs:tt)*) => (4usize + $crate::count!($($xs)*));
+    ($x0:tt $x1:tt $($xs:tt)*) => (2usize + $crate::count!($($xs)*));
+    ($x0:tt $($xs:tt)*) => (1usize + $crate::count!($($xs)*));
 }
+
 
 #[macro_export]
 macro_rules! debug {

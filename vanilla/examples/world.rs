@@ -1,7 +1,7 @@
 use mc_core::world::level::{LevelEnv, Level};
 use mc_core::world::chunk::{Chunk, SubChunk, ChunkHeight};
-
 use mc_core::world::anvil::source::{AnvilLevelSource, AnvilLevelSourceBuilder};
+use mc_vanilla::ext::FromVanilla;
 
 use std::mem::size_of;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ fn main() {
 
     println!("====== ANVIL TEST ======");
 
-    let env = Arc::new(LevelEnv::new_vanilla().unwrap());
+    let env = Arc::new(LevelEnv::from_vanilla());
     let source = AnvilLevelSourceBuilder::new(r"C:\Users\Theo\AppData\Roaming\.minecraft\saves\Amplified Test").unwrap();
     let mut level = Level::new("overworld".to_string(), env, source);
 

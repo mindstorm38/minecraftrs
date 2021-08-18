@@ -17,7 +17,7 @@ pub fn initial_scramble(seed: i64) -> Wrapping<i64> {
 }
 
 
-/// Generate a new seed in the same way as `java.util.Random` (same constants).
+/// Generate a new seed in the same way as `java.f.Random` (same constants).
 pub fn gen_seed() -> i64 {
     static SEED: AtomicI64 = AtomicI64::new(8682522807148012);
     let mut current = SEED.load(Ordering::Relaxed);

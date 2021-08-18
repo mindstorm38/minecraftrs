@@ -1,4 +1,5 @@
-use crate::{blocks, properties, blocks_specs, impl_enum_serializable, def_enum_serializable};
+use mc_core::{blocks, blocks_specs, blocks_properties, impl_enum_serializable, def_enum_serializable};
+
 use crate::util::{Direction, Axis, DyeColor};
 
 
@@ -41,7 +42,7 @@ static REDSTONE_MODE: [RedstoneWireMode; 3] = [RedstoneWireMode::None, RedstoneW
 static WALL_SIDE: [WallSide; 3] = [WallSide::None, WallSide::Low, WallSide::Tall];
 
 
-properties! {
+blocks_properties! {
 
     pub PROP_AGE_26: int("age", 26);
     pub PROP_AGE_16: int("age", 16);
@@ -261,6 +262,7 @@ properties! {
 
 }
 
+
 blocks_specs! {
 
     pub SPEC_GRASS: [PROP_SNOWY];
@@ -392,7 +394,7 @@ blocks_specs! {
 // Some block has been merged to avoid defining dozen of variations
 // for example, for compatibility with Minecraft these blocks may need
 // extensions or a specified module for the conversion.
-blocks!(VanillaBlocksStruct VanillaBlocks "minecraft" [
+blocks!(pub VANILLA_BLOCKS "minecraft" [
 
     AIR "air", // Moved here to be the first default block
 

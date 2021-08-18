@@ -1,5 +1,5 @@
 use mc_core::block::{Block, GlobalBlocks, Property, PropertySerializable, BlockState};
-use mc_core::block::vanilla::*;
+use mc_vanilla::block::*;
 use std::time::Instant;
 use std::mem::size_of;
 
@@ -8,14 +8,8 @@ fn main() {
 
     println!("==== LOADING STATES ====");
     let start = Instant::now();
-    &*VanillaBlocks;
-    println!("Vanilla states loaded in {}ms", start.elapsed().as_secs_f32() * 1000.0);
-
-    // setup_legacy_ids();
-
-    let start = Instant::now();
     let mut blocks = GlobalBlocks::new();
-    blocks.register_static(&*VanillaBlocks).unwrap();
+    blocks.register_static(&VANILLA_BLOCKS).unwrap();
     println!("Vanilla blocks registered in {}us", start.elapsed().as_micros());
     let blocks_count = blocks.blocks_count();
     let states_count = blocks.states_count();
@@ -24,20 +18,8 @@ fn main() {
     println!("========================");
     println!();
 
-    println!("====== EXTENSIONS ======");
-    let start = Instant::now();
-    VanillaBlocks.DIRT.add_ext(TestBlockExt {
-        dummy_property: 42
-    });
-    println!("Dirt ext added (in {}ns)", start.elapsed().as_nanos());
-    let start = Instant::now();
-    let test = &*VanillaBlocks.DIRT.get_ext::<TestBlockExt>().unwrap();
-    println!("Dirt ext value: {} (in {}ns)", test.dummy_property, start.elapsed().as_nanos());
-    println!("========================");
-    println!();
-
     println!("====== TEST BLOCK ======");
-    let block = &VanillaBlocks.BREWING_STAND;
+    let block = &BREWING_STAND;
     println!("Testing block {}...", block.get_name());
     let state = block.get_default_state();
 
@@ -67,17 +49,17 @@ fn main() {
     println!("===== MEMORY USAGE =====");
     let block_sizeof = size_of::<Block>();
     let state_sizeof = size_of::<BlockState>();
-    println!("Block sizeof: {} (total: {})", block_sizeof, block_sizeof * blocks_count);
-    println!("State sizeof: {} (total: {})", state_sizeof, state_sizeof * states_count);
+    println!("Block sizeof: {} (total: {}ko)", block_sizeof, (block_sizeof * blocks_count) as f32 / 1000.0);
+    println!("State sizeof: {} (total: {}ko)", state_sizeof, (state_sizeof * states_count) as f32 / 1000.0);
     println!("========================");
 
 }
 
 
 fn time_average_with<T, P>(state: &BlockState, prop: &P, value: T) -> u32
-    where
-        T: PropertySerializable,
-        P: Property<T>
+where
+    T: PropertySerializable,
+    P: Property<T>
 {
 
     let mut total_time = 0;
@@ -91,9 +73,4 @@ fn time_average_with<T, P>(state: &BlockState, prop: &P, value: T) -> u32
 
     (total_time / total_count) as u32
 
-}
-
-
-struct TestBlockExt {
-    dummy_property: u32
 }
