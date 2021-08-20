@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::util::StaticPtr;
+use crate::util::OpaquePtr;
 
 
 /// A basic biome structure. This structure is made for static definition.
@@ -9,6 +9,11 @@ pub struct Biome {
     name: &'static str,
     id: i32
 }
+
+
+/// The type of hashable value that can represent a biome as a map key.
+/// See `Biome::get_key`, its only usable for statically defined biomes.
+pub type BiomeKey = OpaquePtr<Biome>;
 
 
 impl Biome {
@@ -20,6 +25,11 @@ impl Biome {
     #[inline]
     pub fn get_name(&self) -> &'static str {
         self.name
+    }
+
+    #[inline]
+    pub fn get_key(&'static self) -> BiomeKey {
+        OpaquePtr::new(self)
     }
 
     #[inline]
@@ -35,7 +45,7 @@ impl Biome {
 /// arrays defined using the macro `biomes!`.
 pub struct GlobalBiomes {
     next_sid: u16,
-    biome_to_sid: HashMap<StaticPtr<Biome>, u16>,
+    biome_to_sid: HashMap<BiomeKey, u16>,
     sid_to_biome: Vec<&'static Biome>,
     name_to_biome: HashMap<&'static str, &'static Biome>,
     id_to_biome: HashMap<i32, &'static Biome>
@@ -53,15 +63,10 @@ impl GlobalBiomes {
         }
     }
 
-    pub fn from_static(static_biomes: &[&'static Biome]) -> Result<Self, ()> {
+    pub fn with_static(static_biomes: &[&'static Biome]) -> Result<Self, ()> {
         let mut biomes = Self::new();
         biomes.register_static(static_biomes)?;
         Ok(biomes)
-    }
-
-    #[inline]
-    fn get_biome_key(biome: &'static Biome) -> StaticPtr<Biome> {
-        StaticPtr(biome)
     }
 
     pub fn register(&mut self, biome: &'static Biome) -> Result<(), ()> {
@@ -69,7 +74,7 @@ impl GlobalBiomes {
         let sid = self.next_sid;
         let next_sid = sid.checked_add(1).ok_or(())?;
 
-        if let None = self.biome_to_sid.insert(Self::get_biome_key(biome), sid) {
+        if let None = self.biome_to_sid.insert(biome.get_key(), sid) {
             self.next_sid = next_sid;
             self.sid_to_biome.push(biome);
             self.name_to_biome.insert(biome.name, biome);
@@ -93,7 +98,7 @@ impl GlobalBiomes {
     }
 
     pub fn get_sid_from(&self, biome: &'static Biome) -> Option<u16> {
-        Some(*self.biome_to_sid.get(&Self::get_biome_key(biome))?)
+        Some(*self.biome_to_sid.get(&biome.get_key())?)
     }
 
     pub fn get_biome_from(&self, sid: u16) -> Option<&'static Biome> {
@@ -109,7 +114,7 @@ impl GlobalBiomes {
     }
 
     pub fn has_biome(&self, biome: &'static Biome) -> bool {
-        self.biome_to_sid.contains_key(&Self::get_biome_key(biome))
+        self.biome_to_sid.contains_key(&biome.get_key())
     }
 
     pub fn check_biome<E>(&self, biome: &'static Biome, err: impl FnOnce() -> E) -> Result<&'static Biome, E> {

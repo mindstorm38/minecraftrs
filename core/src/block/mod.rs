@@ -3,12 +3,15 @@ use std::ptr::NonNull;
 use std::fmt::Debug;
 
 use once_cell::sync::OnceCell;
-use crate::util::StaticPtr;
+use crate::util::OpaquePtr;
 
 mod state;
 mod property;
+mod behaviour;
+
 pub use state::*;
 pub use property::*;
+pub use behaviour::*;
 
 
 /// A basic block defined by a name, its states and properties. This block structure
@@ -20,6 +23,11 @@ pub struct Block {
     spec: BlockSpec,
     states: OnceCell<BlockStorage>,
 }
+
+
+/// The type of hashable value that can represent a block as a map key.
+/// See `Block::get_key`, its only usable for statically defined blocks.
+pub type BlockKey = OpaquePtr<Block>;
 
 
 /// Internal enumeration to avoid allocation over-head for single block. This allows
@@ -67,6 +75,11 @@ impl Block {
     #[inline]
     pub fn get_name(&self) -> &'static str {
         self.name
+    }
+
+    #[inline]
+    pub fn get_key(&'static self) -> BlockKey {
+        OpaquePtr::new(self)
     }
 
     fn get_storage(&'static self) -> &'static BlockStorage {
@@ -147,6 +160,15 @@ impl Block {
 }
 
 
+impl PartialEq for &'static Block {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(*self, *other)
+    }
+}
+
+impl Eq for &'static Block {}
+
+
 impl BlockStorage {
 
     pub fn get_default_state(&self) -> &BlockState {
@@ -206,7 +228,7 @@ impl BlockStorage {
 /// defined using the macro `blocks!`.
 pub struct GlobalBlocks {
     next_sid: u32,
-    block_to_sid: HashMap<StaticPtr<Block>, u32>,
+    block_to_sid: HashMap<BlockKey, u32>,
     sid_to_state: Vec<&'static BlockState>,
     name_to_block: HashMap<&'static str, &'static Block>
 }
@@ -222,15 +244,10 @@ impl GlobalBlocks {
         }
     }
 
-    pub fn from_static(static_blocks: &[&'static Block]) -> Result<Self, ()> {
+    pub fn with_static(static_blocks: &[&'static Block]) -> Result<Self, ()> {
         let mut blocks = Self::new();
         blocks.register_static(static_blocks)?;
         Ok(blocks)
-    }
-
-    #[inline]
-    fn get_block_key(block: &'static Block) -> StaticPtr<Block> {
-        StaticPtr(block)
     }
 
     /// Register a single block to this palette, returns `Err` if no more save ID (SID) is
@@ -244,7 +261,7 @@ impl GlobalBlocks {
         let sid = self.next_sid;
         let next_sid = sid.checked_add(states_count as u32).ok_or(())?;
 
-        if let None = self.block_to_sid.insert(Self::get_block_key(block), sid) {
+        if let None = self.block_to_sid.insert(block.get_key(), sid) {
 
             self.next_sid = next_sid;
 
@@ -272,8 +289,7 @@ impl GlobalBlocks {
 
     /// Get the save ID from the given state.
     pub fn get_sid_from(&self, state: &'static BlockState) -> Option<u32> {
-        let block_key = Self::get_block_key(state.get_block());
-        let block_offset = *self.block_to_sid.get(&block_key)?;
+        let block_offset = *self.block_to_sid.get(&state.get_block().get_key())?;
         Some(block_offset + state.get_index() as u32)
     }
 
@@ -289,7 +305,7 @@ impl GlobalBlocks {
 
     /// Return true if the palette contains the given block state.
     pub fn has_state(&self, state: &'static BlockState) -> bool {
-        self.block_to_sid.contains_key(&Self::get_block_key(state.get_block()))
+        self.block_to_sid.contains_key(&state.get_block().get_key())
     }
 
     /// Check if the given state is registered in this palette, `Ok` is returned if true, in

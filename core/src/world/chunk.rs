@@ -27,7 +27,9 @@ pub enum ChunkError {
     #[error("You gave a block reference that is not supported by this chunk's level's env.")]
     IllegalBlock,
     #[error("You gave a biome reference that is not supported by this chunk's level's env.")]
-    IllegalBiome
+    IllegalBiome,
+    #[error("You are trying to access an unloaded chunk.")]
+    ChunkUnloaded  // Made for LevelStorage
 }
 
 /// A type alias with an error type of `ChunkError`.
@@ -223,6 +225,11 @@ impl Chunk {
         }
     }
 
+    #[inline]
+    pub fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState> {
+        self.get_block((x & 15) as u8, y, (z & 15) as u8)
+    }
+
     /// Set the block at a specific position relative to this chunk.
     ///
     /// Return `Ok(())` if the biome was successfully set, `Err(ChunkError::IllegalVerticalPos)` if
@@ -234,6 +241,11 @@ impl Chunk {
     pub fn set_block(&mut self, x: u8, y: i32, z: u8, state: &'static BlockState) -> ChunkResult<()> {
         self.ensure_sub_chunk((y >> 4) as i8, None)?
             .set_block(x, (y & 15) as u8, z, state)
+    }
+
+    #[inline]
+    pub fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()> {
+        self.set_block((x & 15) as u8, y, (z & 15) as u8, state)
     }
 
     // BIOMES //

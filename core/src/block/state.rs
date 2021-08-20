@@ -120,6 +120,11 @@ impl BlockState {
     }
 
     #[inline]
+    pub fn is_block(&self, block: &'static Block) -> bool {
+        self.get_block() == block
+    }
+
+    #[inline]
     fn get_block_shared_prop(&self, name: &str) -> Option<&SharedProperty> {
         self.get_block().get_storage().get_shared_prop(name)
     }

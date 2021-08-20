@@ -1,22 +1,10 @@
 use mc_core::{blocks, blocks_specs, blocks_properties, impl_enum_serializable, def_enum_serializable};
+use mc_core::pos::{Direction, Axis};
 
-use crate::util::{Direction, Axis, DyeColor};
+use crate::util::{DyeColor};
 
+pub mod behaviour;
 
-impl_enum_serializable!(Direction {
-    East: "east",
-    West: "west",
-    South: "south",
-    North: "north",
-    Up: "up",
-    Down: "down"
-});
-
-impl_enum_serializable!(Axis {
-    X: "x",
-    Y: "y",
-    Z: "z"
-});
 
 impl_enum_serializable!(DyeColor {
     White: "white",
@@ -1076,6 +1064,13 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     POTTED_FLOWERING_AZALEA "potted_flowering_azalea_bush",
 
 ]);
+
+
+pub fn register_behaviours() {
+
+    // TODO
+
+}
 
 
 def_enum_serializable!(BambooLeaves {

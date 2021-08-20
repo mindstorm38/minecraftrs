@@ -2,6 +2,8 @@ use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::str::FromStr;
 use std::any::Any;
 
+use crate::pos::{Direction, Axis};
+
 
 /// All valid property values types must implement this trait.
 pub trait PropertySerializable: 'static + Copy {
@@ -234,3 +236,19 @@ macro_rules! def_enum_serializable {
 
     };
 }
+
+
+impl_enum_serializable!(Direction {
+    East: "east",
+    West: "west",
+    South: "south",
+    North: "north",
+    Up: "up",
+    Down: "down"
+});
+
+impl_enum_serializable!(Axis {
+    X: "x",
+    Y: "y",
+    Z: "z"
+});

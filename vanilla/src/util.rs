@@ -1,25 +1,4 @@
 
-
-/// Cardinal direction used in-game.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Direction {
-    East,  // +X
-    West,  // -X
-    South, // +Z
-    North, // -Z
-    Up,    // +Y
-    Down,  // -Y
-}
-
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Axis {
-    X,
-    Y,
-    Z
-}
-
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum DyeColor {

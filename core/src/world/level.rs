@@ -1,12 +1,12 @@
 use std::sync::{RwLock, Arc, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::HashMap;
 
-use crate::block::GlobalBlocks;
+use crate::block::{GlobalBlocks, BlockState};
 use crate::biome::GlobalBiomes;
 use crate::debug;
 
-use super::source::{LevelSource, LevelSourceBuilder, ChunkBuilder};
-use super::chunk::{Chunk, ChunkHeight};
+use super::source::{LevelSource, LevelSourceBuilder, ChunkBuilder, LevelSourceError};
+use super::chunk::{Chunk, ChunkHeight, ChunkResult, ChunkError};
 
 
 /// A structure that contains the static environment of a World, this can be used for multiple
@@ -48,6 +48,8 @@ pub struct Level<S: LevelSource> {
     /// Chunk storage, stored in another field to allow the loader, and
     /// the storage to be mutated concurrently.
     storage: LevelStorage,
+    /// List of level listeners.
+    listeners: Vec<Box<dyn LevelListener>>
 }
 
 impl<S: LevelSource> Level<S> {
@@ -73,7 +75,8 @@ impl<S: LevelSource> Level<S> {
             source: source.build(builder),
             storage: LevelStorage {
                 chunks: HashMap::new()
-            }
+            },
+            listeners: Vec::new()
         }
 
     }
@@ -102,14 +105,16 @@ impl<S: LevelSource> Level<S> {
     pub fn load_chunks(&mut self) {
         while let Some(((cx, cz), res)) = self.source.poll_chunk() {
             match res {
-                Ok(chunk) => {
+                Ok(mut chunk) => {
                     debug!("Loaded chunk at {}/{}", cx, cz);
-                    self.storage.insert_chunk(chunk)
+                    self.trigger_listeners(|l| l.on_chunk_loaded(&mut chunk));
+                    self.storage.insert_chunk(chunk);
                 },
                 Err(err) => {
                     // IDE shows an error for 'Display' not being implemented, but we use the
                     // crate 'thiserror' to implement it through a custom derive.
                     debug!("Failed to load chunk at {}/{}: {}", cx, cz, err);
+                    self.trigger_listeners(|l| l.on_chunk_load_failed(cx, cz, &err))
                 }
             }
         }
@@ -121,6 +126,21 @@ impl<S: LevelSource> Level<S> {
 
     pub fn mut_storage(&mut self) -> &mut LevelStorage {
         &mut self.storage
+    }
+
+    fn trigger_listeners(&self, mut with: impl FnMut(&dyn LevelListener)) {
+        for listener in &self.listeners {
+            with(&**listener);
+        }
+    }
+
+    pub fn add_listener_raw(&mut self, listener: Box<dyn LevelListener>) {
+        self.listeners.push(listener);
+    }
+
+    #[inline]
+    pub fn add_listener(&mut self, listener: impl LevelListener + 'static) {
+        self.add_listener_raw(Box::new(listener));
     }
 
 }
@@ -166,6 +186,35 @@ impl LevelStorage {
     pub fn mut_chunk_at(&self, x: i32, z: i32) -> Option<RwLockWriteGuard<Chunk>> {
         self.mut_chunk(x >> 4, z >> 4)
     }
+
+    // BLOCKS //
+
+    pub fn set_block_at(&self, x: i32, y: i32, z: i32, block: &'static BlockState) -> ChunkResult<()> {
+        if let Some(mut chunk) = self.mut_chunk_at(x, z) {
+            chunk.set_block_at(x, y, z, block)
+        } else {
+            Err(ChunkError::ChunkUnloaded)
+        }
+    }
+
+    pub fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState> {
+        if let Some(chunk) = self.get_chunk_at(x, z) {
+            chunk.get_block_at(x, y, z)
+        } else {
+            Err(ChunkError::ChunkUnloaded)
+        }
+    }
+
+}
+
+
+pub trait LevelListener {
+
+    #[allow(unused_variables)]
+    fn on_chunk_loaded(&self, chunk: &mut Chunk) { }
+
+    #[allow(unused_variables)]
+    fn on_chunk_load_failed(&self, cx: i32, cz: i32, err: &LevelSourceError) { }
 
 }
 
