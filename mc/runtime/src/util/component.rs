@@ -1,41 +1,15 @@
-use std::cell::{RefCell, Ref, RefMut, BorrowError};
-use std::any::{TypeId, Any, type_name};
+use std::any::{Any, TypeId, type_name};
+use std::cell::{RefCell, Ref, RefMut};
 use std::collections::HashMap;
 use thiserror::Error;
 
-use super::World;
 
-
-struct System {
-
-}
-
-
-pub struct SystemExecutor {
-    systems: Vec<System>
-}
-
-impl SystemExecutor {
-
-    pub fn tick(&mut self, world: &mut World) {
-        for system in self.systems {
-
-        }
-    }
-
-    pub fn add_system<S>(&mut self, system: S)
-    where
-        S: FnMut(&mut World) {
-
-    }
-
-}
-
-
+/// A generic hash map. This is used by the world to keep track of each component and
+/// can be used later by systems registered in the world's system executor.
 #[derive(Debug)]
-pub struct SystemComponents(HashMap<TypeId, RefCell<Box<dyn Any>>>);
+pub struct Components(HashMap<TypeId, RefCell<Box<dyn Any>>>);
 
-impl SystemComponents {
+impl Components {
 
     pub fn new() -> Self {
         Self(HashMap::new())
@@ -57,35 +31,35 @@ impl SystemComponents {
     }
 
     #[inline]
-    fn get_cell<T: Any>(&self) -> Result<&RefCell<Box<dyn Any>>, SystemComponentError> {
+    fn get_cell<T: Any>(&self) -> Result<&RefCell<Box<dyn Any>>, ComponentError> {
         self.0.get(&TypeId::of::<T>()).ok_or_else(|| {
-            SystemComponentError::Unknown(type_name::<T>())
+            ComponentError::Unknown(type_name::<T>())
         })
     }
 
-    pub fn get<T: Any>(&self) -> Result<Ref<T>, SystemComponentError> {
+    pub fn get<T: Any>(&self) -> Result<Ref<T>, ComponentError> {
         match self.get_cell::<T>()?.try_borrow() {
             Ok(rf) => {
                 Ok(Ref::map(rf, |rf| rf.downcast_ref::<T>().unwrap()))
             },
-            Err(_) => Err(SystemComponentError::Borrowed(type_name::<T>()))
+            Err(_) => Err(ComponentError::Borrowed(type_name::<T>()))
         }
     }
 
-    pub fn get_mut<T: Any>(&mut self) -> Result<RefMut<T>, SystemComponentError> {
+    pub fn get_mut<T: Any>(&self) -> Result<RefMut<T>, ComponentError> {
         match self.get_cell::<T>()?.try_borrow_mut() {
             Ok(rf) => {
                 Ok(RefMut::map(rf, |rf| rf.downcast_mut::<T>().unwrap()))
             },
-            Err(_) => Err(SystemComponentError::Borrowed(type_name::<T>()))
+            Err(_) => Err(ComponentError::Borrowed(type_name::<T>()))
         }
     }
 
 }
 
 
-#[derive(Error)]
-pub enum SystemComponentError {
+#[derive(Debug, Error)]
+pub enum ComponentError {
     #[error("Unknown component of type '{0}'.")]
     Unknown(&'static str),
     #[error("The component of type '{0}' is already borrowed.")]
