@@ -1,3 +1,6 @@
 [workspace]
-members = ["core", "vanilla", "worldgen"]
-
+members = [
+    "mc/core",
+    "mc/vanilla",
+    "mc/worldgen"
+]
