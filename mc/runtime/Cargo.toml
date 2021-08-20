@@ -1,0 +1,16 @@
+[package]
+name = "mc-runtime"
+version = "0.1.0"
+authors = ["Théo Rozier <contact@theorozier.fr>"]
+edition = "2018"
+repository = "https://github.com/mindstorm38/minecraftrs"
+homepage = "https://github.com/mindstorm38/minecraftrs"
+description = "MinecraftRS - Backend Minecraft runtime implementation, made to actually run a world."
+keywords = ["minecraft", "mc", "runtime"]
+categories = ["games", "mathematics"]
+license = "Apache-2.0"
+
+[dependencies]
+mc-core = { path = "../core" }
+thiserror = "1.0.26"
+spin_sleep = "1.0.0"
