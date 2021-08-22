@@ -14,7 +14,7 @@ fn main() {
     let chunk_sizeof = size_of::<Chunk>();
     let sub_chunk_sizeof = size_of::<SubChunk>();
     println!("Chunk height sizeof: {}", size_of::<ChunkHeight>());
-    println!("Level sizeof: {}", size_of::<Level<AnvilLevelSource>>());
+    println!("Level sizeof: {}", size_of::<Level>());
     println!("Chunk sizeof: {}", chunk_sizeof);
     println!("SubChunk sizeof: {}", sub_chunk_sizeof);
     println!("For a whole loaded region: {}", 32 * 32 * (chunk_sizeof + 16 * sub_chunk_sizeof));

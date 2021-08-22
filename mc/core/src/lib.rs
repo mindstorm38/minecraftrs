@@ -1,4 +1,4 @@
-//! Core crate of MinecraftRS.
+//! # Core crate of MinecraftRS.
 //!
 //! This crate defines core structures required by all other crates from MinecraftRS. It is
 //! directly inspired by Feather, a Minecraft server written in Rust for latest release.
@@ -14,20 +14,22 @@
 //! If you want real world generation for a specific Minecraft version, check out the
 //! `mc-worldgen` crate, and if you want to run a world, check `mc-runtime`.
 //!
-//! Feather:
-//!   Github:  https://github.com/feather-rs/feather
+//! ## Feather:
+//!   Github:  https://github.com/feather-rs/feather <br>
 //!   License: Apache License 2.0
 //!
-//! MinecraftRS:
-//!   Github:  https://github.com/mindstorm38/minecraftrs
+//! ## MinecraftRS:
+//!   Github:  https://github.com/mindstorm38/minecraftrs <br>
 //!   Author:  Théo Rozier
 
 pub mod math;
 pub mod rand;
 pub mod util;
 pub mod pos;
+pub mod ecs;
 
 pub mod biome;
 pub mod block;
 pub mod item;
+pub mod entity;
 pub mod world;

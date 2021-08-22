@@ -3,6 +3,8 @@ use std::time::Instant;
 use mc_runtime::world::{World, WorldSystemExecutor};
 use mc_runtime::util::{tick_loop};
 
+use mc_runtime::system::system_load_chunks;
+
 
 fn main() {
 
@@ -14,8 +16,9 @@ fn main() {
 
 fn register_systems(world: &mut World, executor: &mut WorldSystemExecutor) {
 
-    world.insert_component(TpsTrackerComponent::new());
-    executor.add_system(debug_tps);
+    // world.insert_component(TpsTrackerComponent::new());
+    // executor.add_system(debug_tps);
+    executor.add_system(system_load_chunks);
 
     println!("Systems");
     for system_name in executor.iter_system_names() {
@@ -25,7 +28,7 @@ fn register_systems(world: &mut World, executor: &mut WorldSystemExecutor) {
 }
 
 
-fn debug_tps(world: &mut World) {
+/*fn debug_tps(world: &mut World) {
     let mut tps_tracker = world.get_component_mut::<TpsTrackerComponent>().unwrap();
     println!("TPS: {}", tps_tracker.tick());
 }
@@ -71,3 +74,4 @@ impl TpsTrackerComponent {
     }
 
 }
+*/

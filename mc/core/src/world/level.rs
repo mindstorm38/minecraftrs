@@ -7,6 +7,7 @@ use crate::debug;
 
 use super::source::{LevelSource, LevelSourceBuilder, ChunkBuilder, LevelSourceError};
 use super::chunk::{Chunk, ChunkHeight, ChunkResult, ChunkError};
+use std::collections::hash_map::Entry;
 
 
 /// A structure that contains the static environment of a World, this can be used for multiple
@@ -34,7 +35,7 @@ impl LevelEnv {
 
 
 /// Main storage for a level, part of a World.
-pub struct Level<S: LevelSource> {
+pub struct Level {
     /// The unique ID of this level (among all levels of the world).
     id: String,
     /// The global environment used by this level, this environment should not be mutated afterward.
@@ -42,20 +43,19 @@ pub struct Level<S: LevelSource> {
     env: Arc<LevelEnv>,
     /// The level loader used to load uncached chunks either from a generator or from an anvil file
     /// system loader.
-    source: S,
+    source: Box<dyn LevelSource>,
     /// The configured height of this level.
     height: ChunkHeight,
     /// Chunk storage, stored in another field to allow the loader, and
     /// the storage to be mutated concurrently.
-    storage: LevelStorage,
-    /// List of level listeners.
-    listeners: Vec<Box<dyn LevelListener>>
+    storage: LevelStorage
 }
 
-impl<S: LevelSource> Level<S> {
+impl Level {
 
-    pub fn new<B>(id: String, env: Arc<LevelEnv>, source: B) -> Self
+    pub fn new<S, B>(id: String, env: Arc<LevelEnv>, source: B) -> Self
     where
+        S: LevelSource + 'static,
         B: LevelSourceBuilder<S>
     {
 
@@ -72,11 +72,10 @@ impl<S: LevelSource> Level<S> {
             id,
             env,
             height,
-            source: source.build(builder),
+            source: Box::new(source.build(builder)),
             storage: LevelStorage {
                 chunks: HashMap::new()
-            },
-            listeners: Vec::new()
+            }
         }
 
     }
@@ -97,27 +96,41 @@ impl<S: LevelSource> Level<S> {
         self.height
     }
 
+    /// Request internal level source to load the given chunk.
     pub fn request_chunk(&mut self, cx: i32, cz: i32) -> bool {
         debug!("Request chunk load at {}/{}", cx, cz);
         matches!(self.source.request_chunk_load(cx, cz), Ok(_))
     }
 
-    pub fn load_chunks(&mut self) {
+    /// Poll loaded chunks from internal level source, all successfully loaded chunks
+    /// are added to the underlying `LevelStorage`. The callback is called for each
+    /// loaded chunks or loading error.
+    pub fn load_chunks_with_callback<F>(&mut self, mut callback: F)
+    where
+        F: FnMut((i32, i32, Result<&Arc<RwLock<Chunk>>, LevelSourceError>)),
+    {
         while let Some(((cx, cz), res)) = self.source.poll_chunk() {
             match res {
                 Ok(mut chunk) => {
                     debug!("Loaded chunk at {}/{}", cx, cz);
-                    self.trigger_listeners(|l| l.on_chunk_loaded(&mut chunk));
-                    self.storage.insert_chunk(chunk);
+                    let arc = self.storage.insert_chunk(chunk);
+                    callback((cx, cz, Ok(arc)));
                 },
                 Err(err) => {
                     // IDE shows an error for 'Display' not being implemented, but we use the
                     // crate 'thiserror' to implement it through a custom derive.
                     debug!("Failed to load chunk at {}/{}: {}", cx, cz, err);
-                    self.trigger_listeners(|l| l.on_chunk_load_failed(cx, cz, &err))
+                    callback((cx, cz, Err(err)));
                 }
             }
         }
+    }
+
+    /// Poll loaded chunks from internal level source, all successfully loaded chunks
+    /// are added to the underlying `LevelStorage`.
+    #[inline]
+    pub fn load_chunks(&mut self) {
+        self.load_chunks_with_callback(|_| {});
     }
 
     pub fn get_storage(&self) -> &LevelStorage {
@@ -126,21 +139,6 @@ impl<S: LevelSource> Level<S> {
 
     pub fn mut_storage(&mut self) -> &mut LevelStorage {
         &mut self.storage
-    }
-
-    fn trigger_listeners(&self, mut with: impl FnMut(&dyn LevelListener)) {
-        for listener in &self.listeners {
-            with(&**listener);
-        }
-    }
-
-    pub fn add_listener_raw(&mut self, listener: Box<dyn LevelListener>) {
-        self.listeners.push(listener);
-    }
-
-    #[inline]
-    pub fn add_listener(&mut self, listener: impl LevelListener + 'static) {
-        self.add_listener_raw(Box::new(listener));
     }
 
 }
@@ -158,8 +156,18 @@ impl LevelStorage {
     // CHUNKS //
 
     /// Insert a chunk at a specific position.
-    pub fn insert_chunk(&mut self, chunk: Chunk) {
-        self.chunks.insert(chunk.get_position(), Arc::new(RwLock::new(chunk)));
+    pub fn insert_chunk(&mut self, chunk: Chunk) -> &Arc<RwLock<Chunk>> {
+        let pos = chunk.get_position();
+        let arc = Arc::new(RwLock::new(chunk));
+        match self.chunks.entry(pos) {
+            Entry::Occupied(mut o) => {
+                o.insert(arc);
+                o.into_mut()
+            },
+            Entry::Vacant(v) => {
+                v.insert(arc)
+            }
+        }
     }
 
     /// Return true if a chunk is loaded at a specific position.
@@ -205,22 +213,4 @@ impl LevelStorage {
         }
     }
 
-}
-
-
-pub trait LevelListener {
-
-    #[allow(unused_variables)]
-    fn on_chunk_loaded(&self, chunk: &mut Chunk) { }
-
-    #[allow(unused_variables)]
-    fn on_chunk_load_failed(&self, cx: i32, cz: i32, err: &LevelSourceError) { }
-
-}
-
-
-/// Combine a chunk coordinate pair into 64 bits for hashing.
-#[inline]
-pub fn combine_chunk_coords(cx: i32, cz: i32) -> u64 {
-    cx as u32 as u64 | ((cz as u32 as u64) << 32)
 }
