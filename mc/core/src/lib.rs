@@ -26,10 +26,13 @@ pub mod math;
 pub mod rand;
 pub mod util;
 pub mod pos;
-pub mod ecs;
 
 pub mod biome;
 pub mod block;
 pub mod item;
 pub mod entity;
 pub mod world;
+
+// Re-export 'hecs' and 'uuid' since it is widely used for entities.
+pub use hecs;
+pub use uuid;

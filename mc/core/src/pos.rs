@@ -1,5 +1,7 @@
 
 
+/// This is a standard structure used to exchange block positions. Coordinates
+/// are signed 32-bits integers.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct BlockPos {
     pub x: i32,
@@ -12,6 +14,11 @@ impl BlockPos {
     #[inline]
     pub const fn new(x: i32, y: i32, z: i32) -> Self {
         Self { x, y, z }
+    }
+
+    #[inline]
+    pub const fn nil() -> Self {
+        Self::new(0, 0, 0)
     }
 
     #[inline]
@@ -31,6 +38,12 @@ impl BlockPos {
 
 }
 
+impl Default for BlockPos {
+    fn default() -> Self {
+        Self::nil()
+    }
+}
+
 macro_rules! impl_block_pos_relative_shortcut {
     ($func_name:ident, $direction:ident) => {
         impl BlockPos {
@@ -48,6 +61,50 @@ impl_block_pos_relative_shortcut!(south, South);
 impl_block_pos_relative_shortcut!(north, North);
 impl_block_pos_relative_shortcut!(above, Up);
 impl_block_pos_relative_shortcut!(below, Down);
+
+
+/// This is a standard structure used to exchange block positions. Coordinates
+/// are 64-bits floating point numbers.
+#[derive(Debug, PartialEq, Clone)]
+pub struct EntityPos {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+impl EntityPos {
+
+    #[inline]
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
+        Self { x, y, z }
+    }
+
+    #[inline]
+    pub fn nil() -> Self {
+        Self::new(0.0, 0.0, 0.0)
+    }
+
+}
+
+impl Default for EntityPos {
+    fn default() -> Self {
+        Self::nil()
+    }
+}
+
+// Conversions //
+
+impl From<&'_ BlockPos> for EntityPos {
+    fn from(pos: &'_ BlockPos) -> Self {
+        Self::new(pos.x as f64, pos.y as f64, pos.z as f64)
+    }
+}
+
+impl From<&'_ EntityPos> for BlockPos {
+    fn from(pos: &'_ EntityPos) -> Self {
+        Self::new(pos.x.floor() as i32, pos.y.floor() as i32, pos.z.floor() as i32)
+    }
+}
 
 
 /// Cardinal direction used in-game.

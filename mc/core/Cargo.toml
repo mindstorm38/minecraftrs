@@ -18,4 +18,4 @@ named-binary-tag = "0.6.0"
 crossbeam-channel = "0.5.1"
 thiserror = "1.0.26"
 uuid = { version = "0.8.2", features = ["v4"] }
-specs = { version = "0.17.0", default-features = false }
+hecs = "0.6.2"

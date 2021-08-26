@@ -1,13 +1,24 @@
 use std::sync::{RwLock, Arc, RwLockReadGuard, RwLockWriteGuard};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+
+use hecs::{
+    World as EcsWorld,
+    EntityBuilder, Entity,
+    Ref as EntityRef, RefMut as EntityRefMut
+};
+
+use uuid::Uuid;
 
 use crate::block::{GlobalBlocks, BlockState};
 use crate::biome::GlobalBiomes;
+use crate::entity::EntityType;
+use crate::util::OpaquePtr;
+use crate::pos::EntityPos;
 use crate::debug;
 
 use super::source::{LevelSource, LevelSourceBuilder, ChunkBuilder, LevelSourceError};
 use super::chunk::{Chunk, ChunkHeight, ChunkResult, ChunkError};
-use std::collections::hash_map::Entry;
 
 
 /// A structure that contains the static environment of a World, this can be used for multiple
@@ -34,7 +45,9 @@ impl LevelEnv {
 }
 
 
-/// Main storage for a level, part of a World.
+/// Main storage for a level, part of a World. This structure is intentionally not `Sync + Send`,
+/// however each chunk is stored in a `RwLock` in order to make them shared across threads if
+/// you want.
 pub struct Level {
     /// The unique ID of this level (among all levels of the world).
     id: String,
@@ -43,12 +56,14 @@ pub struct Level {
     env: Arc<LevelEnv>,
     /// The level loader used to load uncached chunks either from a generator or from an anvil file
     /// system loader.
+    /// TODO: Check if this can be moved to mc-runtime? Worth it?
     source: Box<dyn LevelSource>,
     /// The configured height of this level.
     height: ChunkHeight,
-    /// Chunk storage, stored in another field to allow the loader, and
-    /// the storage to be mutated concurrently.
-    storage: LevelStorage
+    /// Chunk storage.
+    chunks: ChunkStorage,
+    /// Entities storage.
+    entities: EntityStorage
 }
 
 impl Level {
@@ -73,8 +88,12 @@ impl Level {
             env,
             height,
             source: Box::new(source.build(builder)),
-            storage: LevelStorage {
+            chunks: ChunkStorage {
                 chunks: HashMap::new()
+            },
+            entities: EntityStorage {
+                ecs: EcsWorld::new(),
+                builder_cache: EntityBuilderCache::new()
             }
         }
 
@@ -96,6 +115,8 @@ impl Level {
         self.height
     }
 
+    // CHUNKS LOADING (FROM SOURCE //
+
     /// Request internal level source to load the given chunk.
     pub fn request_chunk(&mut self, cx: i32, cz: i32) -> bool {
         debug!("Request chunk load at {}/{}", cx, cz);
@@ -113,8 +134,7 @@ impl Level {
             match res {
                 Ok(mut chunk) => {
                     debug!("Loaded chunk at {}/{}", cx, cz);
-                    let arc = self.storage.insert_chunk(chunk);
-                    callback((cx, cz, Ok(arc)));
+                    callback((cx, cz, Ok(self.chunks.insert_chunk(chunk))));
                 },
                 Err(err) => {
                     // IDE shows an error for 'Display' not being implemented, but we use the
@@ -133,25 +153,27 @@ impl Level {
         self.load_chunks_with_callback(|_| {});
     }
 
-    pub fn get_storage(&self) -> &LevelStorage {
-        &self.storage
+    // ENTITIES //
+
+    #[inline]
+    pub fn get_entities(&self) -> &EntityStorage {
+        &self.entities
     }
 
-    pub fn mut_storage(&mut self) -> &mut LevelStorage {
-        &mut self.storage
+    #[inline]
+    pub fn get_entities_mut(&mut self) -> &mut EntityStorage {
+        &mut self.entities
     }
 
 }
 
 
-/// Internal level storage.
-pub struct LevelStorage {
-    /// Storing all cached chunks.
-    chunks: HashMap<(i32, i32), Arc<RwLock<Chunk>>>,
+pub struct ChunkStorage {
+    /// Storing all cached chunks that were loaded from source.
+    pub chunks: HashMap<(i32, i32), Arc<RwLock<Chunk>>>,
 }
 
-
-impl LevelStorage {
+impl ChunkStorage {
 
     // CHUNKS //
 
@@ -213,4 +235,71 @@ impl LevelStorage {
         }
     }
 
+}
+
+
+pub struct EntityStorage {
+    /// The ECS storing all entities in the level.
+    pub ecs: EcsWorld,
+    /// Cached `EntityBuilder`s for each static entity type.
+    builder_cache: EntityBuilderCache
+}
+
+impl EntityStorage {
+
+    fn spawn_entity_uninit(&mut self, entity_type: &'static EntityType) -> Entity {
+        let builder = self.builder_cache.ensure(entity_type);
+        self.ecs.spawn(builder.build())
+    }
+
+    pub fn spawn_entity(&mut self, entity_type: &'static EntityType) {
+        unsafe {
+            let entity = self.spawn_entity_uninit(entity_type);
+            let identity = self.ecs.get_unchecked_mut::<EntityIdentity>(entity).unwrap();
+            identity.uuid = Uuid::new_v4();
+        }
+    }
+
+    pub fn remove_entity(&mut self, entity: Entity) -> bool {
+        self.ecs.despawn(entity).is_ok()
+    }
+
+    pub fn get_entity_identity(&self, entity: Entity) -> EntityRef<EntityIdentity> {
+        self.ecs.get(entity).unwrap()
+    }
+
+}
+
+
+struct EntityBuilderCache(HashMap<OpaquePtr<EntityType>, EntityBuilder>);
+
+impl EntityBuilderCache {
+
+    fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    fn ensure(&mut self, entity_type: &'static EntityType) -> &mut EntityBuilder {
+        match self.0.entry(OpaquePtr::new(entity_type)) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => {
+                let mut builder = EntityBuilder::new();
+                builder.add(EntityIdentity {
+                    typ: entity_type,
+                    uuid: Uuid::nil(),
+                    pos: EntityPos::nil()
+                });
+                (entity_type.builder)(&mut builder);
+                v.insert(builder)
+            }
+        }
+    }
+
+}
+
+
+pub struct EntityIdentity {
+    typ: &'static EntityType,
+    uuid: Uuid,
+    pos: EntityPos,
 }
