@@ -10,6 +10,8 @@ use mc_core::uuid::Uuid;
 use mc_core::entities;
 use mc_core::entity::EntityType;
 
+pub mod ai;
+
 mod snow_golem;
 mod iron_golem;
 mod parrot;
@@ -55,7 +57,7 @@ vanilla_entities!([
     CAT "cat" [],
     CAVE_SPIDER "cave_spider" [],
     CHICKEN "chicken" [],
-    COD "cod" [MobEntity, FishEntity, CodEntity],
+    COD "cod" [MobEntity, LivingEntity, FishEntity, CodEntity],
     COW "cow" [],
     CREEPER "creeper" [],
     DOLPHIN "dolphin" [],
@@ -69,45 +71,45 @@ vanilla_entities!([
     FOX "fox" [],
     GHAST "ghast" [],
     GIANT "giant" [],
-    GLOW_SQUID "glow_squid" [MobEntity, GlowSquidEntity],
+    GLOW_SQUID "glow_squid" [MobEntity, LivingEntity, GlowSquidEntity],
     GOAT "goat" [],
     GUARDIAN "guardian" [],
     HOGLIN "hoglin" [],
     HORSE "horse" [],
     HUSK "husk" [],
     ILLUSIONER "illusioner" [],
-    IRON_GOLEM "iron_golem" [MobEntity, AngryEntity, IronGolemEntity],
+    IRON_GOLEM "iron_golem" [MobEntity, LivingEntity, AngryEntity, IronGolemEntity],
     LLAMA "llama" [],
     MAGMA_CUBE "magma_cube" [],
     MOOSHROOM "mooshroom" [],
     MULE "mule" [],
     OCELOT "ocelot" [],
     PANDA "panda" [],
-    PARROT "parrot" [MobEntity, TamableEntity, ParrotEntity],
+    PARROT "parrot" [MobEntity, LivingEntity, TamableEntity, ParrotEntity],
     PHANTOM "phantom" [],
-    PIG "pig" [MobEntity, BreedableEntity, PigEntity],
+    PIG "pig" [MobEntity, LivingEntity, BreedableEntity, PigEntity],
     PIGLIN "piglin" [],
     PIGLIN_BRUTE "piglin_brute" [],
     PILLAGER "pillager" [],
     POLAR_BEAR "polar_bear" [],
-    PUFFERFISH "pufferfish" [MobEntity, FishEntity, PufferfishEntity],
-    RABBIT "rabbit" [MobEntity, BreedableEntity, RabbitEntity],
+    PUFFERFISH "pufferfish" [MobEntity, LivingEntity, FishEntity, PufferfishEntity],
+    RABBIT "rabbit" [MobEntity, LivingEntity, BreedableEntity, RabbitEntity],
     RAVAGER "ravager" [],
-    SALMON "salmon" [MobEntity, FishEntity, SalmonEntity],
-    SHEEP "sheep" [MobEntity, BreedableEntity, SheepEntity],
+    SALMON "salmon" [MobEntity, LivingEntity, FishEntity, SalmonEntity],
+    SHEEP "sheep" [MobEntity, LivingEntity, BreedableEntity, SheepEntity],
     SHULKER "shulker" [],
     SILVERFISH "silverfish" [],
     SKELETON "skeleton" [],
     SKELETON_HORSE "skeleton_horse" [],
-    SLIME "slime" [MobEntity, SlimeEntity],
-    SNOW_GOLEM "snow_golem" [MobEntity, SnowGolemEntity],
+    SLIME "slime" [MobEntity, LivingEntity, SlimeEntity],
+    SNOW_GOLEM "snow_golem" [MobEntity, LivingEntity, SnowGolemEntity],
     SPIDER "spider" [],
     STRIDER "strider" [],
-    SQUID "squid" [MobEntity, SquidEntity],
+    SQUID "squid" [MobEntity, LivingEntity, SquidEntity],
     STRAY "stray" [],
     TRADER_LLAMA "trader_llama" [],
-    TROPICAL_FISH "tropical_fish" [MobEntity, FishEntity, TropicalFishEntity],
-    TURTLE "turtle" [MobEntity, BreedableEntity, TurtleEntity],
+    TROPICAL_FISH "tropical_fish" [MobEntity, LivingEntity, FishEntity, TropicalFishEntity],
+    TURTLE "turtle" [MobEntity, LivingEntity, BreedableEntity, TurtleEntity],
     VEX "vex" [],
     VILLAGER "villager" [],
     VINDICATOR "vindicator" [],
@@ -115,7 +117,7 @@ vanilla_entities!([
     WITCH "witch" [],
     WITHER "wither" [],
     WITHER_SKELETON "wither_skeleton" [],
-    WOLF "wolf" [MobEntity, TamableEntity, AngryEntity, BreedableEntity, WolfEntity],
+    WOLF "wolf" [MobEntity, LivingEntity, TamableEntity, AngryEntity, BreedableEntity, WolfEntity],
     ZOGLIN "zoglin" [],
     ZOMBIE "zombie" [],
     ZOMBIE_HORSE "zombie_horse" [],
@@ -201,7 +203,7 @@ pub struct VanillaEntity {
     silent: bool,
     /// Number of ticks until the fire is put out. Negative values reflect how long the entity can
     /// stand in fire before burning. Default -20 when not on fire.
-    fire: i16,
+    remaining_fire_ticks: i16,
     /// If true, the entity visually appears on fire, even if it is not actually on fire.
     has_visual_fire: bool,
     /// The number of ticks before which the entity may be teleported back through a nether portal.
@@ -209,30 +211,46 @@ pub struct VanillaEntity {
     /// How many ticks the entity has been freezing.
     ticks_frozen: u32,
     /// An optional ist of entities that are on top of this one.
-    passengers: Option<Vec<Entity>>,
+    passengers: Option<Vec<Entity>>
+}
+
+impl VanillaEntity {
+
+    pub fn is_on_fire(&self) -> bool {
+        self.remaining_fire_ticks > 0
+    }
+
+}
+
+#[derive(Debug, Default)]
+pub struct LivingEntity {
+    // TODO: To implement: attributes, brain
+    /// Amount of health the entity has.
+    health: f32,
+    /// Number of ticks the mob turns red for after being hit. 0 when not recently hit.
+    hurt_time: u16,
+    /// The last time the mob was damaged, measured in the number of ticks since the mob's
+    /// creation. Updates to a new value whenever the mob is damaged.
+    hurt_timestamp: u32,
+    /// Number of ticks the mob has been dead for. Controls death animations. 0 when alive.
+    death_time: u16,
+    /// Amount of absorption health.
+    absorption_amount: f32,
+    /// True when the entity is flying elytra, setting this on player has no effect but this
+    /// can make mobs gliding.
+    fall_flying: bool,
+    /// Some position of the block where the entity is sleeping.
+    sleeping_pos: Option<BlockPos>,
 }
 
 #[derive(Debug, Default)]
 pub struct MobEntity {
     // TODO: To implement:
     //  - stuff
-    //  - brain
     //  - loot table
     //  - 'sadle' is intentionnaly ommited since it's really weird????
     /// True if the mob can pick up loot (wear armor it picks up, use weapons it picks up).
     can_pick_up_loot: bool,
-    /// Number of ticks the mob has been dead for. Controls death animations. 0 when alive.
-    death_time: u16,
-    /// True when the entity is flying elytra, setting this on player has no effect but this
-    /// can make mobs gliding.
-    fall_flying: bool,
-    /// Amount of health the entity has.
-    health: f32,
-    /// The last time the mob was damaged, measured in the number of ticks since the mob's
-    /// creation. Updates to a new value whenever the mob is damaged.
-    hurt_timestamp: u32,
-    /// Number of ticks the mob turns red for after being hit. 0 when not recently hit.
-    hurt_time: u16,
     /// Optional leash configuration for this entity.
     leash: Option<LeashConfig>,
     /// True if the mob renders the main hand as being left.
@@ -241,8 +259,6 @@ pub struct MobEntity {
     no_ai: bool,
     /// True if the mob must not despawn naturally.
     persistent: bool,
-    /// Some position of the block where the entity is sleeping.
-    sleeping_pos: Option<BlockPos>
 }
 
 #[derive(Debug, Default)]

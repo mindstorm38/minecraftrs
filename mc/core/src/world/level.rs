@@ -5,16 +5,17 @@ use std::collections::HashMap;
 use hecs::{
     World as EcsWorld,
     EntityBuilder, Entity,
-    Ref as EntityRef, RefMut as EntityRefMut
+    EntityRef
 };
 
 use uuid::Uuid;
 
+use crate::entity::{GlobalEntities, EntityType, EntityComponent};
 use crate::block::{GlobalBlocks, BlockState};
 use crate::biome::GlobalBiomes;
-use crate::entity::EntityType;
 use crate::util::OpaquePtr;
 use crate::pos::EntityPos;
+use crate::nbt::NbtExt;
 use crate::debug;
 
 use super::source::{LevelSource, LevelSourceBuilder, ChunkBuilder, LevelSourceError};
@@ -24,21 +25,25 @@ use super::chunk::{Chunk, ChunkHeight, ChunkResult, ChunkError};
 /// A structure that contains the static environment of a World, this can be used for multiple
 /// `Level`s through an `Arc<LevelEnv>`.
 pub struct LevelEnv {
-    /// Actual blocks register.
+    /// Global blocks palette.
     pub blocks: GlobalBlocks,
-    /// Actual biomes register.
-    pub biomes: GlobalBiomes
+    /// Global biomes palette.
+    pub biomes: GlobalBiomes,
+    /// Global entity types palette.
+    pub entities: GlobalEntities
 }
 
 impl LevelEnv {
 
     pub fn new(
         blocks: GlobalBlocks,
-        biomes: GlobalBiomes
+        biomes: GlobalBiomes,
+        entities: GlobalEntities
     ) -> Self {
         LevelEnv {
             blocks,
-            biomes
+            biomes,
+            entities
         }
     }
 
@@ -93,7 +98,8 @@ impl Level {
             },
             entities: EntityStorage {
                 ecs: EcsWorld::new(),
-                builder_cache: EntityBuilderCache::new()
+                builder: EntityBuilder::new()
+                //builder_cache: EntityBuilderCache::new()
             }
         }
 
@@ -241,8 +247,10 @@ impl ChunkStorage {
 pub struct EntityStorage {
     /// The ECS storing all entities in the level.
     pub ecs: EcsWorld,
-    /// Cached `EntityBuilder`s for each static entity type.
-    builder_cache: EntityBuilderCache
+    /// Internal entity builder kept
+    builder: EntityBuilder,
+    ///// Cached `EntityBuilder`s for each static entity type.
+    //builder_cache: EntityBuilderCache
 }
 
 impl EntityStorage {
@@ -255,7 +263,7 @@ impl EntityStorage {
     pub fn spawn_entity(&mut self, entity_type: &'static EntityType) {
         unsafe {
             let entity = self.spawn_entity_uninit(entity_type);
-            let identity = self.ecs.get_unchecked_mut::<EntityIdentity>(entity).unwrap();
+            let identity = self.ecs.get_unchecked_mut::<BaseEntity>(entity).unwrap();
             identity.uuid = Uuid::new_v4();
         }
     }
@@ -264,14 +272,21 @@ impl EntityStorage {
         self.ecs.despawn(entity).is_ok()
     }
 
-    pub fn get_entity_identity(&self, entity: Entity) -> EntityRef<EntityIdentity> {
-        self.ecs.get(entity).unwrap()
+    pub fn get_entity_ref(&self, entity: Entity) -> Option<EntityRef> {
+        self.ecs.entity(entity).ok()
     }
 
 }
 
+/// Base entity component, present in all entities of a level, must not be removed.
+pub struct BaseEntity {
+    pub entity_type: &'static EntityType,
+    pub uuid: Uuid,
+    pub pos: EntityPos,
+}
 
-struct EntityBuilderCache(HashMap<OpaquePtr<EntityType>, EntityBuilder>);
+
+/*struct EntityBuilderCache(HashMap<OpaquePtr<EntityType>, EntityBuilder>);
 
 impl EntityBuilderCache {
 
@@ -284,7 +299,7 @@ impl EntityBuilderCache {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
                 let mut builder = EntityBuilder::new();
-                builder.add(EntityIdentity {
+                builder.add(BaseEntity {
                     typ: entity_type,
                     uuid: Uuid::nil(),
                     pos: EntityPos::nil()
@@ -295,11 +310,46 @@ impl EntityBuilderCache {
         }
     }
 
-}
+}*/
 
 
-pub struct EntityIdentity {
-    typ: &'static EntityType,
-    uuid: Uuid,
-    pos: EntityPos,
-}
+/*/// An entity component serialization definition. This component is strict and will
+/// fail if any of the base tag is missing in the entity compound tag.
+pub static BASE_ENTITY_COMP: EntityComponent = EntityComponent {
+    encode: |src, dst| {
+        if let Some(comp) = src.get::<BaseEntity>() {
+            dst.insert_str("id", comp.typ.name);
+            dst.insert_uuid("UUID", comp.uuid.clone());
+            dst.insert_entity_pos("Pos", comp.pos.clone());
+        }
+    },
+    decode: |src, dst, palette| {
+
+        if let Ok(type_name) = src.get_str("id") {
+            if let Some(typ) = palette.get_entity_type(type_name) {
+                if let Ok(uuid) = src.get_uuid("UUID") {
+                    if let Ok(pos) = src.get_entity_pos("Pos") {
+
+                        dst.add(BaseEntity {
+                            typ,
+                            uuid,
+                            pos
+                        });
+
+                        Ok(())
+
+                    } else {
+                        Err("Missing a valid 'Pos'.".to_string())
+                    }
+                } else {
+                    Err("Missing a valid 'UUID'.".to_string())
+                }
+            } else {
+                Err(format!("Invalid entity type '{}'.", type_name))
+            }
+        } else {
+            Err("Missing 'id' for entity type id.".to_string())
+        }
+
+    }
+};*/

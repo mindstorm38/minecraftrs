@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::{UNIX_EPOCH, SystemTime};
 use std::num::Wrapping;
+use uuid::Uuid;
 
 
 const MULTIPLIER: Wrapping<i64> = Wrapping(0x5DEECE66D);
@@ -121,6 +122,12 @@ impl JavaRandom {
         let high = (self.next(26) as i64) << 27;
         let low = self.next(27) as i64;
         (high.wrapping_add(low) as f64) / DOUBLE_DIV
+    }
+
+    pub fn next_insecure_uuid(&mut self) -> Uuid {
+        let most = (self.next_long() & -61441) | 16384;
+        let least = (self.next_long() & 4611686018427387903) | i64::MIN;
+        Uuid::from_u128((most as u128) << 64 | (least as u128))
     }
 
 }

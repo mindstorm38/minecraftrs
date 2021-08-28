@@ -1,4 +1,4 @@
-use crate::rand::jrand::JavaRandom;
+use super::java::JavaRandom;
 use crate::math::{lerp, Cube};
 use std::cell::RefCell;
 

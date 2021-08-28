@@ -1,3 +1,4 @@
 pub mod region;
 pub mod source;
-pub mod serial;
+pub mod decode;
+pub mod encode;

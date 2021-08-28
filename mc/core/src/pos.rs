@@ -22,6 +22,11 @@ impl BlockPos {
     }
 
     #[inline]
+    pub fn into_array(&self) -> [i32; 3] {
+        [self.x, self.y, self.z]
+    }
+
+    #[inline]
     pub fn add(&self, dx: i32, dy: i32, dz: i32) -> Self {
         Self {
             x: self.x + dx,
@@ -82,6 +87,11 @@ impl EntityPos {
     #[inline]
     pub fn nil() -> Self {
         Self::new(0.0, 0.0, 0.0)
+    }
+
+    #[inline]
+    pub fn into_array(&self) -> [f64; 3] {
+        [self.x, self.y, self.z]
     }
 
 }

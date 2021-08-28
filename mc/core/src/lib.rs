@@ -22,10 +22,12 @@
 //!   Github:  https://github.com/mindstorm38/minecraftrs <br>
 //!   Author:  Théo Rozier
 
-pub mod math;
 pub mod rand;
 pub mod util;
+
+pub mod math;
 pub mod pos;
+pub mod nbt;
 
 pub mod biome;
 pub mod block;

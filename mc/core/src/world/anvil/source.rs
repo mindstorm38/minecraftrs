@@ -18,7 +18,7 @@ use crate::world::source::{
 use crate::debug;
 
 use super::region::{RegionFile, calc_region_pos};
-use super::serial::{decode_chunk_from_reader};
+use super::decode::{decode_chunk_from_reader};
 
 
 pub struct AnvilLevelSourceBuilder {

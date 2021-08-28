@@ -6,3 +6,4 @@ pub mod world;
 pub mod util;
 pub mod event;
 pub mod system;
+pub mod entity;

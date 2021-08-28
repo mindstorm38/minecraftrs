@@ -63,12 +63,16 @@ impl GlobalBiomes {
         }
     }
 
-    pub fn with_static(static_biomes: &[&'static Biome]) -> Result<Self, ()> {
+    /// A simple constructor to directly call `register_all` with given biomes slice.
+    pub fn with_all(slice: &[&'static Biome]) -> Result<Self, ()> {
         let mut biomes = Self::new();
-        biomes.register_static(static_biomes)?;
+        biomes.register_all(slice)?;
         Ok(biomes)
     }
 
+    /// Register a single biome to this palette, returns `Err` if no more save ID (SID) is
+    /// available, `Ok` is returned if successful, if a biome was already in the palette
+    /// it also returns `Ok`.
     pub fn register(&mut self, biome: &'static Biome) -> Result<(), ()> {
 
         let sid = self.next_sid;
@@ -85,13 +89,16 @@ impl GlobalBiomes {
 
     }
 
-    pub fn register_static(&mut self, static_biomes: &[&'static Biome]) -> Result<(), ()> {
-        let count = static_biomes.len();
+    /// An optimized way to call `register` multiple times for each given biome,
+    /// the returned follow the same rules as `register`, if an error happens, it
+    /// return without and previous added biomes are kept.
+    pub fn register_all(&mut self, slice: &[&'static Biome]) -> Result<(), ()> {
+        let count = slice.len();
         self.biome_to_sid.reserve(count);
         self.sid_to_biome.reserve(count);
         self.name_to_biome.reserve(count);
         self.id_to_biome.reserve(count);
-        for &biome in static_biomes {
+        for &biome in slice {
             self.register(biome)?;
         }
         Ok(())

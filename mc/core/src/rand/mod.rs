@@ -1,2 +1,2 @@
-pub mod jrand;
+pub mod java;
 pub mod noise;

@@ -3,14 +3,16 @@ use std::io::Read;
 
 use nbt::decode::{read_compound_tag, TagDecodeError};
 use nbt::{CompoundTag, Tag, CompoundTagError};
+use std::time::Instant;
 use thiserror::Error;
 
 use crate::world::chunk::{Chunk, ChunkStatus, SubChunk};
-use crate::world::level::LevelEnv;
+use crate::world::level::{LevelEnv, BaseEntity};
+use crate::entity::GlobalEntities;
 use crate::util::PackedIterator;
 use crate::block::BlockState;
 use crate::biome::Biome;
-use std::time::Instant;
+use crate::nbt::NbtExt;
 
 
 #[derive(Error, Debug)]
@@ -21,6 +23,8 @@ pub enum DecodeError {
     UnknownBlockProperty(String),
     #[error("Unknown biome ID: {0}")]
     UnknownBiome(i32),
+    #[error("Unknown entity type: {0}")]
+    UnknownEntityType(String),
     #[error("The NBT raw data cannot be decoded: {0}")]
     Nbt(#[from] TagDecodeError),
     #[error("The chunk's NBT structure is malformed and some fields are missing or are of the wrong type: {0}")]
@@ -36,26 +40,21 @@ impl<'a> From<CompoundTagError<'a>> for DecodeError {
 
 /// Decode the NBT data from a reader and delegate chunk decoding to `decode_chunk`.
 pub fn decode_chunk_from_reader(reader: &mut impl Read, chunk: &mut Chunk) -> Result<(), DecodeError> {
-    decode_chunk(read_compound_tag(reader)?, chunk)
+    decode_chunk(&read_compound_tag(reader)?, chunk)
 }
 
 /// Decode a chunk from its NBT data.
-pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeError> {
+pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeError> {
 
     let global_start = Instant::now();
 
-    let data_version = tag_root.get_i32("DataVersion")?;
+    // TODO: Use data version to apply data fixers
+    let _data_version = tag_root.get_i32("DataVersion")?;
     let tag_level = tag_root.get_compound_tag("Level")?;
 
-    let actual_cx = tag_level.get_i32("xPos")?;
-    let actual_cz = tag_level.get_i32("zPos")?;
-    let (cx, cz) = chunk.get_position();
-
-    if actual_cx != cx || actual_cz != cz {
-        return Err(DecodeError::Malformed(
-            format!("Incoherent position given by the chunk NBT, expected {}/{}, got {}/{}.",
-                    cx, cz, actual_cx, actual_cz)));
-    }
+    let cx = tag_level.get_i32("xPos")?;
+    let cz = tag_level.get_i32("zPos")?;
+    check_position(chunk, cx, cz)?;
 
     chunk.set_status(match tag_level.get_str("Status")? {
         "empty" => ChunkStatus::Empty,
@@ -125,6 +124,7 @@ pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
         },
         None => None
     };
+
     println!("time to process biomes: {}ms", start.elapsed().as_secs_f32() * 1000.0);
 
     // Sections
@@ -182,7 +182,7 @@ pub fn decode_chunk(tag_root: CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
 
 }
 
-
+/// Decode block state from a state compound tag.
 fn decode_block_state(tag_block: &CompoundTag, env: &LevelEnv) -> Result<&'static BlockState, DecodeError> {
 
     let block_name = tag_block.get_str("Name")?;
@@ -206,21 +206,60 @@ fn decode_block_state(tag_block: &CompoundTag, env: &LevelEnv) -> Result<&'stati
 
 }
 
+/// Decode chunk entities stored in there own files.
+fn decode_entities(tag_root: &CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeError> {
 
-fn encode_block_state(state: &'static BlockState) -> CompoundTag {
+    // TODO: Use data version to apply data fixers
+    let _data_version = tag_root.get_i32("DataVersion")?;
+    let tag_position = tag_root.get_i32_vec("Position")?;
 
-    let block = state.get_block();
-    let mut tag_block = CompoundTag::new();
-    tag_block.insert_str("Name", block.get_name());
-
-    if let Some(it) = state.iter_raw_states() {
-        let mut tag_props = CompoundTag::new();
-        for (name, value) in it {
-            tag_props.insert_str(name, value);
-        }
-        tag_block.insert_compound_tag("Properties", tag_props);
+    if tag_position.len() != 2 {
+        return Err(DecodeError::Malformed("Invalid 'Position', expected exactly two integers.".to_string()))
     }
 
-    tag_block
+    let cx = tag_position[0];
+    let cz = tag_position[1];
+    check_position(chunk, cx, cz)?;
 
+    let tag_entities = tag_root.get_compound_tag_vec("Entities")?;
+
+    // Common environment
+    let env = chunk.clone_env();
+
+    // Decode entities
+    for tag_entity in tag_entities {
+
+        let entity_id = tag_entity.get_str("id")?;
+
+        let entity_type = env.entities.get_entity_type(entity_id).ok_or_else(|| {
+            DecodeError::UnknownEntityType(entity_id.to_string())
+        })?;
+
+        let uuid = tag_entity.get_uuid("UUID")?;
+        let pos = tag_entity.get_entity_pos("Pos")?;
+
+        let base_entity = BaseEntity {
+            entity_type,
+            uuid,
+            pos
+        };
+
+
+
+    }
+
+    Ok(())
+
+}
+
+fn check_position(chunk: &Chunk, cx: i32, cz: i32) -> Result<(), DecodeError> {
+    let (expected_cx, expected_cz) = chunk.get_position();
+    if expected_cx != cx || expected_cz != cz {
+        Err(DecodeError::Malformed(
+            format!("Incoherent position given by the chunk NBT, expected {}/{}, got {}/{}.",
+                    expected_cx, expected_cz, cx, cz)
+        ))
+    } else {
+        Ok(())
+    }
 }

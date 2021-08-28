@@ -244,9 +244,10 @@ impl GlobalBlocks {
         }
     }
 
-    pub fn with_static(static_blocks: &[&'static Block]) -> Result<Self, ()> {
+    /// A simple constructor to directly call `register_all` with given blocks slice.
+    pub fn with_all(slice: &[&'static Block]) -> Result<Self, ()> {
         let mut blocks = Self::new();
-        blocks.register_static(static_blocks)?;
+        blocks.register_all(slice)?;
         Ok(blocks)
     }
 
@@ -277,11 +278,14 @@ impl GlobalBlocks {
 
     }
 
-    pub fn register_static(&mut self, static_blocks: &[&'static Block]) -> Result<(), ()> {
-        let count = static_blocks.len();
+    /// An optimized way to call `register` multiple times for each given block,
+    /// the returned follow the same rules as `register`, if an error happens, it
+    /// return without and previous added blocks are kept.
+    pub fn register_all(&mut self, slice: &[&'static Block]) -> Result<(), ()> {
+        let count = slice.len();
         self.block_to_sid.reserve(count);
         self.name_to_block.reserve(count);
-        for &block in static_blocks {
+        for &block in slice {
             self.register(block)?;
         }
         Ok(())

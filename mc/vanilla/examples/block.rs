@@ -9,7 +9,7 @@ fn main() {
     println!("==== LOADING STATES ====");
     let start = Instant::now();
     let mut blocks = GlobalBlocks::new();
-    blocks.register_static(&VANILLA_BLOCKS).unwrap();
+    blocks.register_all(&VANILLA_BLOCKS).unwrap();
     println!("Vanilla blocks registered in {}us", start.elapsed().as_micros());
     let blocks_count = blocks.blocks_count();
     let states_count = blocks.states_count();
