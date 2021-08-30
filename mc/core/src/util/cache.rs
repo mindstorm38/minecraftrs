@@ -1,40 +1,42 @@
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use std::ops::{Deref, DerefMut};
 
 
-pub struct TimedCache<T, const M: u64> {
+pub struct TimedCache<T> {
     value: T,
-    last_update: Instant
+    last_update: Instant,
+    lifetime: Duration
 }
 
-impl<T, const M: u64> TimedCache<T, M> {
+impl<T> TimedCache<T> {
 
-    pub fn new(value: T) -> Self {
+    pub fn new(value: T, lifetime: Duration) -> Self {
         Self {
             value,
-            last_update: Instant::now()
+            last_update: Instant::now(),
+            lifetime
         }
     }
 
-    pub fn refresh(&mut self) -> &mut Self {
+    pub fn cache_update(&mut self) -> &mut Self {
         self.last_update = Instant::now();
         self
     }
 
-    pub fn timedout(&self) -> bool {
+    pub fn is_cache_timed_out(&self) -> bool {
         self.last_update.elapsed().as_secs() >= M
     }
 
 }
 
-impl<T, const M: u64> Deref for TimedCache<T, M> {
+impl<T> Deref for TimedCache<T> {
     type Target = T;
     fn deref(&self) -> &T {
         &self.value
     }
 }
 
-impl<T, const M: u64> DerefMut for TimedCache<T, M> {
+impl<T> DerefMut for TimedCache<T> {
     fn deref_mut(&mut self) -> &mut T {
         &mut self.value
     }

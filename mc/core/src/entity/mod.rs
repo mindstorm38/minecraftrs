@@ -24,7 +24,9 @@ pub struct EntityComponent {
     /// If the tag does not provide required values, put default ones, and then add
     /// the component to the given `EntityBuilder`, if  the missing tags are critical,
     /// return an `Err` with a description of the error.
-    pub decode: fn(src: &CompoundTag, dst: &mut EntityBuilder, palette: &GlobalEntities) -> Result<(), String>
+    pub decode: fn(src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String>,
+    /// Create a default variant of this entity component.
+    pub default: fn(dst: &mut EntityBuilder),
 }
 
 

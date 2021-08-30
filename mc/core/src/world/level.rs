@@ -90,7 +90,6 @@ impl Level {
 
         Level {
             id,
-            env,
             height,
             source: Box::new(source.build(builder)),
             chunks: ChunkStorage {
@@ -98,9 +97,10 @@ impl Level {
             },
             entities: EntityStorage {
                 ecs: EcsWorld::new(),
+                env: Arc::clone(&env),
                 builder: EntityBuilder::new()
-                //builder_cache: EntityBuilderCache::new()
-            }
+            },
+            env,
         }
 
     }
@@ -245,27 +245,32 @@ impl ChunkStorage {
 
 
 pub struct EntityStorage {
+    /// Shared level environment.
+    env: Arc<LevelEnv>,
     /// The ECS storing all entities in the level.
     pub ecs: EcsWorld,
     /// Internal entity builder kept
     builder: EntityBuilder,
-    ///// Cached `EntityBuilder`s for each static entity type.
-    //builder_cache: EntityBuilderCache
 }
 
 impl EntityStorage {
 
-    fn spawn_entity_uninit(&mut self, entity_type: &'static EntityType) -> Entity {
-        let builder = self.builder_cache.ensure(entity_type);
-        self.ecs.spawn(builder.build())
-    }
+    /// Spawn an entity in the level owning this storage, you must give its type and position,
+    /// its handle is returned.
+    pub fn spawn_entity(&mut self, entity_type: &'static EntityType, pos: EntityPos) -> Entity {
 
-    pub fn spawn_entity(&mut self, entity_type: &'static EntityType) {
-        unsafe {
-            let entity = self.spawn_entity_uninit(entity_type);
-            let identity = self.ecs.get_unchecked_mut::<BaseEntity>(entity).unwrap();
-            identity.uuid = Uuid::new_v4();
+        self.builder.add(BaseEntity {
+            entity_type,
+            uuid: Uuid::new_v4(),
+            pos
+        });
+
+        for &component in entity_type.components {
+            (component.default)(&mut self.builder);
         }
+
+        self.ecs.spawn(self.builder.build())
+
     }
 
     pub fn remove_entity(&mut self, entity: Entity) -> bool {
@@ -284,72 +289,3 @@ pub struct BaseEntity {
     pub uuid: Uuid,
     pub pos: EntityPos,
 }
-
-
-/*struct EntityBuilderCache(HashMap<OpaquePtr<EntityType>, EntityBuilder>);
-
-impl EntityBuilderCache {
-
-    fn new() -> Self {
-        Self(HashMap::new())
-    }
-
-    fn ensure(&mut self, entity_type: &'static EntityType) -> &mut EntityBuilder {
-        match self.0.entry(OpaquePtr::new(entity_type)) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => {
-                let mut builder = EntityBuilder::new();
-                builder.add(BaseEntity {
-                    typ: entity_type,
-                    uuid: Uuid::nil(),
-                    pos: EntityPos::nil()
-                });
-                (entity_type.builder)(&mut builder);
-                v.insert(builder)
-            }
-        }
-    }
-
-}*/
-
-
-/*/// An entity component serialization definition. This component is strict and will
-/// fail if any of the base tag is missing in the entity compound tag.
-pub static BASE_ENTITY_COMP: EntityComponent = EntityComponent {
-    encode: |src, dst| {
-        if let Some(comp) = src.get::<BaseEntity>() {
-            dst.insert_str("id", comp.typ.name);
-            dst.insert_uuid("UUID", comp.uuid.clone());
-            dst.insert_entity_pos("Pos", comp.pos.clone());
-        }
-    },
-    decode: |src, dst, palette| {
-
-        if let Ok(type_name) = src.get_str("id") {
-            if let Some(typ) = palette.get_entity_type(type_name) {
-                if let Ok(uuid) = src.get_uuid("UUID") {
-                    if let Ok(pos) = src.get_entity_pos("Pos") {
-
-                        dst.add(BaseEntity {
-                            typ,
-                            uuid,
-                            pos
-                        });
-
-                        Ok(())
-
-                    } else {
-                        Err("Missing a valid 'Pos'.".to_string())
-                    }
-                } else {
-                    Err("Missing a valid 'UUID'.".to_string())
-                }
-            } else {
-                Err(format!("Invalid entity type '{}'.", type_name))
-            }
-        } else {
-            Err("Missing 'id' for entity type id.".to_string())
-        }
-
-    }
-};*/

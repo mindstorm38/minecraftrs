@@ -54,6 +54,9 @@ impl LevelSourceBuilder<AnvilLevelSource> for AnvilLevelSourceBuilder {
 }
 
 
+/// A level source that load chunks from anvil region files. This source internally use
+/// a threaded worker to avoid disk access durations overhead. Each opened region file
+/// remains opened for `REGIONS_CACHE_TIME` duration.
 pub struct AnvilLevelSource {
     request_sender: Sender<(i32, i32)>,
     result_receiver: Receiver<LevelSourcePollResult>
@@ -86,6 +89,7 @@ impl AnvilLevelSource {
 impl LevelSource for AnvilLevelSource {
 
     fn request_chunk_load(&mut self, cx: i32, cz: i32) -> LevelSourceResult<()> {
+        // SAFETY: Unwrap should be safe because the channel is unbounded.
         self.request_sender.send((cx, cz)).unwrap();
         Ok(())
     }
@@ -97,14 +101,14 @@ impl LevelSource for AnvilLevelSource {
 }
 
 
-const REGIONS_CACHE_TIME: u64 = 60;
+pub const REGIONS_CACHE_TIME: Duration = Duration::from_secs(60);
 
 struct Worker {
     regions_dir: PathBuf,
     chunk_builder: ChunkBuilder,
     request_receiver: Receiver<(i32, i32)>,
     result_sender: Sender<LevelSourcePollResult>,
-    regions: HashMap<(i32, i32), TimedCache<RegionFile, REGIONS_CACHE_TIME>>,
+    regions: HashMap<(i32, i32), TimedCache<RegionFile>>,
     last_cache_check: Instant
 }
 
@@ -142,7 +146,7 @@ impl Worker {
 
     fn run(mut self) {
 
-        static REQUEST_RECV_TIMEOUT: Duration = Duration::from_secs(REGIONS_CACHE_TIME / 2);
+        static REQUEST_RECV_TIMEOUT: Duration = REGIONS_CACHE_TIME / 2;
 
         loop {
 
@@ -169,12 +173,12 @@ impl Worker {
         let region_pos = calc_region_pos(cx, cz);
 
         let region = match self.regions.entry(region_pos) {
-            Entry::Occupied(o) => o.into_mut().refresh(),
+            Entry::Occupied(o) => o.into_mut().cache_update(),
             Entry::Vacant(v) => {
                 match RegionFile::new(self.regions_dir.clone(), region_pos.0, region_pos.1) {
                     Ok(region) => {
                         debug!("Region file opened at {}/{}", region_pos.0, region_pos.1);
-                        v.insert(TimedCache::new(region))
+                        v.insert(TimedCache::new(region, REGIONS_CACHE_TIME))
                     },
                     Err(err) => return Err(LevelSourceError::new_custom(err))
                 }
@@ -194,9 +198,9 @@ impl Worker {
     }
 
     fn check_cache(&mut self) {
-        if self.last_cache_check.elapsed().as_secs() >= REGIONS_CACHE_TIME {
+        if self.last_cache_check.elapsed() >= REGIONS_CACHE_TIME {
             self.regions.retain(|(rx, rz), region| {
-                if region.timedout() {
+                if region.is_cache_timed_out() {
                     debug!("Region file timed out at {}/{}", rx, rz);
                     false
                 } else {

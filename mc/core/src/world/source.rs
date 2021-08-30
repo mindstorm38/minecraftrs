@@ -29,6 +29,8 @@ pub type LevelSourceResult<T> = Result<T, LevelSourceError>;
 
 /// Type alias for the result when polling a chunk.
 pub type LevelSourcePollResult = ((i32, i32), LevelSourceResult<Chunk>);
+// TODO: Change result Ok type to a 'ProtoChunk'. This will be useful to
+//       actually decode entities in sync.
 
 
 /// Level loader trait to implement for each different loader such as
@@ -36,11 +38,16 @@ pub type LevelSourcePollResult = ((i32, i32), LevelSourceResult<Chunk>);
 /// save and load change in a chunk to avoid generating twice.
 pub trait LevelSource {
 
+    /// Request loading of the chunk at the given position. If you return `Ok(())` here you SHOULD
+    /// produce some `LevelSourcePollResult` in `poll_chunk` method, even if it's an error.
     #[allow(unused)]
     fn request_chunk_load(&mut self, cx: i32, cz: i32) -> LevelSourceResult<()> {
         Err(LevelSourceError::UnsupportedOperation("request_chunk_load"))
     }
 
+    /// Poll the next loaded chunk that is ready to be inserted into the level's chunk storage.
+    /// Every requested load chunk `request_chunk_load` method that returned `Ok(())` should
+    /// return some poll result here, even if it's an error.
     #[allow(unused)]
     fn poll_chunk(&mut self) -> Option<LevelSourcePollResult> {
         None
@@ -89,3 +96,7 @@ impl ChunkBuilder {
 /// Dummy chunk loader which do nothing.
 pub struct NullLevelSource;
 impl LevelSource for NullLevelSource {}
+
+
+
+pub struct

@@ -67,7 +67,7 @@ pub struct Chunk {
     cz: i32,
     /// The level environment with block and biomes global palettes.
     env: Arc<LevelEnv>,
-    /// The array of sub chunks, defined once with a specifica size depending on the height.
+    /// The array of sub chunks, defined once with a specific size depending on the height.
     sub_chunks: Vec<Option<SubChunk>>,
     /// The offset of the
     sub_chunks_offset: i8,

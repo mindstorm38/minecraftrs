@@ -1,3 +1,7 @@
+use crate::block::BlockState;
+use nbt::CompoundTag;
+
+
 fn encode_block_state(state: &'static BlockState) -> CompoundTag {
 
     let block = state.get_block();
