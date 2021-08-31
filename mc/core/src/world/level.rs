@@ -18,7 +18,7 @@ use crate::pos::EntityPos;
 use crate::nbt::NbtExt;
 use crate::debug;
 
-use super::source::{LevelSource, LevelSourceBuilder, ChunkBuilder, LevelSourceError};
+use super::source::{LevelSource, LevelSourceBuilder, ChunkInfo, LevelSourceError};
 use super::chunk::{Chunk, ChunkHeight, ChunkResult, ChunkError};
 
 
@@ -61,7 +61,6 @@ pub struct Level {
     env: Arc<LevelEnv>,
     /// The level loader used to load uncached chunks either from a generator or from an anvil file
     /// system loader.
-    /// TODO: Check if this can be moved to mc-runtime? Worth it?
     source: Box<dyn LevelSource>,
     /// The configured height of this level.
     height: ChunkHeight,
@@ -73,25 +72,18 @@ pub struct Level {
 
 impl Level {
 
-    pub fn new<S, B>(id: String, env: Arc<LevelEnv>, source: B) -> Self
+    pub fn new<S>(id: String, env: Arc<LevelEnv>, height: ChunkHeight, source: S) -> Self
     where
-        S: LevelSource + 'static,
-        B: LevelSourceBuilder<S>
+        S: LevelSource,
     {
 
         assert_ne!(env.blocks.states_count(), 0, "The given environment has no state, a level requires at least one block state.");
         assert_ne!(env.biomes.biomes_count(), 0, "The given environment has no biome, a level requires at least one biome.");
 
-        let height = source.get_height();
-        let builder = ChunkBuilder {
-            env: Arc::clone(&env),
-            height
-        };
-
         Level {
             id,
             height,
-            source: Box::new(source.build(builder)),
+            source: Box::new(source),
             chunks: ChunkStorage {
                 chunks: HashMap::new()
             },
@@ -126,7 +118,12 @@ impl Level {
     /// Request internal level source to load the given chunk.
     pub fn request_chunk(&mut self, cx: i32, cz: i32) -> bool {
         debug!("Request chunk load at {}/{}", cx, cz);
-        matches!(self.source.request_chunk_load(cx, cz), Ok(_))
+        matches!(self.source.request_chunk_load(ChunkInfo {
+            env: self.get_env(),
+            height: self.height,
+            cx,
+            cz
+        }), Ok(_))
     }
 
     /// Poll loaded chunks from internal level source, all successfully loaded chunks

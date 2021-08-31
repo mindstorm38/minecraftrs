@@ -1,6 +1,6 @@
 use std::thread::Builder as ThreadBuilder;
 use std::collections::hash_map::Entry;
-use std::io::{Result as IoResult};
+use std::io::{Result as IoResult, Read};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Instant, Duration};
@@ -12,59 +12,26 @@ use nbt::{CompoundTag, decode::read_gzip_compound_tag};
 use crate::world::chunk::{Chunk};
 use crate::util::TimedCache;
 use crate::world::source::{
-    LevelSource, LevelSourceError, LevelSourceResult, LevelSourcePollResult,
-    LevelSourceBuilder, ChunkBuilder
+    LevelSource, LevelSourceError, LevelSourceChunkLoadResult, LevelSourcePollResult,
+    LevelSourceBuilder, ChunkInfo
 };
 use crate::debug;
 
-use super::region::{RegionFile, calc_region_pos};
+use super::region::{RegionFile, RegionError, calc_region_pos};
 use super::decode::{decode_chunk_from_reader};
-
-
-pub struct AnvilLevelSourceBuilder {
-    dir: PathBuf,
-    metadata: CompoundTag
-}
-
-impl AnvilLevelSourceBuilder {
-
-    /// Build the builder for `AnvilLevelSource` from the level directory.
-    pub fn new<P: Into<PathBuf>>(dir: P) -> IoResult<Self> {
-
-        let dir = dir.into();
-        let mut file = File::open(dir.join("level.dat"))?;
-        let metadata = read_gzip_compound_tag(&mut file)
-            .expect("Invalid level.dat");  // TODO: Replace except with a new result type
-
-        Ok(Self {
-            dir,
-            metadata
-        })
-
-    }
-
-}
-
-impl LevelSourceBuilder<AnvilLevelSource> for AnvilLevelSourceBuilder {
-
-    fn build(self, chunk_builder: ChunkBuilder) -> AnvilLevelSource {
-        AnvilLevelSource::new(self.dir, chunk_builder)
-    }
-
-}
 
 
 /// A level source that load chunks from anvil region files. This source internally use
 /// a threaded worker to avoid disk access durations overhead. Each opened region file
 /// remains opened for `REGIONS_CACHE_TIME` duration.
 pub struct AnvilLevelSource {
-    request_sender: Sender<(i32, i32)>,
-    result_receiver: Receiver<LevelSourcePollResult>
+    request_sender: Sender<ChunkInfo>,
+    result_receiver: Receiver<Result<Chunk, (LevelSourceError, ChunkInfo)>>
 }
 
 impl AnvilLevelSource {
 
-    fn new(dir: PathBuf, chunk_builder: ChunkBuilder) -> Self {
+    pub fn new(dir: PathBuf) -> Self {
 
         let (
             request_sender,
@@ -73,7 +40,6 @@ impl AnvilLevelSource {
 
         let result_receiver = Worker::new(
             dir.join("region"),
-            chunk_builder,
             request_receiver
         );
 
@@ -88,13 +54,13 @@ impl AnvilLevelSource {
 
 impl LevelSource for AnvilLevelSource {
 
-    fn request_chunk_load(&mut self, cx: i32, cz: i32) -> LevelSourceResult<()> {
+    fn request_chunk_load(&mut self, info: ChunkInfo) -> Result<(), (LevelSourceError, ChunkInfo)> {
         // SAFETY: Unwrap should be safe because the channel is unbounded.
-        self.request_sender.send((cx, cz)).unwrap();
+        self.request_sender.send(info).unwrap();
         Ok(())
     }
 
-    fn poll_chunk(&mut self) -> Option<LevelSourcePollResult> {
+    fn poll_chunk(&mut self) -> Option<Result<Chunk, (LevelSourceError, ChunkInfo)>> {
         self.result_receiver.try_recv().ok()
     }
 
@@ -105,9 +71,8 @@ pub const REGIONS_CACHE_TIME: Duration = Duration::from_secs(60);
 
 struct Worker {
     regions_dir: PathBuf,
-    chunk_builder: ChunkBuilder,
-    request_receiver: Receiver<(i32, i32)>,
-    result_sender: Sender<LevelSourcePollResult>,
+    request_receiver: Receiver<ChunkInfo>,
+    result_sender: Sender<Result<Chunk, (LevelSourceError, ChunkInfo)>>,
     regions: HashMap<(i32, i32), TimedCache<RegionFile>>,
     last_cache_check: Instant
 }
@@ -117,8 +82,7 @@ impl Worker {
     /// Internal constructor for worker, you must give the regions directory, not level directory.
     fn new(
         regions_dir: PathBuf,
-        chunk_builder: ChunkBuilder,
-        request_receiver: Receiver<(i32, i32)>
+        request_receiver: Receiver<ChunkInfo>
     ) -> Receiver<LevelSourcePollResult> {
 
         let (
@@ -128,7 +92,6 @@ impl Worker {
 
         let worker = Self {
             regions_dir,
-            chunk_builder,
             request_receiver,
             result_sender,
             regions: HashMap::new(),
@@ -151,10 +114,10 @@ impl Worker {
         loop {
 
             match self.request_receiver.recv_timeout(REQUEST_RECV_TIMEOUT) {
-                Ok(pos) => {
-                    debug!("Received chunk load request for {}/{}", pos.0, pos.1);
-                    let chunk = self.load_chunk(pos.0, pos.1);
-                    if let Err(_) = self.result_sender.send((pos, chunk)) {
+                Ok(chunk_info) => {
+                    debug!("Received chunk load request for {}/{}", chunk_info.cx, chunk_info.cz);
+                    let chunk = self.load_chunk(chunk_info);
+                    if let Err(_) = self.result_sender.send(chunk) {
                         break
                     }
                 },
@@ -168,9 +131,9 @@ impl Worker {
 
     }
 
-    fn load_chunk(&mut self, cx: i32, cz: i32) -> LevelSourceResult<Chunk> {
+    fn load_chunk(&mut self, chunk_info: ChunkInfo) -> Result<Chunk, (LevelSourceError, ChunkInfo)> {
 
-        let region_pos = calc_region_pos(cx, cz);
+        let region_pos = calc_region_pos(chunk_info.cx, chunk_info.cz);
 
         let region = match self.regions.entry(region_pos) {
             Entry::Occupied(o) => o.into_mut().cache_update(),
@@ -180,20 +143,24 @@ impl Worker {
                         debug!("Region file opened at {}/{}", region_pos.0, region_pos.1);
                         v.insert(TimedCache::new(region, REGIONS_CACHE_TIME))
                     },
-                    Err(err) => return Err(LevelSourceError::new_custom(err))
+                    Err(RegionError::FileNotFound(_)) => return Err((LevelSourceError::UnsupportedChunkPosition, chunk_info)),
+                    Err(err) => return Err((LevelSourceError::new_custom(err), chunk_info))
                 }
             }
         };
 
-        let mut reader = region.get_chunk_reader(cx, cz)
-            .map_err(|err| LevelSourceError::new_custom(err))?;
+        let mut reader = match region.get_chunk_reader(cx, cz) {
+            Ok(reader) => reader,
+            Err(RegionError::EmptyChunk) => return Err((LevelSourceError::UnsupportedChunkPosition, chunk_info)),
+            Err(err) => return Err((LevelSourceError::new_custom(err), chunk_info))
+        };
 
-        let mut chunk = self.chunk_builder.build(cx, cz);
+        let mut chunk = chunk_info.build_chunk();
 
-        decode_chunk_from_reader(&mut reader, &mut chunk)
-            .map_err(|err| LevelSourceError::new_custom(err))?;
-
-        Ok(chunk)
+        match decode_chunk_from_reader(&mut reader, &mut chunk) {
+            Ok(_) => Ok(chunk),
+            Err(err) => Err((LevelSourceError::new_custom(err), chunk_info))
+        }
 
     }
 
