@@ -2,16 +2,11 @@
 //! The ECS components are basically NBT structures that can be found on the wiki:
 //! - https://minecraft.fandom.com/wiki/Entity_format
 
-use std::num::NonZeroU32;
-
-use mc_core::pos::{EntityPos, BlockPos};
-use mc_core::hecs::Entity;
-use mc_core::uuid::Uuid;
 use mc_core::entities;
-use mc_core::entity::EntityType;
 
 pub mod ai;
 
+mod common;
 mod snow_golem;
 mod iron_golem;
 mod parrot;
@@ -24,6 +19,7 @@ mod wolf;
 mod fish;
 mod pig;
 
+pub use common::*;
 pub use snow_golem::*;
 pub use iron_golem::*;
 pub use parrot::*;
@@ -39,11 +35,11 @@ pub use pig::*;
 
 macro_rules! vanilla_entities {
     ([
-        $($entity_id:ident $entity_name:literal [$($comp_construct:ty),*]),*
+        $($entity_id:ident $entity_name:literal [$($comp_id:ident),*]),*
         $(,)?
     ]) => {
         mc_core::entities!(pub VANILLA_ENTITIES "minecraft" [
-            $($entity_id $entity_name [VanillaEntity $(,$comp_construct)*]),*
+            $($entity_id $entity_name [VanillaEntity $(,$comp_id)*]),*
         ]);
     }
 }
@@ -166,157 +162,3 @@ vanilla_entities!([
     MARKER "marker" [],
     PAINTING "painting" [],
 ]);
-
-
-// Common components //
-
-#[derive(Debug, Default)]
-pub struct VanillaEntity {
-    /// The current dX, dY and dZ velocity of the entity in meters per tick.
-    motion: EntityPos,
-    /// The entity's rotation clockwise around the Y axis (called yaw). Due south is 0.
-    /// Does not exceed 360 degrees.
-    rotation_raw: f32,
-    /// The entity's declination from the horizon (called pitch). Horizontal is 0.
-    /// Positive values look downward. Does not exceed positive or negative 90 degrees.
-    rotation_pitch: f32,
-    /// How much air the entity has, in ticks. Decreases by 1 per tick when unable to breathe
-    /// (except suffocating in a block). Increase by 1 per tick when it can breathe. If -20
-    /// while still unable to breathe, the entity loses 1 health and its air is reset to 0.
-    air: i16,
-    /// Distance the entity has fallen.
-    fall_distance: f32,
-    /// The optional custom name JSON text component of this entity with a boolean
-    /// for the visibility of the custom name.
-    custom_name: Option<(String, bool)>, // TODO: Replace with a struct like "TextComponent".
-    /// List of scoreboard tags of this entity.
-    tags: Option<Vec<String>>,
-    /// True if the entity should not take damage.
-    invulnerable: bool,
-    /// True if the entity has a glowing outline.
-    glowing: bool,
-    /// If true, the entity does not fall down naturally.
-    no_gravity: bool,
-    /// True if the entity is touching the ground.
-    on_ground: bool,
-    /// If true, this entity is silenced.
-    silent: bool,
-    /// Number of ticks until the fire is put out. Negative values reflect how long the entity can
-    /// stand in fire before burning. Default -20 when not on fire.
-    remaining_fire_ticks: i16,
-    /// If true, the entity visually appears on fire, even if it is not actually on fire.
-    has_visual_fire: bool,
-    /// The number of ticks before which the entity may be teleported back through a nether portal.
-    portal_cooldown: u32,
-    /// How many ticks the entity has been freezing.
-    ticks_frozen: u32,
-    /// An optional ist of entities that are on top of this one.
-    passengers: Option<Vec<Entity>>
-}
-
-impl VanillaEntity {
-
-    pub fn is_on_fire(&self) -> bool {
-        self.remaining_fire_ticks > 0
-    }
-
-}
-
-#[derive(Debug, Default)]
-pub struct LivingEntity {
-    // TODO: To implement: attributes, brain
-    /// Amount of health the entity has.
-    health: f32,
-    /// Number of ticks the mob turns red for after being hit. 0 when not recently hit.
-    hurt_time: u16,
-    /// The last time the mob was damaged, measured in the number of ticks since the mob's
-    /// creation. Updates to a new value whenever the mob is damaged.
-    hurt_timestamp: u32,
-    /// Number of ticks the mob has been dead for. Controls death animations. 0 when alive.
-    death_time: u16,
-    /// Amount of absorption health.
-    absorption_amount: f32,
-    /// True when the entity is flying elytra, setting this on player has no effect but this
-    /// can make mobs gliding.
-    fall_flying: bool,
-    /// Some position of the block where the entity is sleeping.
-    sleeping_pos: Option<BlockPos>,
-}
-
-#[derive(Debug, Default)]
-pub struct MobEntity {
-    // TODO: To implement:
-    //  - stuff
-    //  - loot table
-    //  - 'sadle' is intentionnaly ommited since it's really weird????
-    /// True if the mob can pick up loot (wear armor it picks up, use weapons it picks up).
-    can_pick_up_loot: bool,
-    /// Optional leash configuration for this entity.
-    leash: Option<LeashConfig>,
-    /// True if the mob renders the main hand as being left.
-    left_handed: bool,
-    /// Setting to true disables the mob's AI.
-    no_ai: bool,
-    /// True if the mob must not despawn naturally.
-    persistent: bool,
-}
-
-#[derive(Debug, Default)]
-pub struct BreedableEntity {
-    age: Age,
-    love: Love
-}
-
-#[derive(Debug, Default)]
-pub struct TamableEntity {
-    /// Some uuid of the player who owns this mob.
-    owner: Option<Uuid>,
-    /// True if the mob is sitting.
-    sitting: bool
-}
-
-#[derive(Debug, Default)]
-pub struct AngryEntity {
-    anger_time: i32,
-    angry_at: Option<Uuid>
-}
-
-
-// Utilities for common entities //
-
-#[derive(Debug)]
-pub enum LeashConfig {
-    Entity(Uuid),
-    Fence(BlockPos)
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum Age {
-    Baby {
-        breed_cooldown_once_adult: Option<u32>
-    },
-    Adult {
-        breed_cooldown: u32
-    }
-}
-
-impl Default for Age {
-    fn default() -> Self {
-        Self::Baby { breed_cooldown_once_adult: None }
-    }
-}
-
-#[derive(Debug)]
-pub enum Love {
-    NotInLove,
-    InLove {
-        searching_cooldown: NonZeroU32,
-        cause: Uuid
-    }
-}
-
-impl Default for Love {
-    fn default() -> Self {
-        Self::NotInLove
-    }
-}

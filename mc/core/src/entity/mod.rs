@@ -1,44 +1,39 @@
 //! A tiny specific Entity Component System (ECS) for Minecraft entity ecosystem.
 
 use std::collections::HashMap;
-use std::any::TypeId;
+use crate::util::OpaquePtr;
 
-use once_cell::sync::Lazy;
-use hecs::{EntityBuilder, EntityRef};
-use nbt::CompoundTag;
-use uuid::Uuid;
+mod codec;
+pub use codec::*;
 
 
 /// A type for static definition of entity types.
 pub struct EntityType {
+    /// The namespaced name of this entity.
     pub name: &'static str,
-    pub builder: fn(&mut EntityBuilder),
-    pub components: &'static [&'static EntityComponent]
+    /// Default data components' codecs *(refer to `EntityCodec` doc)* specifications.
+    pub codecs: &'static [&'static EntityCodec]
 }
 
-pub struct EntityComponent {
-    /// A function called to encode an entity's component into a NBT compound tag.
-    /// You should get the component from the given `EntityRef`.
-    pub encode: fn(src: &EntityRef, dst: &mut CompoundTag),
-    /// A function called to decode an entity's component from a NBT compound tag.
-    /// If the tag does not provide required values, put default ones, and then add
-    /// the component to the given `EntityBuilder`, if  the missing tags are critical,
-    /// return an `Err` with a description of the error.
-    pub decode: fn(src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String>,
-    /// Create a default variant of this entity component.
-    pub default: fn(dst: &mut EntityBuilder),
+/// A trait to implement to component structures that support a codec, this is used by `entities!`
+/// macro.
+pub trait EntityComponent {
+    const CODEC: &'static EntityCodec;
 }
 
 
+/// The global entities palette used in level environment.
 pub struct GlobalEntities {
-    name_to_entity_type: HashMap<&'static str, &'static EntityType>
+    name_to_entity_type: HashMap<&'static str, &'static EntityType>,
+    entity_type_to_codecs: HashMap<OpaquePtr<EntityType>, Vec<&'static EntityCodec>>
 }
 
 impl GlobalEntities {
 
     pub fn new() -> Self {
         Self {
-            name_to_entity_type: HashMap::new()
+            name_to_entity_type: HashMap::new(),
+            entity_type_to_codecs: HashMap::new()
         }
     }
 
@@ -51,11 +46,20 @@ impl GlobalEntities {
 
     /// Register a single entity type to this palette.
     pub fn register(&mut self, entity_type: &'static EntityType) {
+
+        let default_codecs = entity_type.codecs.iter()
+            .copied()
+            .collect();
+
         self.name_to_entity_type.insert(entity_type.name, entity_type);
+        self.entity_type_to_codecs.insert(OpaquePtr::new(entity_type), default_codecs);
+
     }
 
     /// An optimized way to call `register` multiple times for each given entity type.
     pub fn register_all(&mut self, slice: &[&'static EntityType]) {
+        self.name_to_entity_type.reserve(slice.len());
+        self.entity_type_to_codecs.reserve(slice.len());
         for &entity_type in slice {
             self.register(entity_type);
         }
@@ -63,7 +67,26 @@ impl GlobalEntities {
 
     /// Get an entity type from its name.
     pub fn get_entity_type(&self, name: &str) -> Option<&'static EntityType> {
-        self.name_to_entity_type.get(name).cloned()
+        self.name_to_entity_type.get(name).copied()
+    }
+
+    pub fn get_codecs(&self, entity_type: &'static EntityType) -> Option<&Vec<&'static EntityCodec>> {
+        self.entity_type_to_codecs.get(&OpaquePtr::new(entity_type))
+    }
+
+    pub fn get_entity_type_and_codecs(&self, name: &str) -> Option<(&'static EntityType, &Vec<&'static EntityCodec>)> {
+        match self.name_to_entity_type.get(name) {
+            Some(&typ) => {
+                // SAFETY: Unwrap should be safe because every registered
+                //  entity type also adds a components vec.
+                Some((typ, self.entity_type_to_codecs.get(&OpaquePtr::new(typ)).unwrap()))
+            },
+            None => None
+        }
+    }
+
+    pub fn has_entity_type(&self, entity_type: &'static EntityType) -> bool {
+        self.entity_type_to_codecs.contains_key(&OpaquePtr::new(entity_type))
     }
 
     pub fn entity_types_count(&self) -> usize {
@@ -76,15 +99,13 @@ impl GlobalEntities {
 #[macro_export]
 macro_rules! entities {
     ($global_vis:vis $static_id:ident $namespace:literal [
-        $($entity_id:ident $entity_name:literal [$($comp_construct:ty),*]),*
+        $($entity_id:ident $entity_name:literal [$($component_struct:ident),*]),*
         $(,)?
     ]) => {
 
         $($global_vis static $entity_id: $crate::entity::EntityType = $crate::entity::EntityType {
             name: concat!($namespace, ':', $entity_name),
-            builder: |builder| {
-                $(builder.add(<$comp_construct>::default());)*
-            }
+            codecs: &[$(<$component_struct as $crate::entity::EntityComponent>::CODEC),*]
         };)*
 
         $global_vis static $static_id: [&'static $crate::entity::EntityType; $crate::count!($($entity_id)*)] = [

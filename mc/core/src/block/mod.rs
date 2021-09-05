@@ -122,25 +122,21 @@ impl Block {
 
         let block_ptr = NonNull::from(self);
 
-        unsafe {
-
-            match &mut storage {
-                BlockStorage::Single( state) => {
+        match &mut storage {
+            BlockStorage::Single( state) => {
+                state.set_block(block_ptr);
+            },
+            BlockStorage::Complex {
+                states,
+                /*default_state_index,*/ ..
+            } => {
+                for state in states {
                     state.set_block(block_ptr);
-                },
-                BlockStorage::Complex {
-                    states,
-                    default_state_index, ..
-                } => {
-                    for state in states {
-                        state.set_block(block_ptr);
-                    }
-                    /*if let Some(default_supplier) = default_supplier {
-                        *default_state_index = default_supplier(&states[0]).get_index() as usize;
-                    }*/
                 }
+                /*if let Some(default_supplier) = default_supplier {
+                    *default_state_index = default_supplier(&states[0]).get_index() as usize;
+                }*/
             }
-
         }
 
         storage

@@ -1,20 +1,13 @@
 use std::thread::Builder as ThreadBuilder;
 use std::collections::hash_map::Entry;
-use std::io::{Result as IoResult, Read};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::time::{Instant, Duration};
-use std::fs::File;
 
 use crossbeam_channel::{Sender, Receiver, RecvTimeoutError, unbounded, bounded};
-use nbt::{CompoundTag, decode::read_gzip_compound_tag};
 
-use crate::world::chunk::{Chunk};
+use crate::world::source::{LevelSource, LevelSourceError, ChunkInfo, ProtoChunk};
 use crate::util::TimedCache;
-use crate::world::source::{
-    LevelSource, LevelSourceError, LevelSourceChunkLoadResult, LevelSourcePollResult,
-    LevelSourceBuilder, ChunkInfo
-};
 use crate::debug;
 
 use super::region::{RegionFile, RegionError, calc_region_pos};
@@ -26,12 +19,12 @@ use super::decode::{decode_chunk_from_reader};
 /// remains opened for `REGIONS_CACHE_TIME` duration.
 pub struct AnvilLevelSource {
     request_sender: Sender<ChunkInfo>,
-    result_receiver: Receiver<Result<Chunk, (LevelSourceError, ChunkInfo)>>
+    result_receiver: Receiver<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>
 }
 
 impl AnvilLevelSource {
 
-    pub fn new(dir: PathBuf) -> Self {
+    pub fn new<P: AsRef<Path>>(dir: P) -> Self {
 
         let (
             request_sender,
@@ -39,7 +32,7 @@ impl AnvilLevelSource {
         ) = unbounded();
 
         let result_receiver = Worker::new(
-            dir.join("region"),
+            dir.as_ref().join("region"),
             request_receiver
         );
 
@@ -60,19 +53,20 @@ impl LevelSource for AnvilLevelSource {
         Ok(())
     }
 
-    fn poll_chunk(&mut self) -> Option<Result<Chunk, (LevelSourceError, ChunkInfo)>> {
+    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
         self.result_receiver.try_recv().ok()
     }
 
 }
 
 
-pub const REGIONS_CACHE_TIME: Duration = Duration::from_secs(60);
+const REGIONS_CACHE_TIME: Duration = Duration::from_secs(60);
+const REGIONS_REQUEST_RECV_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct Worker {
     regions_dir: PathBuf,
     request_receiver: Receiver<ChunkInfo>,
-    result_sender: Sender<Result<Chunk, (LevelSourceError, ChunkInfo)>>,
+    result_sender: Sender<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>,
     regions: HashMap<(i32, i32), TimedCache<RegionFile>>,
     last_cache_check: Instant
 }
@@ -83,7 +77,7 @@ impl Worker {
     fn new(
         regions_dir: PathBuf,
         request_receiver: Receiver<ChunkInfo>
-    ) -> Receiver<LevelSourcePollResult> {
+    ) -> Receiver<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
 
         let (
             result_sender,
@@ -109,11 +103,9 @@ impl Worker {
 
     fn run(mut self) {
 
-        static REQUEST_RECV_TIMEOUT: Duration = REGIONS_CACHE_TIME / 2;
-
         loop {
 
-            match self.request_receiver.recv_timeout(REQUEST_RECV_TIMEOUT) {
+            match self.request_receiver.recv_timeout(REGIONS_REQUEST_RECV_TIMEOUT) {
                 Ok(chunk_info) => {
                     debug!("Received chunk load request for {}/{}", chunk_info.cx, chunk_info.cz);
                     let chunk = self.load_chunk(chunk_info);
@@ -131,7 +123,7 @@ impl Worker {
 
     }
 
-    fn load_chunk(&mut self, chunk_info: ChunkInfo) -> Result<Chunk, (LevelSourceError, ChunkInfo)> {
+    fn load_chunk(&mut self, chunk_info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)> {
 
         let region_pos = calc_region_pos(chunk_info.cx, chunk_info.cz);
 
@@ -149,13 +141,15 @@ impl Worker {
             }
         };
 
-        let mut reader = match region.get_chunk_reader(cx, cz) {
+        let mut reader = match region.get_chunk_reader(chunk_info.cx, chunk_info.cz) {
             Ok(reader) => reader,
+            // If the chunk is empty, just return an unsupported chunk pos error, this is used to
+            // delegate to the generator in case of LoadOrGen source.
             Err(RegionError::EmptyChunk) => return Err((LevelSourceError::UnsupportedChunkPosition, chunk_info)),
             Err(err) => return Err((LevelSourceError::new_custom(err), chunk_info))
         };
 
-        let mut chunk = chunk_info.build_chunk();
+        let mut chunk = chunk_info.build_proto_chunk();
 
         match decode_chunk_from_reader(&mut reader, &mut chunk) {
             Ok(_) => Ok(chunk),

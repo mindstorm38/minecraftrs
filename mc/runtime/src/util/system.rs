@@ -1,7 +1,4 @@
-use std::cell::{RefCell, Ref, RefMut, BorrowError};
-use std::any::{TypeId, Any, type_name};
-use std::collections::HashMap;
-use thiserror::Error;
+use std::any::type_name;
 
 
 /// This structure is just a detailed wrapper of a function, with a name used

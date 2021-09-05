@@ -1,25 +1,30 @@
 //! This module defines some NBT utilities which extends the real NBT crate,
 //! named 'named-binary-tag'.
 
-use nbt::{CompoundTag, CompoundTagError, Tag};
+use nbt::{CompoundTag, CompoundTagError};
 use uuid::Uuid;
 
-use crate::pos::EntityPos;
+use crate::pos::{EntityPos, BlockPos};
 
 
 pub trait NbtExt {
 
-    fn insert_uuid(&mut self, name: impl ToString, value: Uuid);
+    fn insert_uuid(&mut self, name: impl ToString, value: &Uuid);
     fn get_uuid<'a>(&'a self, name: &'a str) -> Result<Uuid, CompoundTagError<'a>>;
 
-    fn insert_entity_pos(&mut self, name: impl ToString, value: EntityPos);
+    fn insert_entity_pos(&mut self, name: impl ToString, value: &EntityPos);
     fn get_entity_pos<'a>(&'a self, name: &'a str) -> Result<EntityPos, CompoundTagError<'a>>;
+
+    fn insert_split_block_pos(&mut self, x_name: impl ToString, y_name: impl ToString, z_name: impl ToString, value: &BlockPos);
+    fn get_split_block_pos<'a>(&'a self, x_name: &'a str, y_name: &'a str, z_name: &'a str) -> Result<BlockPos, CompoundTagError<'a>>;
+
+    fn get_string_vec<'a>(&'a self, name: &'a str) -> Result<Vec<String>, CompoundTagError<'a>>;
 
 }
 
 impl NbtExt for CompoundTag {
 
-    fn insert_uuid(&mut self, name: impl ToString, value: Uuid) {
+    fn insert_uuid(&mut self, name: impl ToString, value: &Uuid) {
         let mut uuid_values = Vec::with_capacity(4);
         let uuid_raw = value.as_u128();
         uuid_values[0] = ((uuid_raw >> 96) & 0xFFFFFFFF) as i32;
@@ -36,7 +41,7 @@ impl NbtExt for CompoundTag {
             uuid_raw |= (vec[0] as u32 as u128) << 96;
             uuid_raw |= (vec[1] as u32 as u128) << 64;
             uuid_raw |= (vec[2] as u32 as u128) << 32;
-            uuid_raw |= (vec[3] as u32 as u128);
+            uuid_raw |= vec[3] as u32 as u128;
             Ok(Uuid::from_u128(uuid_raw))
         } else {
             Err(CompoundTagError::TagWrongType {
@@ -46,7 +51,7 @@ impl NbtExt for CompoundTag {
         }
     }
 
-    fn insert_entity_pos(&mut self, name: impl ToString, value: EntityPos) {
+    fn insert_entity_pos(&mut self, name: impl ToString, value: &EntityPos) {
         self.insert_f64_vec(name, value.into_array());
     }
 
@@ -60,6 +65,27 @@ impl NbtExt for CompoundTag {
                 actual_tag: self.get(name).unwrap()
             })
         }
+    }
+
+    fn insert_split_block_pos(&mut self, x_name: impl ToString, y_name: impl ToString, z_name: impl ToString, value: &BlockPos) {
+        self.insert_i32(x_name, value.x);
+        self.insert_i32(y_name, value.y);
+        self.insert_i32(z_name, value.z);
+    }
+
+    fn get_split_block_pos<'a>(&'a self, x_name: &'a str, y_name: &'a str, z_name: &'a str) -> Result<BlockPos, CompoundTagError<'a>> {
+        let x = self.get_i32(x_name)?;
+        let y = self.get_i32(y_name)?;
+        let z = self.get_i32(z_name)?;
+        Ok(BlockPos::new(x, y, z))
+    }
+
+    fn get_string_vec<'a>(&'a self, name: &'a str) -> Result<Vec<String>, CompoundTagError<'a>> {
+        self.get_str_vec(name).map(|raw| {
+            raw.into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        })
     }
 
 }

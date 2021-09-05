@@ -67,7 +67,7 @@ impl GoalSelector {
 
     pub fn add_goal<G: Goal>(&mut self, priority: u16, goal: G) {
         self.available_goals.push(RuntimeGoal {
-            goal,
+            goal: Box::new(goal),
             type_id: TypeId::of::<G>(),
             priority,
             running: false
@@ -106,9 +106,9 @@ pub fn register_ai(world: &mut World) {
 /// A system that runs every entity implementing the component `AiEntity`.
 pub fn system_entity_ai(world: &mut World) {
 
-    let mut ai_state = world.get_component_mut::<AiState>()
+    /*let mut ai_state = world.get_component_mut::<AiState>()
         .expect("You must register an AiEntity component before.");
-
+    FIXME
     for level in &world.levels {
 
         let mut level = level.borrow_mut();
@@ -126,6 +126,6 @@ pub fn system_entity_ai(world: &mut World) {
 
         }
 
-    }
+    }*/
 
 }

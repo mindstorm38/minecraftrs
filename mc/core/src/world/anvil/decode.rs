@@ -1,18 +1,20 @@
+use std::time::Instant;
 use std::sync::Arc;
 use std::io::Read;
 
 use nbt::decode::{read_compound_tag, TagDecodeError};
 use nbt::{CompoundTag, Tag, CompoundTagError};
-use std::time::Instant;
+use hecs::EntityBuilder;
 use thiserror::Error;
 
-use crate::world::chunk::{Chunk, ChunkStatus, SubChunk};
+use crate::world::chunk::{ChunkStatus, SubChunk};
 use crate::world::level::{LevelEnv, BaseEntity};
+use crate::world::source::ProtoChunk;
 use crate::entity::GlobalEntities;
 use crate::util::PackedIterator;
 use crate::block::BlockState;
 use crate::biome::Biome;
-use crate::nbt::NbtExt;
+use crate::util::NbtExt;
 
 
 #[derive(Error, Debug)]
@@ -25,6 +27,8 @@ pub enum DecodeError {
     UnknownBiome(i32),
     #[error("Unknown entity type: {0}")]
     UnknownEntityType(String),
+    #[error("Malformed entity: {0}")]
+    MalformedEntity(String),
     #[error("The NBT raw data cannot be decoded: {0}")]
     Nbt(#[from] TagDecodeError),
     #[error("The chunk's NBT structure is malformed and some fields are missing or are of the wrong type: {0}")]
@@ -39,12 +43,12 @@ impl<'a> From<CompoundTagError<'a>> for DecodeError {
 
 
 /// Decode the NBT data from a reader and delegate chunk decoding to `decode_chunk`.
-pub fn decode_chunk_from_reader(reader: &mut impl Read, chunk: &mut Chunk) -> Result<(), DecodeError> {
+pub fn decode_chunk_from_reader(reader: &mut impl Read, chunk: &mut ProtoChunk) -> Result<(), DecodeError> {
     decode_chunk(&read_compound_tag(reader)?, chunk)
 }
 
 /// Decode a chunk from its NBT data.
-pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeError> {
+pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<(), DecodeError> {
 
     let global_start = Instant::now();
 
@@ -207,7 +211,7 @@ fn decode_block_state(tag_block: &CompoundTag, env: &LevelEnv) -> Result<&'stati
 }
 
 /// Decode chunk entities stored in there own files.
-fn decode_entities(tag_root: &CompoundTag, chunk: &mut Chunk) -> Result<(), DecodeError> {
+fn decode_entities(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<(), DecodeError> {
 
     // TODO: Use data version to apply data fixers
     let _data_version = tag_root.get_i32("DataVersion")?;
@@ -228,31 +232,55 @@ fn decode_entities(tag_root: &CompoundTag, chunk: &mut Chunk) -> Result<(), Deco
 
     // Decode entities
     for tag_entity in tag_entities {
-
-        let entity_id = tag_entity.get_str("id")?;
-
-        let entity_type = env.entities.get_entity_type(entity_id).ok_or_else(|| {
-            DecodeError::UnknownEntityType(entity_id.to_string())
-        })?;
-
-        let uuid = tag_entity.get_uuid("UUID")?;
-        let pos = tag_entity.get_entity_pos("Pos")?;
-
-        let base_entity = BaseEntity {
-            entity_type,
-            uuid,
-            pos
-        };
-
-
-
+        // TODO: Don't return err here, maybe make a softer abort?
+        decode_entity(tag_entity, &env.entities, chunk)?;
     }
 
     Ok(())
 
 }
 
-fn check_position(chunk: &Chunk, cx: i32, cz: i32) -> Result<(), DecodeError> {
+/// Internal function to decode an entity, optionally recursively if it have passengers.
+/// The function returns the index of the entity builder in the proto chunk, this is used
+/// to set entity passengers indices.
+fn decode_entity(tag_entity: &CompoundTag, entities: &GlobalEntities, chunk: &mut ProtoChunk) -> Result<usize, DecodeError> {
+
+    let entity_id = tag_entity.get_str("id")?;
+
+    let (entity_type, entity_codecs) = entities
+        .get_entity_type_and_codecs(entity_id)
+        .ok_or_else(|| {
+            DecodeError::UnknownEntityType(entity_id.to_string())
+        })?;
+
+    let uuid = tag_entity.get_uuid("UUID")?;
+    let pos = tag_entity.get_entity_pos("Pos")?;
+
+    let mut entity_builder = EntityBuilder::new();
+
+    for &entity_codec in entity_codecs {
+        // TODO: Don't return err here, maybe make a softer abort?
+        entity_codec.decode(tag_entity, &mut entity_builder).map_err(|msg| {
+            DecodeError::MalformedEntity(msg)
+        })?;
+    }
+
+    entity_builder.add(BaseEntity::new(entity_type, uuid, pos));
+
+    let proto_index = chunk.add_proto_entity(entity_builder);
+
+    if let Ok(tag_passengers) = tag_entity.get_compound_tag_vec("Passengers") {
+        for tag_passenger in tag_passengers {
+            let passenger_proto_index = decode_entity(tag_passenger, entities, chunk)?;
+            chunk.add_proto_entity_passengers(proto_index, passenger_proto_index);
+        }
+    }
+
+    Ok(proto_index)
+
+}
+
+fn check_position(chunk: &ProtoChunk, cx: i32, cz: i32) -> Result<(), DecodeError> {
     let (expected_cx, expected_cz) = chunk.get_position();
     if expected_cx != cx || expected_cz != cz {
         Err(DecodeError::Malformed(

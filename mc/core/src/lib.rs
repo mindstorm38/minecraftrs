@@ -22,12 +22,6 @@
 //!   Github:  https://github.com/mindstorm38/minecraftrs <br>
 //!   Author:  Théo Rozier
 
-pub mod rand;
-pub mod util;
-
-pub mod math;
-pub mod pos;
-pub mod nbt;
 
 pub mod biome;
 pub mod block;
@@ -35,6 +29,13 @@ pub mod item;
 pub mod entity;
 pub mod world;
 
-// Re-export 'hecs' and 'uuid' since it is widely used for entities.
+pub mod rand;
+pub mod util;
+
+pub mod math;
+pub mod pos;
+
+// Re-export 'hecs', 'uuid' & 'nbt' since it is widely used for entities.
 pub use hecs;
 pub use uuid;
+pub use nbt;

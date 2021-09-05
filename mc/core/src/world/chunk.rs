@@ -1,6 +1,8 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use thiserror::Error;
+use hecs::Entity;
 
 use crate::util::{PackedArray, Palette, cast_vec_ref_to_ptr};
 use crate::block::{BlockState};
@@ -75,7 +77,9 @@ pub struct Chunk {
     status: ChunkStatus,
     /// Total number of ticks players has been in this chunk, this increase faster when
     /// more players are in the chunk.
-    inhabited_time: u64
+    inhabited_time: u64,
+    /// A list of entity handles that are located in this vertical chunk.
+    entities: HashSet<Entity>
 }
 
 impl Chunk {
@@ -89,7 +93,8 @@ impl Chunk {
             status: ChunkStatus::Empty,
             sub_chunks: (0..height.len()).map(|_| None).collect(),
             sub_chunks_offset: height.min,
-            inhabited_time: 0
+            inhabited_time: 0,
+            entities: HashSet::new()
         }
 
     }
@@ -262,6 +267,23 @@ impl Chunk {
             .set_biome(x, (y & 15) as u8, z, biome)
     }
 
+    // ENTITIES //
+
+    #[inline]
+    pub unsafe fn add_entity_unchecked(&mut self, entity: Entity) {
+        self.entities.insert(entity);
+    }
+
+    #[inline]
+    pub unsafe fn remove_entity_unchecked(&mut self, entity: Entity) {
+        self.entities.remove(&entity);
+    }
+
+    #[inline]
+    pub fn has_entity(&self, entity: Entity) -> bool {
+        self.entities.contains(&entity)
+    }
+
 }
 
 
@@ -290,6 +312,7 @@ pub struct SubChunk {
     /// In case of "artificial chunks" made by players, the block palette is likely to overflow
     /// the 128 block states limit, in this case it switch to the global palette (`GlobalBlocks`
     /// in the level environment).
+    /// The palette uses a raw pointer in order to use the pointer equality instead of value eq.
     blocks_palette: Option<Palette<*const BlockState>>,
     /// Cube blocks array.
     blocks: PackedArray,
@@ -537,8 +560,10 @@ impl SubChunk {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ChunkHeight {
+    /// Inclusive lower bound.
     pub min: i8,
-    pub max: i8
+    /// Inclusive upper bound.
+    pub max: i8,
 }
 
 impl ChunkHeight {

@@ -2,24 +2,17 @@ use std::sync::{RwLock, Arc, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
-use hecs::{
-    World as EcsWorld,
-    EntityBuilder, Entity,
-    EntityRef
-};
-
+use hecs::{World as EcsWorld, EntityBuilder, Entity, EntityRef};
 use uuid::Uuid;
 
-use crate::entity::{GlobalEntities, EntityType, EntityComponent};
+use crate::entity::{GlobalEntities, EntityType};
 use crate::block::{GlobalBlocks, BlockState};
 use crate::biome::GlobalBiomes;
-use crate::util::OpaquePtr;
-use crate::pos::EntityPos;
-use crate::nbt::NbtExt;
+use crate::pos::{EntityPos, BlockPos};
 use crate::debug;
 
-use super::source::{LevelSource, LevelSourceBuilder, ChunkInfo, LevelSourceError};
 use super::chunk::{Chunk, ChunkHeight, ChunkResult, ChunkError};
+use super::source::{LevelSource, ChunkInfo, LevelSourceError, ProtoChunk};
 
 
 /// A structure that contains the static environment of a World, this can be used for multiple
@@ -74,7 +67,7 @@ impl Level {
 
     pub fn new<S>(id: String, env: Arc<LevelEnv>, height: ChunkHeight, source: S) -> Self
     where
-        S: LevelSource,
+        S: LevelSource + 'static,
     {
 
         assert_ne!(env.blocks.states_count(), 0, "The given environment has no state, a level requires at least one block state.");
@@ -89,7 +82,6 @@ impl Level {
             },
             entities: EntityStorage {
                 ecs: EcsWorld::new(),
-                env: Arc::clone(&env),
                 builder: EntityBuilder::new()
             },
             env,
@@ -133,17 +125,57 @@ impl Level {
     where
         F: FnMut((i32, i32, Result<&Arc<RwLock<Chunk>>, LevelSourceError>)),
     {
-        while let Some(((cx, cz), res)) = self.source.poll_chunk() {
+        while let Some(res) = self.source.poll_chunk() {
             match res {
-                Ok(mut chunk) => {
+                Ok(ProtoChunk {
+                    inner: mut chunk,
+                    mut entities
+                }) => {
+
+                    let (cx, cz) = chunk.get_position();
                     debug!("Loaded chunk at {}/{}", cx, cz);
+
+                    // This list retains all entity handles with the same order as proto chunk
+                    // entities data.
+                    let mut entities_handles = Vec::with_capacity(entities.len());
+
+                    // Then we only add entities without their passengers, but store their handles.
+                    for (entity_builder, _) in &mut entities {
+                        unsafe {
+                            let entity = self.entities.add_entity_unchecked(entity_builder);
+                            chunk.add_entity_unchecked(entity);
+                            entities_handles.push(entity);
+                        }
+                    }
+
+                    // Now that we have created all our entities, we can set passengers.
+                    for (i, (_, passengers)) in entities.into_iter().enumerate() {
+                        if let Some(passengers) = passengers {
+
+                            // Here we don't check is passengers is empty because ProtoChunk only
+                            // set 'Some' if there are passengers.
+
+                            // SAFETY: Unwrap is safe because the entity was just created with `BaseEntity` component.
+                            let mut base_entity = self.entities.ecs.get_mut::<BaseEntity>(entities_handles[i]).unwrap();
+                            let mut passengers_handles = Vec::with_capacity(passengers.len());
+
+                            for passenger_proto_index in passengers {
+                                passengers_handles.push(entities_handles[passenger_proto_index]);
+                            }
+
+                            base_entity.passengers = Some(passengers_handles);
+
+                        }
+                    }
+
                     callback((cx, cz, Ok(self.chunks.insert_chunk(chunk))));
+
                 },
-                Err(err) => {
+                Err((err, chunk_info)) => {
                     // IDE shows an error for 'Display' not being implemented, but we use the
                     // crate 'thiserror' to implement it through a custom derive.
-                    debug!("Failed to load chunk at {}/{}: {}", cx, cz, err);
-                    callback((cx, cz, Err(err)));
+                    debug!("Failed to load chunk at {}/{}: {}", chunk_info.cx, chunk_info.cz, err);
+                    callback((chunk_info.cx, chunk_info.cz, Err(err)));
                 }
             }
         }
@@ -166,6 +198,25 @@ impl Level {
     #[inline]
     pub fn get_entities_mut(&mut self) -> &mut EntityStorage {
         &mut self.entities
+    }
+
+    pub fn spawn_entity(&mut self, entity_type: &'static EntityType, pos: EntityPos) -> Option<Entity> {
+
+        if !self.env.entities.has_entity_type(entity_type) {
+            return None;
+        }
+
+        let chunk = self.chunks.get_chunk_at_block_mut(BlockPos::from(&pos));
+        let entity = unsafe { self.entities.spawn_entity_unchecked(entity_type, pos) };
+
+        if let Some(mut chunk) = chunk {
+            unsafe {
+                chunk.add_entity_unchecked(entity);
+            }
+        }
+
+        Some(entity)
+
     }
 
 }
@@ -206,24 +257,36 @@ impl ChunkStorage {
     }
 
     /// Get a mutable chunk reference at specific coordinates.
-    pub fn mut_chunk(&self, cx: i32, cz: i32) -> Option<RwLockWriteGuard<Chunk>> {
+    pub fn get_chunk_mut(&self, cx: i32, cz: i32) -> Option<RwLockWriteGuard<Chunk>> {
         self.chunks.get(&(cx, cz)).map(|arc| arc.write().unwrap())
     }
 
     /// Get a chunk reference at specific blocks coordinates.
+    #[inline]
     pub fn get_chunk_at(&self, x: i32, z: i32) -> Option<RwLockReadGuard<Chunk>> {
         self.get_chunk(x >> 4, z >> 4)
     }
 
     /// Get a mutable chunk reference at specific blocks coordinates.
-    pub fn mut_chunk_at(&self, x: i32, z: i32) -> Option<RwLockWriteGuard<Chunk>> {
-        self.mut_chunk(x >> 4, z >> 4)
+    #[inline]
+    pub fn get_chunk_at_mut(&self, x: i32, z: i32) -> Option<RwLockWriteGuard<Chunk>> {
+        self.get_chunk_mut(x >> 4, z >> 4)
+    }
+
+    #[inline]
+    pub fn get_chunk_at_block(&self, block_pos: BlockPos) -> Option<RwLockReadGuard<Chunk>> {
+        self.get_chunk_at(block_pos.x, block_pos.z)
+    }
+
+    #[inline]
+    pub fn get_chunk_at_block_mut(&self, block_pos: BlockPos) -> Option<RwLockWriteGuard<Chunk>> {
+        self.get_chunk_at_mut(block_pos.x, block_pos.z)
     }
 
     // BLOCKS //
 
     pub fn set_block_at(&self, x: i32, y: i32, z: i32, block: &'static BlockState) -> ChunkResult<()> {
-        if let Some(mut chunk) = self.mut_chunk_at(x, z) {
+        if let Some(mut chunk) = self.get_chunk_at_mut(x, z) {
             chunk.set_block_at(x, y, z, block)
         } else {
             Err(ChunkError::ChunkUnloaded)
@@ -242,8 +305,6 @@ impl ChunkStorage {
 
 
 pub struct EntityStorage {
-    /// Shared level environment.
-    env: Arc<LevelEnv>,
     /// The ECS storing all entities in the level.
     pub ecs: EcsWorld,
     /// Internal entity builder kept
@@ -253,21 +314,32 @@ pub struct EntityStorage {
 impl EntityStorage {
 
     /// Spawn an entity in the level owning this storage, you must give its type and position,
-    /// its handle is returned.
-    pub fn spawn_entity(&mut self, entity_type: &'static EntityType, pos: EntityPos) -> Entity {
+    /// its handle is returned. If the given entity type is not supported by the level's
+    /// environment, `None` is returned.
+    ///
+    /// # Safety:
+    /// This method is made for internal use because the entity type must be supported checked
+    /// to be supported by level's environment. The returned entity handle must also be added
+    /// in the the associated chunk if existing.
+    ///
+    /// # See:
+    /// Use `Level::spawn_entity` instead of this method if you want to avoid safety issues.
+    pub unsafe fn spawn_entity_unchecked(&mut self, entity_type: &'static EntityType, pos: EntityPos) -> Entity {
 
-        self.builder.add(BaseEntity {
-            entity_type,
-            uuid: Uuid::new_v4(),
-            pos
-        });
+        self.builder.add(BaseEntity::new(entity_type, Uuid::new_v4(), pos));
 
-        for &component in entity_type.components {
+        for &component in entity_type.codecs {
             (component.default)(&mut self.builder);
         }
 
         self.ecs.spawn(self.builder.build())
 
+    }
+
+    /// Add a raw entity from a builder, this method is unsafe because the caller must ensure
+    /// that the builder contains a `BaseEntity` component with an entity
+    pub unsafe fn add_entity_unchecked(&mut self, entity_builder: &mut EntityBuilder) -> Entity {
+        self.ecs.spawn(entity_builder.build())
     }
 
     pub fn remove_entity(&mut self, entity: Entity) -> bool {
@@ -285,4 +357,19 @@ pub struct BaseEntity {
     pub entity_type: &'static EntityType,
     pub uuid: Uuid,
     pub pos: EntityPos,
+    /// An optional list of entities that are on top of this one.
+    passengers: Option<Vec<Entity>>
+}
+
+impl BaseEntity {
+
+    pub fn new(entity_type: &'static EntityType, uuid: Uuid, pos: EntityPos) -> Self {
+        Self {
+            entity_type,
+            uuid,
+            pos,
+            passengers: None
+        }
+    }
+
 }

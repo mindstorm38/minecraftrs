@@ -24,7 +24,7 @@ impl<T> TimedCache<T> {
     }
 
     pub fn is_cache_timed_out(&self) -> bool {
-        self.last_update.elapsed().as_secs() >= M
+        self.last_update.elapsed() >= self.lifetime
     }
 
 }

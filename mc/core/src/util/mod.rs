@@ -5,12 +5,14 @@ mod packed;
 mod palette;
 mod cache;
 mod sync;
+mod nbt_ext;
 
 pub use cache::*;
 pub use packed::*;
 pub use palette::*;
 pub use sync::*;
 pub use version::*;
+pub use nbt_ext::NbtExt;
 
 
 pub unsafe fn cast_vec<Src, Dst>(src: Vec<Src>) -> Vec<Dst> {

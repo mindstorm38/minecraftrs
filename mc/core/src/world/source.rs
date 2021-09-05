@@ -1,12 +1,14 @@
 use std::collections::VecDeque;
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
+use hecs::EntityBuilder;
 use thiserror::Error;
 
 use super::chunk::{Chunk, ChunkHeight};
 use crate::world::level::LevelEnv;
 use crate::block::BlockState;
+use std::ops::{Deref, DerefMut};
 
 
 /// Common level source error.
@@ -14,8 +16,10 @@ use crate::block::BlockState;
 pub enum LevelSourceError {
     #[error("The required chunk position is not supported by the source.")]
     UnsupportedChunkPosition,
-    #[error("Returned by `LevelLoader` methods that does not support this operation: {0}.")]
-    UnsupportedOperation(&'static str),
+    #[error("Chunk loading is not supported by the targeted source.")]
+    UnsupportedChunkLoad,
+    #[error("Chunk saving is not supported by the targeted source.")]
+    UnsupportedChunkSave,
     #[error("Custom source error: {0}")]
     Custom(Box<dyn Error + Send>)
 }
@@ -37,15 +41,21 @@ pub trait LevelSource {
     /// `Ok(())` **you must** give a result later when calling `poll_chunk`.
     #[allow(unused)]
     fn request_chunk_load(&mut self, info: ChunkInfo) -> Result<(), (LevelSourceError, ChunkInfo)> {
-        Err((LevelSourceError::UnsupportedOperation("requesting chunk load is unsupported"), info))
+        Err((LevelSourceError::UnsupportedChunkLoad, info))
     }
 
     /// Poll the next loaded chunk that is ready to be inserted into the level's chunk storage.
     /// Every requested load chunk `request_chunk_load` method that returned `Ok(())` should
     /// return some some result here, even if it's an error.
     #[allow(unused)]
-    fn poll_chunk(&mut self) -> Option<Result<Chunk, (LevelSourceError, ChunkInfo)>> {
+    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
         None
+    }
+
+    /// Request saving of the chunk at the given position.
+    #[allow(unused)]
+    fn request_chunk_save(&mut self, chunk: Arc<RwLock<Chunk>>) -> Result<(), LevelSourceError> {
+        Err(LevelSourceError::UnsupportedChunkSave)
     }
 
 }
@@ -63,12 +73,59 @@ pub struct ChunkInfo {
 
 impl ChunkInfo {
 
-    /// Actually build a new chunk that is compatible with the level that
-    /// produced this chunk builder.
+    /// Build a chunk from this chunk info.
     pub fn build_chunk(&self) -> Chunk {
         Chunk::new(Arc::clone(&self.env), self.height, self.cx, self.cz)
     }
 
+    pub fn build_proto_chunk(&self) -> ProtoChunk {
+        ProtoChunk {
+            inner: self.build_chunk(),
+            entities: Vec::new()
+        }
+    }
+
+}
+
+
+/// A temporary chunk structure used to add entity builders that will be added to the level's ECS
+/// later in sync when the source actually returns it.
+pub struct ProtoChunk {
+    pub(super) inner: Chunk,
+    pub(super) entities: Vec<(EntityBuilder, Option<Vec<usize>>)>
+}
+
+impl ProtoChunk {
+
+    /// Add an entity builder to this proto chunk, this builder will be added to the level when
+    /// building the actual `Chunk`. **You must** ensure that this entity contains a `BaseEntity`
+    /// component with an `entity_type` supported by the level's environment.
+    ///
+    /// This method also return the index of this entity within the proto chunk, this can be
+    /// used to add passengers to this entity or make this entity ride another one.
+    pub fn add_proto_entity(&mut self, entity_builder: EntityBuilder) -> usize {
+        let idx = self.entities.len();
+        self.entities.push((entity_builder, None));
+        idx
+    }
+
+    pub fn add_proto_entity_passengers(&mut self, host_index: usize, passenger_index: usize) {
+        self.entities[host_index].1.get_or_insert_with(|| Vec::new()).push(passenger_index);
+    }
+
+}
+
+impl Deref for ProtoChunk {
+    type Target = Chunk;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for ProtoChunk {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
 
 
@@ -81,7 +138,7 @@ impl LevelSource for NullLevelSource {}
 /// no structure is generated.
 pub struct SuperFlatGenerator {
     layers: Vec<(&'static BlockState, i32, u32)>,
-    chunks: VecDeque<Chunk>
+    chunks: VecDeque<ProtoChunk>
 }
 
 impl SuperFlatGenerator {
@@ -98,7 +155,7 @@ impl SuperFlatGenerator {
     }
 
     /// Internal method to generate super-flat chunk.
-    fn generate_chunk(&self, chunk: &mut Chunk) {
+    fn generate_chunk(&self, chunk: &mut ProtoChunk) {
         for &(state, y, height) in &self.layers {
             for y in y..(y + height as i32) {
                 // TODO: This algorithm is not optimized, we can optimize it if we add
@@ -117,13 +174,13 @@ impl SuperFlatGenerator {
 impl LevelSource for SuperFlatGenerator {
 
     fn request_chunk_load(&mut self, info: ChunkInfo) -> Result<(), (LevelSourceError, ChunkInfo)> {
-        let mut chunk = info.build_chunk();
+        let mut chunk = info.build_proto_chunk();
         self.generate_chunk(&mut chunk);
         self.chunks.push_back(chunk);
         Ok(())
     }
 
-    fn poll_chunk(&mut self) -> Option<Result<Chunk, (LevelSourceError, ChunkInfo)>> {
+    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
         self.chunks.pop_front().map(|chunk| Ok(chunk))
     }
 
@@ -137,7 +194,7 @@ impl LevelSource for SuperFlatGenerator {
 /// are not supported by the loader (returned UnsupportedChunkPosition error).
 pub struct LoadOrGenLevelSource<L, G> {
     loader: L,
-    generator: L
+    generator: G
 }
 
 impl<L, G> LoadOrGenLevelSource<L, G>
@@ -176,7 +233,7 @@ where
         }
     }
 
-    fn poll_chunk(&mut self) -> Option<Result<Chunk, (LevelSourceError, ChunkInfo)>> {
+    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
 
         // We check the loader first.
         while let Some(res) = self.loader.poll_chunk() {

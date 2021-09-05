@@ -40,7 +40,7 @@ pub fn gen_seed() -> i64 {
     }
 }
 
-
+#[derive(Debug, Clone)]
 pub struct JavaRandom {
     seed: Wrapping<i64>
 }
