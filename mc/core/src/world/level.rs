@@ -329,7 +329,7 @@ impl EntityStorage {
         self.builder.add(BaseEntity::new(entity_type, Uuid::new_v4(), pos));
 
         for &component in entity_type.codecs {
-            (component.default)(&mut self.builder);
+            component.default(&mut self.builder);
         }
 
         self.ecs.spawn(self.builder.build())

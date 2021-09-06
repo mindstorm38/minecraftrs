@@ -12,20 +12,20 @@ pub struct EntityType {
     /// The namespaced name of this entity.
     pub name: &'static str,
     /// Default data components' codecs *(refer to `EntityCodec` doc)* specifications.
-    pub codecs: &'static [&'static EntityCodec]
+    pub codecs: &'static [&'static dyn EntityCodec]
 }
 
 /// A trait to implement to component structures that support a codec, this is used by `entities!`
 /// macro.
 pub trait EntityComponent {
-    const CODEC: &'static EntityCodec;
+    const CODEC: &'static dyn EntityCodec;
 }
 
 
 /// The global entities palette used in level environment.
 pub struct GlobalEntities {
     name_to_entity_type: HashMap<&'static str, &'static EntityType>,
-    entity_type_to_codecs: HashMap<OpaquePtr<EntityType>, Vec<&'static EntityCodec>>
+    entity_type_to_codecs: HashMap<OpaquePtr<EntityType>, Vec<&'static dyn EntityCodec>>
 }
 
 impl GlobalEntities {
@@ -70,11 +70,11 @@ impl GlobalEntities {
         self.name_to_entity_type.get(name).copied()
     }
 
-    pub fn get_codecs(&self, entity_type: &'static EntityType) -> Option<&Vec<&'static EntityCodec>> {
+    pub fn get_codecs(&self, entity_type: &'static EntityType) -> Option<&Vec<&'static dyn EntityCodec>> {
         self.entity_type_to_codecs.get(&OpaquePtr::new(entity_type))
     }
 
-    pub fn get_entity_type_and_codecs(&self, name: &str) -> Option<(&'static EntityType, &Vec<&'static EntityCodec>)> {
+    pub fn get_entity_type_and_codecs(&self, name: &str) -> Option<(&'static EntityType, &Vec<&'static dyn EntityCodec>)> {
         match self.name_to_entity_type.get(name) {
             Some(&typ) => {
                 // SAFETY: Unwrap should be safe because every registered

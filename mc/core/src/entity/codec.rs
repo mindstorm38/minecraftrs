@@ -1,10 +1,12 @@
 //! Codec basics for ECS entities' components.
 
-use hecs::{EntityRef, EntityBuilder};
+use std::marker::PhantomData;
+
+use hecs::{EntityRef, EntityBuilder, Component};
 use nbt::CompoundTag;
 
 
-/// This structure describes a specific way of encoding, decoding and building a default variant
+/*/// This structure describes a specific way of encoding, decoding and building a default variant
 /// of a component structure for an entity. This structure can be and must be defined statically
 /// because most functions take a static lifetime reference.
 ///
@@ -53,4 +55,62 @@ macro_rules! default_entity_codec {
             }
         }
     };
+}*/
+
+
+/// This trait describes a specific way of encoding, decoding and building a default variant
+/// of a component structure for an entity. This trait should usually be implemented for each
+/// component of an entity, however because it doesn't provide any type restriction you can
+/// encode, decode and add whatever default value you want.
+///
+/// Structures implementing this trait can be zero-sized and defined statically, doing this
+/// allows you to make `&'static dyn EntityCodec` references that can be used as constants to
+/// define default codecs for an entity component structure.
+pub trait EntityCodec: Send + Sync {
+
+    /// Encode components stored accessible from the given entity reference into given destination
+    /// compound tag.
+    #[allow(unused_variables)]
+    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// Decode given source compound tag and add decoded components into the given entity builder.
+    #[allow(unused_variables)]
+    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// Add default components to the given entity builder.
+    #[allow(unused_variables)]
+    fn default(&self, dst: &mut EntityBuilder);
+
 }
+
+
+/// A useful structure that implements the method `EntityCodec::default` and add to the given
+/// builder the `Default:default()` value of the generic type `T`. Actually, `EntityCodec` is
+/// only implemented when your type `T` is `Default + Component`. This bound cannot be defined
+/// in the structure definition for now because it would not be possible to define it statically.
+pub struct DefaultEntityCodec<T>(PhantomData<*const T>);
+unsafe impl<T> Send for DefaultEntityCodec<T> {}
+unsafe impl<T> Sync for DefaultEntityCodec<T> {}
+
+impl<T> DefaultEntityCodec<T> {
+    pub const fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T> EntityCodec for DefaultEntityCodec<T>
+where
+    T: Default + Component
+{
+
+    fn default(&self, dst: &mut EntityBuilder) {
+        dst.add(<T as Default>::default());
+    }
+
+}
+
+pub static VANILLA_ENTITY_CODEC_REF: &'static dyn EntityCodec = &DefaultEntityCodec::<usize>::new();

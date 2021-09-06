@@ -4,7 +4,7 @@ pub struct RabbitEntity {
     variant: RabbitVariant
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum RabbitVariant {
     Brown,
     White,
@@ -25,17 +25,32 @@ impl Default for RabbitVariant {
 impl RabbitVariant {
 
     pub fn get_id(self) -> u8 {
+        use RabbitVariant::*;
         match self {
-            RabbitVariant::Brown => 0,
-            RabbitVariant::White => 1,
-            RabbitVariant::Black => 2,
-            RabbitVariant::BlackAndWhite => 3,
-            RabbitVariant::Gold => 4,
-            RabbitVariant::SaltAndPepper => 5,
-            RabbitVariant::TheKillerBunny => 99,
+            Brown => 0,
+            White => 1,
+            Black => 2,
+            BlackAndWhite => 3,
+            Gold => 4,
+            SaltAndPepper => 5,
+            TheKillerBunny => 99,
             // Actually not saved because it depends on the custom name.
             // Might be useless here as a distinct variant.
-            RabbitVariant::Toast => u8::MAX
+            Toast => u8::MAX
+        }
+    }
+
+    pub fn from_id(id: u8) -> Self {
+        use RabbitVariant::*;
+        match id {
+            0 => Brown,
+            1 => White,
+            2 => Black,
+            3 => BlackAndWhite,
+            4 => Gold,
+            5 => SaltAndPepper,
+            99 => TheKillerBunny,
+            _ => Self::default()
         }
     }
 

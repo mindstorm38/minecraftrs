@@ -1,7 +1,10 @@
-use mc_core::entity::{EntityComponent, EntityCodec};
-use mc_core::default_entity_codec;
-use crate::util::DyeColor;
 use std::env::var;
+
+use mc_core::entity::{EntityComponent, EntityCodec, DefaultEntityCodec};
+use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::nbt::CompoundTag;
+
+use crate::util::DyeColor;
 
 
 #[derive(Debug, Default)]
@@ -11,36 +14,43 @@ pub struct FishEntity {
 }
 
 impl EntityComponent for FishEntity {
-    const CODEC: &'static EntityCodec = &EntityCodec {
-        encode: |src, dst| {
-            if let Some(comp) = src.get::<FishEntity>() {
-                dst.insert_bool("FromBucket", comp.from_bucket);
-            }
-            Ok(())
-        },
-        decode: |src, dst| {
-            dst.add(FishEntity {
-                from_bucket: src.get_bool("FromBucket").unwrap_or_default()
-            });
-            Ok(())
-        },
-        default: |dst| {
-            dst.add(FishEntity::default());
+    const CODEC: &'static dyn EntityCodec = &FishEntityCodec;
+}
+
+pub struct FishEntityCodec;
+impl EntityCodec for FishEntityCodec {
+
+    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
+        if let Some(comp) = src.get::<FishEntity>() {
+            dst.insert_bool("FromBucket", comp.from_bucket);
         }
-    };
+        Ok(())
+    }
+
+    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+        dst.add(FishEntity {
+            from_bucket: src.get_bool("FromBucket").unwrap_or_default()
+        });
+        Ok(())
+    }
+
+    fn default(&self, dst: &mut EntityBuilder) {
+        dst.add(FishEntity::default());
+    }
+
 }
 
 
 #[derive(Debug, Default)]
 pub struct SalmonEntity;
 impl EntityComponent for SalmonEntity {
-    const CODEC: &'static EntityCodec = &default_entity_codec!(SalmonEntity);
+    const CODEC: &'static dyn EntityCodec = &DefaultEntityCodec::<SalmonEntity>::new();
 }
 
 #[derive(Debug, Default)]
 pub struct CodEntity;
 impl EntityComponent for CodEntity {
-    const CODEC: &'static EntityCodec = &default_entity_codec!(CodEntity);
+    const CODEC: &'static dyn EntityCodec = &DefaultEntityCodec::<CodEntity>::new();
 }
 
 #[derive(Debug, Default)]
@@ -49,31 +59,38 @@ pub struct PufferfishEntity {
 }
 
 impl EntityComponent for PufferfishEntity {
-    const CODEC: &'static EntityCodec = &EntityCodec {
-        encode: |src, dst| {
-            if let Some(comp) = src.get::<PufferfishEntity>() {
-                dst.insert_i32("PuffState", match (*comp).state {
-                    PuffState::HalfwayPuffedUp => 1,
-                    PuffState::FullyPuffedUp => 2,
-                    _ => 0
-                });
-            }
-            Ok(())
-        },
-        decode: |src, dst| {
-            dst.add(PufferfishEntity {
-                state: match src.get_i32("PuffState").unwrap_or_default() {
-                    1 => PuffState::HalfwayPuffedUp,
-                    2 => PuffState::FullyPuffedUp,
-                    _ => PuffState::Deflated
-                }
+    const CODEC: &'static dyn EntityCodec = &PufferfishEntityCodec;
+}
+
+pub struct PufferfishEntityCodec;
+impl EntityCodec for PufferfishEntityCodec {
+
+    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
+        if let Some(comp) = src.get::<PufferfishEntity>() {
+            dst.insert_i32("PuffState", match (*comp).state {
+                PuffState::HalfwayPuffedUp => 1,
+                PuffState::FullyPuffedUp => 2,
+                _ => 0
             });
-            Ok(())
-        },
-        default: |dst| {
-            dst.add(PufferfishEntity::default());
         }
-    };
+        Ok(())
+    }
+
+    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+        dst.add(PufferfishEntity {
+            state: match src.get_i32("PuffState").unwrap_or_default() {
+                1 => PuffState::HalfwayPuffedUp,
+                2 => PuffState::FullyPuffedUp,
+                _ => PuffState::Deflated
+            }
+        });
+        Ok(())
+    }
+
+    fn default(&self, dst: &mut EntityBuilder) {
+        dst.add(PufferfishEntity::default());
+    }
+
 }
 
 #[derive(Debug, Default)]
@@ -104,37 +121,44 @@ impl TropicalFishEntity {
 }
 
 impl EntityComponent for TropicalFishEntity {
-    const CODEC: &'static EntityCodec = &EntityCodec {
-        encode: |src, dst| {
-            if let Some(comp) = src.get::<TropicalFishEntity>() {
-                dst.insert_i32("Variant", comp.encode_variant() as i32);
-            }
-            Ok(())
-        },
-        decode: |src, dst| {
-            if let Ok(encoded_variant) = src.get_i32("Variant") {
+    const CODEC: &'static dyn EntityCodec = &TropicalFishEntityCodec;
+}
 
-                let (
-                    pattern,
-                    body_color,
-                    pattern_color
-                ) = TropicalFishEntity::decode_variant(encoded_variant as u32);
+pub struct TropicalFishEntityCodec;
+impl EntityCodec for TropicalFishEntityCodec {
 
-                dst.add(TropicalFishEntity {
-                    pattern,
-                    body_color,
-                    pattern_color
-                });
+    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
+        if let Some(comp) = src.get::<TropicalFishEntity>() {
+            dst.insert_i32("Variant", comp.encode_variant() as i32);
+        }
+        Ok(())
+    }
 
-            } else {
-                dst.add(TropicalFishEntity::default());
-            }
-            Ok(())
-        },
-        default: |dst| {
+    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+        if let Ok(encoded_variant) = src.get_i32("Variant") {
+
+            let (
+                pattern,
+                body_color,
+                pattern_color
+            ) = TropicalFishEntity::decode_variant(encoded_variant as u32);
+
+            dst.add(TropicalFishEntity {
+                pattern,
+                body_color,
+                pattern_color
+            });
+
+        } else {
             dst.add(TropicalFishEntity::default());
         }
-    };
+        Ok(())
+    }
+
+    fn default(&self, dst: &mut EntityBuilder) {
+        dst.add(TropicalFishEntity::default());
+    }
+
 }
 
 // Utils //
