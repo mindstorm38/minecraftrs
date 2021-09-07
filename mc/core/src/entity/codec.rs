@@ -2,60 +2,8 @@
 
 use std::marker::PhantomData;
 
-use hecs::{EntityRef, EntityBuilder, Component};
+use hecs::{Component, EntityBuilder, EntityRef};
 use nbt::CompoundTag;
-
-
-/*/// This structure describes a specific way of encoding, decoding and building a default variant
-/// of a component structure for an entity. This structure can be and must be defined statically
-/// because most functions take a static lifetime reference.
-///
-/// Components that can be encoded and decoded are called "data components", in opposition to
-/// "runtime components" that are not saved when saving the world and are just
-pub struct EntityCodec {
-    /// A function called to encode an entity's component into a NBT compound tag.
-    /// You should get the component from the given `EntityRef`.
-    pub encode: fn(src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String>,
-    /// A function called to decode an entity's component from a NBT compound tag.
-    /// If the tag does not provide required values, put default ones, and then add
-    /// the component to the given `EntityBuilder`, if  the missing tags are critical,
-    /// return an `Err` with a description of the error.
-    pub decode: fn(src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String>,
-    /// Create a default variant of this entity component.
-    pub default: fn(dst: &mut EntityBuilder),
-}
-
-impl EntityCodec {
-
-    pub fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        (self.encode)(src, dst)
-    }
-
-    pub fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        (self.decode)(src, dst)
-    }
-
-}
-
-#[allow(unused_variables)]
-pub fn encode_noop(src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> { Ok(()) }
-
-#[allow(unused_variables)]
-pub fn decode_noop(src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> { Ok(()) }
-
-
-#[macro_export]
-macro_rules! default_entity_codec {
-    ($type_with_default:ty) => {
-        $crate::entity::EntityCodec {
-            encode: $crate::entity::encode_noop,
-            decode: $crate::entity::decode_noop,
-            default: |dst| {
-                dst.add(<$type_with_default as Default>::default());
-            }
-        }
-    };
-}*/
 
 
 /// This trait describes a specific way of encoding, decoding and building a default variant
@@ -70,20 +18,55 @@ pub trait EntityCodec: Send + Sync {
 
     /// Encode components stored accessible from the given entity reference into given destination
     /// compound tag.
-    #[allow(unused_variables)]
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        Ok(())
-    }
+    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String>;
 
     /// Decode given source compound tag and add decoded components into the given entity builder.
-    #[allow(unused_variables)]
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String>;
+
+    /// Add default components to the given entity builder.
+    fn default(&self, dst: &mut EntityBuilder);
+
+}
+
+
+/// This trait is a simpler specification of `EntityCodec` with the restriction of allowing only
+/// one component (implementing `hecs::Component`) to be encoded or decoded. The component type
+/// also have to implement `Default` to provide a default `EntityCodec::default` implementation.
+///
+/// Implementing this trait automatically means that you are implementing `EntityCodec` on `Self`,
+/// with `encode`, `decode` and `default` automatically defined to delegate to this trait.
+pub trait SingleEntityCodec {
+
+    /// Component type, an associated type is used to allow only on implementation per codec struct.
+    type Comp: Default + Component;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag);
+    fn decode(&self, src: &CompoundTag) -> Self::Comp;
+
+}
+
+impl<C, D> EntityCodec for C
+where
+    C: Send + Sync,
+    C: SingleEntityCodec<Comp=D>,
+    D: Default + Component
+{
+
+    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
+        if let Some(comp) = src.get::<D>() {
+            <Self as SingleEntityCodec>::encode(self, &*comp, dst);
+        }
         Ok(())
     }
 
-    /// Add default components to the given entity builder.
-    #[allow(unused_variables)]
-    fn default(&self, dst: &mut EntityBuilder);
+    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+        dst.add(<Self as SingleEntityCodec>::decode(self, src));
+        Ok(())
+    }
+
+    fn default(&self, dst: &mut EntityBuilder) {
+        dst.add(D::default());
+    }
 
 }
 
@@ -102,10 +85,19 @@ impl<T> DefaultEntityCodec<T> {
     }
 }
 
+#[allow(unused_variables)]
 impl<T> EntityCodec for DefaultEntityCodec<T>
 where
     T: Default + Component
 {
+
+    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+        Ok(())
+    }
 
     fn default(&self, dst: &mut EntityBuilder) {
         dst.add(<T as Default>::default());
@@ -113,4 +105,21 @@ where
 
 }
 
-pub static VANILLA_ENTITY_CODEC_REF: &'static dyn EntityCodec = &DefaultEntityCodec::<usize>::new();
+
+/// A null codec, this codec make nothing and can be used as a temporary placeholder.
+pub struct NullEntityCodec;
+
+#[allow(unused_variables)]
+impl EntityCodec for NullEntityCodec {
+
+    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn default(&self, dst: &mut EntityBuilder) { }
+
+}

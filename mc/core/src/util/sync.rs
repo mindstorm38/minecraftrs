@@ -2,9 +2,9 @@ use std::hash::{Hash, Hasher};
 
 
 /// This structure can be used to store a statically bound reference `&'static T` in a
-/// safe wrapper that also implements `Send` and `Sync`. These are implemented because
-/// the content cannot be recovered after the construction, and also because the pointer
-/// has a static lifetime.
+/// safe wrapper that also implements `Send` and `Sync`. These traits are implemented
+/// because the content cannot be recovered after the construction, and also because
+/// the pointer has a static lifetime.
 ///
 /// This opaque pointer also implements `Hash` and `Eq` to be usable as a map key.
 #[repr(transparent)]

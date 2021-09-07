@@ -114,3 +114,33 @@ macro_rules! entities {
 
     };
 }
+
+
+/*
+Check if it's doable
+macro_rules! def_entity_component {
+    (
+        $(#[$met:meta])?
+        #[codec($codec_struct_id:ident)]
+        struct $struct_id:ident {
+            $(
+            #[]
+            $field_vis:vis $field_id:ident: $field_type:ty
+            ),*
+            $(,)?
+        }
+    ) => {
+
+        $(#[$met])?
+        struct $struct_id {
+            $($field_vis $field_id: $field_type),*
+        }
+
+        pub struct $codec_struct_id;
+        impl EntityCodec for $codec_struct_id {
+
+        }
+
+    };
+}
+*/

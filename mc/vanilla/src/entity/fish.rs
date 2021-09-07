@@ -8,40 +8,6 @@ use crate::util::DyeColor;
 
 
 #[derive(Debug, Default)]
-pub struct FishEntity {
-    /// I true, the fish has been released from a bucket.
-    from_bucket: bool
-}
-
-impl EntityComponent for FishEntity {
-    const CODEC: &'static dyn EntityCodec = &FishEntityCodec;
-}
-
-pub struct FishEntityCodec;
-impl EntityCodec for FishEntityCodec {
-
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<FishEntity>() {
-            dst.insert_bool("FromBucket", comp.from_bucket);
-        }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(FishEntity {
-            from_bucket: src.get_bool("FromBucket").unwrap_or_default()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(FishEntity::default());
-    }
-
-}
-
-
-#[derive(Debug, Default)]
 pub struct SalmonEntity;
 impl EntityComponent for SalmonEntity {
     const CODEC: &'static dyn EntityCodec = &DefaultEntityCodec::<SalmonEntity>::new();

@@ -399,7 +399,7 @@ impl EntityComponent for TamableEntity {
 }
 
 pub struct TamableEntityCodec;
-impl EntityCodec for TamableEntity {
+impl EntityCodec for TamableEntityCodec {
     
     fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
         if let Some(comp) = src.get::<TamableEntity>() {
@@ -458,6 +458,40 @@ impl EntityCodec for AngryEntityCodec {
 
     fn default(&self, dst: &mut EntityBuilder) {
         dst.add(AngryEntity::default());
+    }
+
+}
+
+
+#[derive(Debug, Default)]
+pub struct FromBucketEntity {
+    /// I true, the fish has been released from a bucket.
+    from_bucket: bool
+}
+
+impl EntityComponent for FromBucketEntity {
+    const CODEC: &'static dyn EntityCodec = &FromBucketEntityCodec;
+}
+
+pub struct FromBucketEntityCodec;
+impl EntityCodec for FromBucketEntityCodec {
+
+    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
+        if let Some(comp) = src.get::<FromBucketEntity>() {
+            dst.insert_bool("FromBucket", comp.from_bucket);
+        }
+        Ok(())
+    }
+
+    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+        dst.add(FromBucketEntity {
+            from_bucket: src.get_bool("FromBucket").unwrap_or_default()
+        });
+        Ok(())
+    }
+
+    fn default(&self, dst: &mut EntityBuilder) {
+        dst.add(FromBucketEntity::default());
     }
 
 }
