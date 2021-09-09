@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::num::NonZeroU32;
 
-use mc_core::entity::{EntityCodec, EntityComponent};
+use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
 use mc_core::pos::{EntityPos, BlockPos};
 use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
@@ -61,98 +61,88 @@ impl VanillaEntity {
 
 }
 
+impl EntityComponent for VanillaEntity {
+    const CODEC: &'static dyn EntityCodec = &VanillaEntityCodec;
+}
+
 pub struct VanillaEntityCodec;
-impl EntityCodec for VanillaEntityCodec {
+impl SingleEntityCodec for VanillaEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
+    type Comp = VanillaEntity;
 
-        if let Some(comp) = src.get::<VanillaEntity>() {
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
 
-            dst.insert_entity_pos("Motion", &comp.motion);
-            dst.insert_f32_vec("Rotation", [comp.rotation_yaw, comp.rotation_pitch]);
-            dst.insert_i16("Air", comp.air);
-            dst.insert_f32("FallDistance", comp.fall_distance);
+        dst.insert_entity_pos("Motion", &src.motion);
+        dst.insert_f32_vec("Rotation", [src.rotation_yaw, src.rotation_pitch]);
+        dst.insert_i16("Air", src.air);
+        dst.insert_f32("FallDistance", src.fall_distance);
 
-            if let Some((custom_name, custom_name_visible)) = &comp.custom_name {
-                dst.insert_str("custom_name", custom_name);
-                if *custom_name_visible {
-                    dst.insert_bool("CustomNameVisible", true);
-                }
+        if let Some((custom_name, custom_name_visible)) = &src.custom_name {
+            dst.insert_str("custom_name", custom_name);
+            if *custom_name_visible {
+                dst.insert_bool("CustomNameVisible", true);
             }
-
-            if let Some(tags) = &comp.tags {
-                if !tags.is_empty() {
-                    dst.insert_str_vec("Tags", tags);
-                }
-            }
-
-            dst.insert_bool("Invulnerable", comp.invulnerable);
-            dst.insert_bool("Glowing", comp.glowing);
-            dst.insert_bool("NoGravity", comp.no_gravity);
-            dst.insert_bool("OnGround", comp.on_ground);
-            dst.insert_bool("Silent", comp.silent);
-            dst.insert_i16("Fire", comp.remaining_fire_ticks);
-            dst.insert_bool("HasVisualFire", comp.has_visual_fire);
-            dst.insert_i32("PortalCooldown", i32::try_from(comp.portal_cooldown).unwrap_or_default());
-            dst.insert_i32("TicksFrozen", i32::try_from(comp.ticks_frozen).unwrap_or_default());
-
         }
 
-        Ok(())
+        if let Some(tags) = &src.tags {
+            if !tags.is_empty() {
+                dst.insert_str_vec("Tags", tags);
+            }
+        }
+
+        dst.insert_bool("Invulnerable", src.invulnerable);
+        dst.insert_bool("Glowing", src.glowing);
+        dst.insert_bool("NoGravity", src.no_gravity);
+        dst.insert_bool("OnGround", src.on_ground);
+        dst.insert_bool("Silent", src.silent);
+        dst.insert_i16("Fire", src.remaining_fire_ticks);
+        dst.insert_bool("HasVisualFire", src.has_visual_fire);
+        dst.insert_i32("PortalCooldown", i32::try_from(src.portal_cooldown).unwrap_or_default());
+        dst.insert_i32("TicksFrozen", i32::try_from(src.ticks_frozen).unwrap_or_default());
 
     }
 
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
 
-        let mut rotation_raw = 0.0;
+        let mut rotation_yaw = 0.0;
         let mut rotation_pitch = 0.0;
 
         if let Ok(tag_rotation) = src.get_f32_vec("Rotation") {
             if tag_rotation.len() == 2 {
-                rotation_raw = tag_rotation[0];
+                rotation_yaw = tag_rotation[0];
                 rotation_pitch = tag_rotation[1];
             }
         }
 
-        dst.add(VanillaEntity {
+        VanillaEntity {
             motion: src.get_entity_pos("Motion").unwrap_or_default(),
-            rotation_yaw: rotation_raw,
+            rotation_yaw,
             rotation_pitch,
-            air: src.get_i16("Air").unwrap_or_default(),
-            fall_distance: src.get_f32("FallDistance").unwrap_or_default(),
+            air: src.get_i16_or("Air", 0),
+            fall_distance: src.get_f32_or("FallDistance", 0.0),
             custom_name: {
                 if let Ok(cn) = src.get_str("CustomName") {
-                    Some((cn.to_string(), src.get_bool("CustomNameVisible").unwrap_or_default()))
+                    Some((cn.to_string(), src.get_bool_or("CustomNameVisible", false)))
                 } else {
                     None
                 }
             },
             tags: src.get_string_vec("Tags").ok(),
-            invulnerable: src.get_bool("Invulnerable").unwrap_or_default(),
-            glowing: src.get_bool("Glowing").unwrap_or_default(),
-            no_gravity: src.get_bool("NoGravity").unwrap_or_default(),
-            on_ground: src.get_bool("OnGround").unwrap_or_default(),
-            silent: src.get_bool("Silent").unwrap_or_default(),
-            remaining_fire_ticks: src.get_i16("Fire").unwrap_or_default(),
-            has_visual_fire: src.get_bool("HasVisualFire").unwrap_or_default(),
+            invulnerable: src.get_bool_or("Invulnerable", false),
+            glowing: src.get_bool_or("Glowing", false),
+            no_gravity: src.get_bool_or("NoGravity", false),
+            on_ground: src.get_bool_or("OnGround", false),
+            silent: src.get_bool_or("Silent", false),
+            remaining_fire_ticks: src.get_i16_or("Fire", 0),
+            has_visual_fire: src.get_bool_or("HasVisualFire", false),
             portal_cooldown: src.get_i32("PortalCooldown")
                 .map_or(0, |raw| u32::try_from(raw).unwrap_or_default()),
             ticks_frozen: src.get_i32("TicksFrozen")
                 .map_or(0, |raw| u32::try_from(raw).unwrap_or_default())
-        });
-
-        Ok(())
+        }
 
     }
 
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(VanillaEntity::default());
-    }
-
-}
-
-impl EntityComponent for VanillaEntity {
-    const CODEC: &'static dyn EntityCodec = &VanillaEntityCodec;
 }
 
 
@@ -182,26 +172,25 @@ impl EntityComponent for LivingEntity {
 }
 
 pub struct LivingEntityCodec;
-impl EntityCodec for LivingEntityCodec {
+impl SingleEntityCodec for LivingEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<LivingEntity>() {
-            dst.insert_f32("Health", comp.health);
-            dst.insert_i16("HurtTime", i16::try_from(comp.hurt_time).unwrap_or_default());
-            dst.insert_i32("HurtByTimestamp", i32::try_from(comp.hurt_timestamp).unwrap_or_default());
-            dst.insert_i16("DeathTime", i16::try_from(comp.death_time).unwrap_or_default());
-            dst.insert_f32("AbsorptionAmount", comp.absorption_amount);
-            dst.insert_bool("FallFlying", comp.fall_flying);
-            if let Some(sleeping_pos) = &comp.sleeping_pos {
-                dst.insert_split_block_pos("SleepingX", "SleepingY", "SleepingZ", sleeping_pos);
-            }
+    type Comp = LivingEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_f32("Health", src.health);
+        dst.insert_i16("HurtTime", i16::try_from(src.hurt_time).unwrap_or_default());
+        dst.insert_i32("HurtByTimestamp", i32::try_from(src.hurt_timestamp).unwrap_or_default());
+        dst.insert_i16("DeathTime", i16::try_from(src.death_time).unwrap_or_default());
+        dst.insert_f32("AbsorptionAmount", src.absorption_amount);
+        dst.insert_bool("FallFlying", src.fall_flying);
+        if let Some(sleeping_pos) = &src.sleeping_pos {
+            dst.insert_split_block_pos("SleepingX", "SleepingY", "SleepingZ", sleeping_pos);
         }
-        Ok(())
     }
 
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(LivingEntity {
-            health: src.get_f32("Health").unwrap_or_default(),
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        LivingEntity {
+            health: src.get_f32_or("Health", 0.0),
             hurt_time: src.get_i16("HurtTime")
                 .map_or(0, |raw| u16::try_from(raw).unwrap_or_default()),
             hurt_timestamp: src.get_i32("HurtByTimestamp")
@@ -209,14 +198,9 @@ impl EntityCodec for LivingEntityCodec {
             death_time: src.get_i16("DeathTime")
                 .map_or(0, |raw| u16::try_from(raw).unwrap_or_default()),
             absorption_amount: src.get_f32("AbsorptionAmount").unwrap_or_default(),
-            fall_flying: src.get_bool("FallFlying").unwrap_or_default(),
+            fall_flying: src.get_bool_or("FallFlying", false),
             sleeping_pos: src.get_split_block_pos("SleepingX", "SleepingY", "SleepingZ").ok()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(LivingEntity::default());
+        }
     }
 
 }
@@ -245,37 +229,34 @@ impl EntityComponent for MobEntity {
 }
 
 pub struct MobEntityCodec;
-impl EntityCodec for MobEntityCodec {
+impl SingleEntityCodec for MobEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<MobEntity>() {
-            dst.insert_bool("CanPickUpLoot", comp.can_pick_up_loot);
-            dst.insert_bool("LeftHanded", comp.left_handed);
-            dst.insert_bool("NoAI", comp.no_ai);
-            dst.insert_bool("PersistenceRequired", comp.persistent);
+    type Comp = MobEntity;
 
-            if let Some(leash) = &comp.leash {
-                let mut tag_leash = CompoundTag::new();
-                match leash {
-                    LeashConfig::Entity(uuid) => {
-                        tag_leash.insert_uuid("UUID", uuid);
-                    }
-                    LeashConfig::Fence(pos) => {
-                        tag_leash.insert_split_block_pos("X", "Y", "Z", pos);
-                    }
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_bool("CanPickUpLoot", src.can_pick_up_loot);
+        dst.insert_bool("LeftHanded", src.left_handed);
+        dst.insert_bool("NoAI", src.no_ai);
+        dst.insert_bool("PersistenceRequired", src.persistent);
+        if let Some(leash) = &src.leash {
+            let mut tag_leash = CompoundTag::new();
+            match leash {
+                LeashConfig::Entity(uuid) => {
+                    tag_leash.insert_uuid("UUID", uuid);
+                }
+                LeashConfig::Fence(pos) => {
+                    tag_leash.insert_split_block_pos("X", "Y", "Z", pos);
                 }
             }
-
         }
-        Ok(())
     }
 
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(MobEntity {
-            can_pick_up_loot: src.get_bool("CanPickUpLoot").unwrap_or_default(),
-            left_handed: src.get_bool("LeftHanded").unwrap_or_default(),
-            no_ai: src.get_bool("NoAI").unwrap_or_default(),
-            persistent: src.get_bool("PersistenceRequired").unwrap_or_default(),
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        MobEntity {
+            can_pick_up_loot: src.get_bool_or("CanPickUpLoot", false),
+            left_handed: src.get_bool_or("LeftHanded", false),
+            no_ai: src.get_bool_or("NoAI", false),
+            persistent: src.get_bool_or("PersistenceRequired", false),
             leash: {
                 if let Ok(tag_leash) = src.get_compound_tag("Leash") {
                     if let Ok(uuid) = tag_leash.get_uuid("UUID") {
@@ -289,12 +270,7 @@ impl EntityCodec for MobEntityCodec {
                     None
                 }
             }
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(MobEntity::default());
+        }
     }
 
 }
@@ -312,40 +288,39 @@ impl EntityComponent for BreedableEntity {
 }
 
 pub struct BreedableEntityCodec;
-impl EntityCodec for BreedableEntityCodec {
-    
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<BreedableEntity>() {
+impl SingleEntityCodec for BreedableEntityCodec {
 
-            match comp.age {
-                Age::Baby { ticks_remaining, breed_cooldown_once_adult } => {
-                    dst.insert_i32("Age", -i32::try_from(ticks_remaining).unwrap_or_default());
-                    if let Some(breed_cooldown_once_adult) = breed_cooldown_once_adult {
-                        dst.insert_i32("ForcedAge", i32::try_from(breed_cooldown_once_adult).unwrap_or_default());
-                    }
-                }
-                Age::Adult { breed_cooldown } => {
-                    dst.insert("Age", i32::try_from(breed_cooldown).unwrap_or_default());
+    type Comp = BreedableEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+
+        match src.age {
+            Age::Baby { ticks_remaining, breed_cooldown_once_adult } => {
+                dst.insert_i32("Age", -i32::try_from(ticks_remaining).unwrap_or_default());
+                if let Some(breed_cooldown_once_adult) = breed_cooldown_once_adult {
+                    dst.insert_i32("ForcedAge", i32::try_from(breed_cooldown_once_adult).unwrap_or_default());
                 }
             }
-
-            match comp.love {
-                Love::NotInLove => dst.insert_i32("InLove", 0),
-                Love::InLove(ticks) => dst.insert_i32("InLove", i32::try_from(ticks.get()).unwrap_or_default())
+            Age::Adult { breed_cooldown } => {
+                dst.insert("Age", i32::try_from(breed_cooldown).unwrap_or_default());
             }
-
-            if let Some(love_cause) = &comp.love_cause {
-                dst.insert_uuid("LoveCause", love_cause);
-            }
-
         }
-        Ok(())
+
+        match src.love {
+            Love::NotInLove => dst.insert_i32("InLove", 0),
+            Love::InLove(ticks) => dst.insert_i32("InLove", i32::try_from(ticks.get()).unwrap_or_default())
+        }
+
+        if let Some(love_cause) = &src.love_cause {
+            dst.insert_uuid("LoveCause", love_cause);
+        }
+
     }
 
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(BreedableEntity {
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        BreedableEntity {
             age: {
-                let raw_age = src.get_i32("Age").unwrap_or_default();
+                let raw_age = src.get_i32_or("Age", 0);
                 if raw_age < 0 {
                     Age::Baby {
                         ticks_remaining: -raw_age as u32,
@@ -374,16 +349,10 @@ impl EntityCodec for BreedableEntityCodec {
                 }
             },
             love_cause: src.get_uuid("LoveCause").ok()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(BreedableEntity::default());
+        }
     }
     
 }
-
 
 
 #[derive(Debug, Default)]
@@ -399,31 +368,26 @@ impl EntityComponent for TamableEntity {
 }
 
 pub struct TamableEntityCodec;
-impl EntityCodec for TamableEntityCodec {
-    
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<TamableEntity>() {
-            if let Some(owner) = &comp.owner {
-                dst.insert_uuid("Owner", owner);
-            }
-            dst.insert_bool("Sitting", comp.sitting);
+impl SingleEntityCodec for TamableEntityCodec {
+
+    type Comp = TamableEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        if let Some(owner) = &src.owner {
+            dst.insert_uuid("Owner", owner);
         }
-        Ok(())
+        dst.insert_bool("Sitting", src.sitting);
     }
 
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(TamableEntity {
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        TamableEntity {
             owner: src.get_uuid("Owner").ok(),
             sitting: src.get_bool("Sitting").unwrap_or_default()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(TamableEntity::default());
+        }
     }
     
 }
+
 
 #[derive(Debug, Default)]
 pub struct AngryEntity {
@@ -436,28 +400,22 @@ impl EntityComponent for AngryEntity {
 }
 
 pub struct AngryEntityCodec;
-impl EntityCodec for AngryEntityCodec {
+impl SingleEntityCodec for AngryEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<AngryEntity>() {
-            dst.insert_i32("AngerTime", comp.anger_time);
-            if let Some(angry_at) = &comp.angry_at {
-                dst.insert_uuid("AngryAt", angry_at);
-            }
+    type Comp = AngryEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_i32("AngerTime", src.anger_time);
+        if let Some(angry_at) = &src.angry_at {
+            dst.insert_uuid("AngryAt", angry_at);
         }
-        Ok(())
     }
 
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(AngryEntity {
-            anger_time: src.get_i32("AngerTime").unwrap_or_default(),
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        AngryEntity {
+            anger_time: src.get_i32_or("AngerTime", 0),
             angry_at: src.get_uuid("AngryAt").ok()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(AngryEntity::default());
+        }
     }
 
 }
@@ -474,24 +432,18 @@ impl EntityComponent for FromBucketEntity {
 }
 
 pub struct FromBucketEntityCodec;
-impl EntityCodec for FromBucketEntityCodec {
+impl SingleEntityCodec for FromBucketEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<FromBucketEntity>() {
-            dst.insert_bool("FromBucket", comp.from_bucket);
+    type Comp = FromBucketEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_bool("FromBucket", src.from_bucket);
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        FromBucketEntity {
+            from_bucket: src.get_bool_or("FromBucket", false)
         }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(FromBucketEntity {
-            from_bucket: src.get_bool("FromBucket").unwrap_or_default()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(FromBucketEntity::default());
     }
 
 }

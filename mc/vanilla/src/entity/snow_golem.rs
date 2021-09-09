@@ -1,6 +1,7 @@
-use mc_core::entity::{EntityCodec, EntityComponent};
+use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::nbt::CompoundTag;
+use mc_core::util::NbtExt;
 
 #[derive(Debug)]
 pub struct SnowGolemEntity {
@@ -21,24 +22,18 @@ impl EntityComponent for SnowGolemEntity {
 }
 
 pub struct SnowGolemEntityCodec;
-impl EntityCodec for SnowGolemEntityCodec {
+impl SingleEntityCodec for SnowGolemEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<SnowGolemEntity>() {
-            dst.insert_bool("Pumpkin", comp.pumpkin);
+    type Comp = SnowGolemEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_bool("Pumpkin", src.pumpkin);
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        SnowGolemEntity {
+            pumpkin: src.get_bool_or("Pumpkin", false)
         }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(SnowGolemEntity {
-            pumpkin: src.get_bool("Pumpkin").unwrap_or_default()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(SnowGolemEntity::default());
     }
 
 }

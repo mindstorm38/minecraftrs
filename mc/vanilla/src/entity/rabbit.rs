@@ -1,6 +1,7 @@
-use mc_core::entity::{EntityCodec, EntityComponent};
+use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::nbt::CompoundTag;
+use mc_core::util::NbtExt;
 
 #[derive(Debug, Default)]
 pub struct RabbitEntity {
@@ -14,24 +15,18 @@ impl EntityComponent for RabbitEntity {
 }
 
 pub struct RabbitEntityCodec;
-impl EntityCodec for RabbitEntityCodec {
+impl SingleEntityCodec for RabbitEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<RabbitEntity>() {
-            dst.insert_i32("RabbitType", comp.variant.get_id() as i32);
+    type Comp = RabbitEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_i32("RabbitType", src.variant.get_id() as i32);
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        RabbitEntity {
+            variant: RabbitVariant::from_id(src.get_i32_or("RabbitType", 0) as u8)
         }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(RabbitEntity {
-            variant: RabbitVariant::from_id(src.get_i32("RabbitType").unwrap_or_default() as u8)
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(RabbitEntity::default());
     }
 
 }

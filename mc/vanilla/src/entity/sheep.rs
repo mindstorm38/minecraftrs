@@ -1,7 +1,8 @@
 use crate::util::DyeColor;
-use mc_core::entity::{EntityCodec, EntityComponent};
+use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::nbt::CompoundTag;
+use mc_core::util::NbtExt;
 
 #[derive(Debug, Default)]
 pub struct SheepEntity {
@@ -16,26 +17,20 @@ impl EntityComponent for SheepEntity {
 }
 
 pub struct SheepEntityCodec;
-impl EntityCodec for SheepEntityCodec {
+impl SingleEntityCodec for SheepEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<SheepEntity>() {
-            dst.insert_i8("Color", comp.color.get_id() as i8);
-            dst.insert_bool("Sheared", comp.sheared);
+    type Comp = SheepEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_i8("Color", src.color.get_id() as i8);
+        dst.insert_bool("Sheared", src.sheared);
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        SheepEntity {
+            color: DyeColor::from_id(src.get_i8_or("Color", 0) as u8),
+            sheared: src.get_bool_or("Sheared", false)
         }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(SheepEntity {
-            color: DyeColor::from_id(src.get_i8("Color").unwrap_or_default() as u8),
-            sheared: src.get_bool("Color").unwrap_or_default()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(SheepEntity::default());
     }
 
 }

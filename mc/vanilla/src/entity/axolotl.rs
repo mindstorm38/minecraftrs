@@ -1,6 +1,7 @@
-use mc_core::entity::{EntityCodec, EntityComponent};
+use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::nbt::CompoundTag;
+use mc_core::util::NbtExt;
 
 #[derive(Debug, Default)]
 pub struct AxolotlEntity {
@@ -12,35 +13,30 @@ impl EntityComponent for AxolotlEntity {
 }
 
 pub struct AxolotlEntityCodec;
-impl EntityCodec for AxolotlEntityCodec {
+impl SingleEntityCodec for AxolotlEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<AxolotlEntity>() {
-            dst.insert_i32("Variant", comp.variant.get_id() as i32);
+    type Comp = AxolotlEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_i32("Variant", src.variant.get_id() as i32);
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        AxolotlEntity {
+            variant: AxolotlVariant::from_id(src.get_i32_or("Variant", 0) as u8)
         }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(AxolotlEntity {
-            variant: AxolotlVariant::from_id(src.get_i32("Variant").unwrap_or_default() as u8)
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(AxolotlEntity::default());
     }
 
 }
 
 #[derive(Debug, Copy, Clone)]
+#[repr(u8)]
 pub enum AxolotlVariant {
-    Lucy,
-    Wild,
-    Gold,
-    Cyan,
-    Blue
+    Lucy = 0,
+    Wild = 1,
+    Gold = 2,
+    Cyan = 3,
+    Blue = 4
 }
 
 impl Default for AxolotlVariant {
@@ -52,25 +48,14 @@ impl Default for AxolotlVariant {
 impl AxolotlVariant {
 
     pub fn get_id(self) -> u8 {
-        use AxolotlVariant::*;
-        match self {
-            Lucy => 0,
-            Wild => 1,
-            Gold => 2,
-            Cyan => 3,
-            Blue => 4,
-        }
+        self as u8
     }
 
     pub fn from_id(id: u8) -> Self {
-        use AxolotlVariant::*;
-        match id {
-            0 => Lucy,
-            1 => Wild,
-            2 => Gold,
-            3 => Cyan,
-            4 => Blue,
-            _ => Self::default()
+        if id <= 4 {
+            unsafe { std::mem::transmute(id) }
+        } else {
+            Self::default()
         }
     }
 

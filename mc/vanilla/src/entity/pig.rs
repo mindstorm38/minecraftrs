@@ -1,6 +1,7 @@
-use mc_core::entity::{EntityCodec, EntityComponent};
+use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::nbt::CompoundTag;
+use mc_core::util::NbtExt;
 
 #[derive(Debug, Default)]
 pub struct PigEntity {
@@ -13,24 +14,18 @@ impl EntityComponent for PigEntity {
 }
 
 pub struct PigEntityCodec;
-impl EntityCodec for PigEntityCodec {
+impl SingleEntityCodec for PigEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<PigEntity>() {
-            dst.insert_bool("Saddle", comp.saddle);
+    type Comp = PigEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_bool("Saddle", src.saddle);
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        PigEntity {
+            saddle: src.get_bool_or("Saddle", false)
         }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(PigEntity {
-            saddle: src.get_bool("Saddle").unwrap_or_default()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(PigEntity::default());
     }
 
 }

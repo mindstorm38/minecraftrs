@@ -1,6 +1,7 @@
-use mc_core::entity::{EntityCodec, EntityComponent};
+use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::nbt::CompoundTag;
+use mc_core::util::NbtExt;
 
 #[derive(Debug, Default)]
 pub struct ParrotEntity {
@@ -12,24 +13,18 @@ impl EntityComponent for ParrotEntity {
 }
 
 pub struct ParrotEntityCodec;
-impl EntityCodec for ParrotEntityCodec {
+impl SingleEntityCodec for ParrotEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<ParrotEntity>() {
-            dst.insert_i32("Variant", comp.variant.get_id() as i32);
+    type Comp = ParrotEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_i32("Variant", src.variant.get_id() as i32);
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        ParrotEntity {
+            variant: ParrotVariant::from_id(src.get_i32_or("Variant", 0) as u8)
         }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(ParrotEntity {
-           variant: ParrotVariant::from_id(src.get_i32("Variant").unwrap_or_default() as u8)
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(ParrotEntity::default());
     }
 
 }

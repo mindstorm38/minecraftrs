@@ -1,23 +1,24 @@
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum DyeColor {
-    White,
-    Orange,
-    Magenta,
-    LightBlue,
-    Yellow,
-    Lime,
-    Pink,
-    Gray,
-    LightGray,
-    Cyan,
-    Purple,
-    Blue,
-    Brown,
-    Green,
-    Red,
-    Black
+    White = 0,
+    Orange = 1,
+    Magenta = 2,
+    LightBlue = 3,
+    Yellow = 4,
+    Lime = 5,
+    Pink = 6,
+    Gray = 7,
+    LightGray = 8,
+    Cyan = 9,
+    Purple = 10,
+    Blue = 11,
+    Brown = 12,
+    Green = 13,
+    Red = 14,
+    Black = 15
 }
 
 impl Default for DyeColor {
@@ -29,47 +30,14 @@ impl Default for DyeColor {
 impl DyeColor {
 
     pub fn get_id(self) -> u8 {
-        use DyeColor::*;
-        match self {
-            White => 0,
-            Orange => 1,
-            Magenta => 2,
-            LightBlue => 3,
-            Yellow => 4,
-            Lime => 5,
-            Pink => 6,
-            Gray => 7,
-            LightGray => 8,
-            Cyan => 9,
-            Purple => 10,
-            Blue => 11,
-            Brown => 12,
-            Green => 13,
-            Red => 14,
-            Black => 15
-        }
+        self as u8
     }
     
     pub fn from_id(id: u8) -> Self {
-        use DyeColor::*;
-        match id {
-            0 => White,
-            1 => Orange,
-            2 => Magenta,
-            3 => LightBlue,
-            4 => Yellow,
-            5 => Lime,
-            6 => Pink,
-            7 => Gray,
-            8 => LightGray,
-            9 => Cyan,
-            10 => Purple,
-            11 => Blue,
-            12 => Brown,
-            13 => Green,
-            14 => Red,
-            15 => Black,
-            _ => Self::default()
+        if id <= 15 {
+            unsafe { std::mem::transmute(id) }
+        } else {
+            Self::default()
         }
     }
 

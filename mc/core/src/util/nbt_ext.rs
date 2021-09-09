@@ -13,6 +13,8 @@ pub trait NbtExt {
     fn get_i16_or<'a>(&'a self, name: &'a str, default: i16) -> i16;
     fn get_i32_or<'a>(&'a self, name: &'a str, default: i32) -> i32;
     fn get_i64_or<'a>(&'a self, name: &'a str, default: i64) -> i64;
+    fn get_f32_or<'a>(&'a self, name: &'a str, default: f32) -> f32;
+    fn get_f64_or<'a>(&'a self, name: &'a str, default: f64) -> f64;
     fn get_bool_or<'a>(&'a self, name: &'a str, default: bool) -> bool;
 
     fn insert_uuid(&mut self, name: impl ToString, value: &Uuid);
@@ -51,6 +53,16 @@ impl NbtExt for CompoundTag {
     #[inline]
     fn get_i64_or<'a>(&'a self, name: &'a str, default: i64) -> i64 {
         self.get_i64(name).unwrap_or(default)
+    }
+
+    #[inline]
+    fn get_f32_or<'a>(&'a self, name: &'a str, default: f32) -> f32 {
+        self.get_f32(name).unwrap_or(default)
+    }
+
+    #[inline]
+    fn get_f64_or<'a>(&'a self, name: &'a str, default: f64) -> f64 {
+        self.get_f64(name).unwrap_or(default)
     }
 
     #[inline]

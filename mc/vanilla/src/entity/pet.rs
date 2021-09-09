@@ -31,6 +31,7 @@ impl SingleEntityCodec for PetEntityCodec {
 
 }
 
+
 #[derive(Debug, Default)]
 pub struct WolfEntity;
 
@@ -39,17 +40,9 @@ impl EntityComponent for WolfEntity {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CatEntity {
     variant: CatVariant
-}
-
-impl Default for CatEntity {
-    fn default() -> Self {
-        Self {
-            variant: CatVariant::Tabby
-        }
-    }
 }
 
 impl EntityComponent for CatEntity {
@@ -62,11 +55,13 @@ impl SingleEntityCodec for CatEntityCodec {
     type Comp = CatEntity;
 
     fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
-        dst.insert_i32("CatType", src.variant as i32)
+        dst.insert_i32("CatType", src.variant.get_id() as i32)
     }
 
     fn decode(&self, src: &CompoundTag) -> Self::Comp {
-        todo!()
+        CatEntity {
+            variant: CatVariant::from_id(src.get_i32_or("CatType", 0) as u8)
+        }
     }
 
 }
@@ -85,4 +80,26 @@ pub enum CatVariant {
     White = 8,
     Jellie = 9,
     Black = 10
+}
+
+impl Default for CatVariant {
+    fn default() -> Self {
+        Self::Tabby
+    }
+}
+
+impl CatVariant {
+
+    pub fn get_id(self) -> u8 {
+        self as u8
+    }
+
+    pub fn from_id(id: u8) -> Self {
+        if id <= 10 {
+            unsafe { std::mem::transmute(id) }
+        } else {
+            Self::default()
+        }
+    }
+
 }

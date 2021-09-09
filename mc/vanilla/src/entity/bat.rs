@@ -1,6 +1,7 @@
-use mc_core::entity::{EntityCodec, EntityComponent};
+use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::nbt::CompoundTag;
+use mc_core::util::NbtExt;
 
 #[derive(Debug, Default)]
 pub struct BatEntity {
@@ -12,24 +13,18 @@ impl EntityComponent for BatEntity {
 }
 
 pub struct BatEntityCodec;
-impl EntityCodec for BatEntityCodec {
+impl SingleEntityCodec for BatEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<BatEntity>() {
-            dst.insert_bool("BatFlags", comp.hanging);
+    type Comp = BatEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_bool("BatFlags", src.hanging);
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        BatEntity {
+            hanging: src.get_bool_or("BatFlags", false)
         }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(BatEntity {
-            hanging: src.get_bool("BatFlags").unwrap_or_default()
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(BatEntity::default());
     }
 
 }

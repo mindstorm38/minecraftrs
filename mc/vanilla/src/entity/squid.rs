@@ -1,8 +1,8 @@
-use mc_core::entity::{EntityComponent, EntityCodec, DefaultEntityCodec};
+use mc_core::entity::{EntityComponent, EntityCodec, DefaultEntityCodec, SingleEntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::nbt::CompoundTag;
 use std::convert::TryFrom;
-
+use mc_core::util::NbtExt;
 
 #[derive(Debug, Default)]
 pub struct SquidEntity;
@@ -20,24 +20,18 @@ impl EntityComponent for GlowSquidEntity {
 }
 
 pub struct GlowSquidEntityCodec;
-impl EntityCodec for GlowSquidEntityCodec {
+impl SingleEntityCodec for GlowSquidEntityCodec {
 
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<GlowSquidEntity>() {
-            dst.insert_i32("DarkTicksRemaining", i32::try_from(comp.dark_ticks_remaining).unwrap_or_default());
+    type Comp = GlowSquidEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_i32("DarkTicksRemaining", src.dark_ticks_remaining as i32);
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        GlowSquidEntity {
+            dark_ticks_remaining: src.get_i32_or("DarkTicksRemaining", 0) as u32
         }
-        Ok(())
-    }
-
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(GlowSquidEntity {
-            dark_ticks_remaining: src.get_i32("DarkTicksRemaining").unwrap_or_default() as u32
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(GlowSquidEntity::default());
     }
 
 }

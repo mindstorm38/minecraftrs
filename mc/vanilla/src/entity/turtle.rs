@@ -1,4 +1,4 @@
-use mc_core::entity::{EntityCodec, EntityComponent};
+use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::nbt::CompoundTag;
 use mc_core::pos::BlockPos;
@@ -19,27 +19,22 @@ impl EntityComponent for TurtleEntity {
 }
 
 pub struct TurtleEntityCodec;
-impl EntityCodec for TurtleEntityCodec {
-    fn encode(&self, src: &EntityRef, dst: &mut CompoundTag) -> Result<(), String> {
-        if let Some(comp) = src.get::<TurtleEntity>() {
-            dst.insert_bool("HasEgg", comp.has_egg);
-            dst.insert_split_block_pos("HomePosX", "HomePosY", "HomePosZ", &comp.home_pos);
-            dst.insert_split_block_pos("TravelPosX", "TravelPosY", "TravelPosZ", &comp.travel_pos);
-        }
-        Ok(())
+impl SingleEntityCodec for TurtleEntityCodec {
+
+    type Comp = TurtleEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        dst.insert_bool("HasEgg", src.has_egg);
+        dst.insert_split_block_pos("HomePosX", "HomePosY", "HomePosZ", &src.home_pos);
+        dst.insert_split_block_pos("TravelPosX", "TravelPosY", "TravelPosZ", &src.travel_pos);
     }
 
-    fn decode(&self, src: &CompoundTag, dst: &mut EntityBuilder) -> Result<(), String> {
-        dst.add(TurtleEntity {
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        TurtleEntity {
             has_egg: src.get_bool("HasEgg").unwrap_or_default(),
             home_pos: src.get_split_block_pos("HomePosX", "HomePosY", "HomePosZ").unwrap_or_default(),
             travel_pos: src.get_split_block_pos("TravelPosX", "TravelPosY", "TravelPosZ").unwrap_or_default(),
-        });
-        Ok(())
-    }
-
-    fn default(&self, dst: &mut EntityBuilder) {
-        dst.add(TurtleEntity::default());
+        }
     }
 
 }
