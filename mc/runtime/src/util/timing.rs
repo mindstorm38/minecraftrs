@@ -16,7 +16,7 @@ where
         tick_duration: Duration::from_secs_f32(1.0 / frequency)
     };
 
-    let mut sleeper = SpinSleeper::default();
+    let sleeper = SpinSleeper::default();
 
     loop {
 

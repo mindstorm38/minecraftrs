@@ -81,7 +81,7 @@ impl World {
     /// same executor.
     pub fn simple_run(&mut self) {
         let executor = self.clone_executor();
-        tick_loop(move |info| {
+        tick_loop(move |_info| {
             executor.borrow_mut().tick(self);
             self.event_tracker.clear_events();
             false

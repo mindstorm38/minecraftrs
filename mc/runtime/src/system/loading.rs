@@ -19,7 +19,7 @@ pub fn system_load_chunks(world: &mut World) {
                         cz
                     })
                 },
-                Err(err) => {}
+                Err(_err) => {}
             }
         })
     }
