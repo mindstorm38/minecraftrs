@@ -1,8 +1,8 @@
-use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
-use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
 use mc_core::pos::BlockPos;
 use mc_core::util::NbtExt;
+use mc_core::entity_component;
 
 #[derive(Debug, Default)]
 pub struct TurtleEntity {
@@ -14,9 +14,7 @@ pub struct TurtleEntity {
     travel_pos: BlockPos
 }
 
-impl EntityComponent for TurtleEntity {
-    const CODEC: &'static dyn EntityCodec = &TurtleEntityCodec;
-}
+entity_component!(TurtleEntity: TurtleEntityCodec);
 
 pub struct TurtleEntityCodec;
 impl SingleEntityCodec for TurtleEntityCodec {

@@ -1,16 +1,14 @@
-use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
-use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
+use mc_core::entity_component;
 
 #[derive(Debug, Default)]
 pub struct AxolotlEntity {
     variant: AxolotlVariant
 }
 
-impl EntityComponent for AxolotlEntity {
-    const CODEC: &'static dyn EntityCodec = &AxolotlEntityCodec;
-}
+entity_component!(AxolotlEntity: AxolotlEntityCodec);
 
 pub struct AxolotlEntityCodec;
 impl SingleEntityCodec for AxolotlEntityCodec {

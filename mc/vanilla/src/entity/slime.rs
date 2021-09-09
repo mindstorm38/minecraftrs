@@ -1,15 +1,13 @@
-use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
-use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
+use mc_core::entity_component;
 
 #[derive(Debug, Default)]
 pub struct SlimeEntity {
     size: u8
 }
 
-impl EntityComponent for SlimeEntity {
-    const CODEC: &'static dyn EntityCodec = &SlimeEntityCodec;
-}
+entity_component!(SlimeEntity: SlimeEntityCodec);
 
 pub struct SlimeEntityCodec;
 impl SingleEntityCodec for SlimeEntityCodec {

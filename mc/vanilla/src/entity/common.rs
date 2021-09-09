@@ -1,13 +1,12 @@
 use std::convert::TryFrom;
 use std::num::NonZeroU32;
 
-use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::pos::{EntityPos, BlockPos};
 use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
 use mc_core::uuid::Uuid;
-use mc_core::hecs::{EntityRef, EntityBuilder};
-
+use mc_core::entity_component;
 
 // Common components //
 
@@ -61,9 +60,7 @@ impl VanillaEntity {
 
 }
 
-impl EntityComponent for VanillaEntity {
-    const CODEC: &'static dyn EntityCodec = &VanillaEntityCodec;
-}
+entity_component!(VanillaEntity: VanillaEntityCodec);
 
 pub struct VanillaEntityCodec;
 impl SingleEntityCodec for VanillaEntityCodec {
@@ -167,9 +164,7 @@ pub struct LivingEntity {
     sleeping_pos: Option<BlockPos>,
 }
 
-impl EntityComponent for LivingEntity {
-    const CODEC: &'static dyn EntityCodec = &LivingEntityCodec;
-}
+entity_component!(LivingEntity: LivingEntityCodec);
 
 pub struct LivingEntityCodec;
 impl SingleEntityCodec for LivingEntityCodec {
@@ -224,9 +219,7 @@ pub struct MobEntity {
     leash: Option<LeashConfig>,
 }
 
-impl EntityComponent for MobEntity {
-    const CODEC: &'static dyn EntityCodec = &MobEntityCodec;
-}
+entity_component!(MobEntity: MobEntityCodec);
 
 pub struct MobEntityCodec;
 impl SingleEntityCodec for MobEntityCodec {
@@ -283,9 +276,7 @@ pub struct BreedableEntity {
     love_cause: Option<Uuid>
 }
 
-impl EntityComponent for BreedableEntity {
-    const CODEC: &'static dyn EntityCodec = &BreedableEntityCodec;
-}
+entity_component!(BreedableEntity: BreedableEntityCodec);
 
 pub struct BreedableEntityCodec;
 impl SingleEntityCodec for BreedableEntityCodec {
@@ -363,9 +354,7 @@ pub struct TamableEntity {
     sitting: bool
 }
 
-impl EntityComponent for TamableEntity {
-    const CODEC: &'static dyn EntityCodec = &TamableEntityCodec;
-}
+entity_component!(TamableEntity: TamableEntityCodec);
 
 pub struct TamableEntityCodec;
 impl SingleEntityCodec for TamableEntityCodec {
@@ -395,9 +384,7 @@ pub struct AngryEntity {
     angry_at: Option<Uuid>
 }
 
-impl EntityComponent for AngryEntity {
-    const CODEC: &'static dyn EntityCodec = &AngryEntityCodec;
-}
+entity_component!(AngryEntity: AngryEntityCodec);
 
 pub struct AngryEntityCodec;
 impl SingleEntityCodec for AngryEntityCodec {
@@ -427,9 +414,7 @@ pub struct FromBucketEntity {
     from_bucket: bool
 }
 
-impl EntityComponent for FromBucketEntity {
-    const CODEC: &'static dyn EntityCodec = &FromBucketEntityCodec;
-}
+entity_component!(FromBucketEntity: FromBucketEntityCodec);
 
 pub struct FromBucketEntityCodec;
 impl SingleEntityCodec for FromBucketEntityCodec {

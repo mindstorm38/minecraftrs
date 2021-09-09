@@ -1,8 +1,9 @@
-use mc_core::entity::{SingleEntityCodec, EntityComponent, EntityCodec};
 use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
 use mc_core::pos::BlockPos;
 use mc_core::util::NbtExt;
+use mc_core::entity_component;
 
 
 #[derive(Debug, Default)]
@@ -25,9 +26,7 @@ pub struct BeeEntity {
     hive_pos: BlockPos
 }
 
-impl EntityComponent for BeeEntity {
-    const CODEC: &'static dyn EntityCodec = &BeeEntityCodec;
-}
+entity_component!(BeeEntity: BeeEntityCodec);
 
 pub struct BeeEntityCodec;
 impl SingleEntityCodec for BeeEntityCodec {

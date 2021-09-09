@@ -1,7 +1,7 @@
-use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
-use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
+use mc_core::entity_component;
 
 #[derive(Debug, Default)]
 pub struct RabbitEntity {
@@ -10,9 +10,7 @@ pub struct RabbitEntity {
     variant: RabbitVariant
 }
 
-impl EntityComponent for RabbitEntity {
-    const CODEC: &'static dyn EntityCodec = &RabbitEntityCodec;
-}
+entity_component!(RabbitEntity: RabbitEntityCodec);
 
 pub struct RabbitEntityCodec;
 impl SingleEntityCodec for RabbitEntityCodec {

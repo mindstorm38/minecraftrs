@@ -344,7 +344,7 @@ macro_rules! blocks {
 
         $($global_vis static $block_id: $crate::block::Block = $crate::block::Block::new(
             concat!($namespace, ':', $block_name),
-            $crate::inner_blocks_spec!($($spec_id)?)
+            $crate::_blocks_spec!($($spec_id)?)
         );)*
 
         $global_vis static $static_id: [&'static $crate::block::Block; $crate::count!($($block_id)*)] = [
@@ -355,7 +355,7 @@ macro_rules! blocks {
 }
 
 #[macro_export]
-macro_rules! inner_blocks_spec {
+macro_rules! _blocks_spec {
     () => { $crate::block::BlockSpec::Single };
     ($spec_id:ident) => { $crate::block::BlockSpec::Complex(&$spec_id) }
 }

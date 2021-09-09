@@ -1,23 +1,18 @@
-use mc_core::entity::{EntityComponent, EntityCodec, DefaultEntityCodec, SingleEntityCodec};
-use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
-use std::convert::TryFrom;
 use mc_core::util::NbtExt;
+use mc_core::entity_component;
 
 #[derive(Debug, Default)]
 pub struct SquidEntity;
-impl EntityComponent for SquidEntity {
-    const CODEC: &'static dyn EntityCodec = &DefaultEntityCodec::<SquidEntity>::new();
-}
+entity_component!(SquidEntity: default);
 
 #[derive(Debug, Default)]
 pub struct GlowSquidEntity {
     dark_ticks_remaining: u32
 }
 
-impl EntityComponent for GlowSquidEntity {
-    const CODEC: &'static dyn EntityCodec = &GlowSquidEntityCodec;
-}
+entity_component!(GlowSquidEntity: GlowSquidEntityCodec);
 
 pub struct GlowSquidEntityCodec;
 impl SingleEntityCodec for GlowSquidEntityCodec {

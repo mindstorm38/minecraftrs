@@ -1,7 +1,7 @@
-use mc_core::entity::{SingleEntityCodec, EntityComponent, EntityCodec, DefaultEntityCodec};
-use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
+use mc_core::entity_component;
 use crate::util::DyeColor;
 
 
@@ -10,9 +10,7 @@ pub struct PetEntity {
     collar_color: DyeColor
 }
 
-impl EntityComponent for PetEntity {
-    const CODEC: &'static dyn EntityCodec = &PetEntityCodec;
-}
+entity_component!(PetEntity: PetEntityCodec);
 
 pub struct PetEntityCodec;
 impl SingleEntityCodec for PetEntityCodec {
@@ -34,10 +32,7 @@ impl SingleEntityCodec for PetEntityCodec {
 
 #[derive(Debug, Default)]
 pub struct WolfEntity;
-
-impl EntityComponent for WolfEntity {
-    const CODEC: &'static dyn EntityCodec = &DefaultEntityCodec::<WolfEntity>::new();
-}
+entity_component!(WolfEntity: default);
 
 
 #[derive(Debug, Default)]
@@ -45,9 +40,7 @@ pub struct CatEntity {
     variant: CatVariant
 }
 
-impl EntityComponent for CatEntity {
-    const CODEC: &'static dyn EntityCodec = &CatEntityCodec;
-}
+entity_component!(CatEntity: CatEntityCodec);
 
 pub struct CatEntityCodec;
 impl SingleEntityCodec for CatEntityCodec {

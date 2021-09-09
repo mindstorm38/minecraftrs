@@ -1,7 +1,7 @@
-use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
-use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
+use mc_core::entity_component;
 
 #[derive(Debug)]
 pub struct SnowGolemEntity {
@@ -17,9 +17,7 @@ impl Default for SnowGolemEntity {
     }
 }
 
-impl EntityComponent for SnowGolemEntity {
-    const CODEC: &'static dyn EntityCodec = &SnowGolemEntityCodec;
-}
+entity_component!(SnowGolemEntity: SnowGolemEntityCodec);
 
 pub struct SnowGolemEntityCodec;
 impl SingleEntityCodec for SnowGolemEntityCodec {

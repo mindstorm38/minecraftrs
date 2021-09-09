@@ -1,16 +1,14 @@
-use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
-use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
+use mc_core::entity_component;
 
 #[derive(Debug, Default)]
 pub struct BatEntity {
     hanging: bool
 }
 
-impl EntityComponent for BatEntity {
-    const CODEC: &'static dyn EntityCodec = &BatEntityCodec;
-}
+entity_component!(BatEntity: BatEntityCodec);
 
 pub struct BatEntityCodec;
 impl SingleEntityCodec for BatEntityCodec {

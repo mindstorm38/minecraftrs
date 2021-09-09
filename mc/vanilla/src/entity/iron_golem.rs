@@ -1,16 +1,14 @@
-use mc_core::entity::{EntityCodec, EntityComponent, SingleEntityCodec};
-use mc_core::hecs::{EntityRef, EntityBuilder};
+use mc_core::entity::SingleEntityCodec;
 use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
+use mc_core::entity_component;
 
 #[derive(Debug, Default)]
 pub struct IronGolemEntity {
     player_created: bool
 }
 
-impl EntityComponent for IronGolemEntity {
-    const CODEC: &'static dyn EntityCodec = &IronGolemEntityCodec;
-}
+entity_component!(IronGolemEntity: IronGolemEntityCodec);
 
 pub struct IronGolemEntityCodec;
 impl SingleEntityCodec for IronGolemEntityCodec {

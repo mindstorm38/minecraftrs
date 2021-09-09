@@ -9,59 +9,63 @@ pub mod ai;
 mod common;
 mod snow_golem;
 mod iron_golem;
+mod creeper;
 mod axolotl;
+mod spider;
 mod parrot;
 mod rabbit;
 mod turtle;
+mod animal;
+mod blaze;
 mod slime;
-mod sheep;
 mod squid;
 mod pet;
 mod fish;
-mod pig;
 mod bat;
 mod bee;
 
 pub use common::*;
 pub use snow_golem::*;
 pub use iron_golem::*;
+pub use creeper::*;
 pub use axolotl::*;
+pub use spider::*;
 pub use parrot::*;
 pub use rabbit::*;
 pub use turtle::*;
+pub use animal::*;
+pub use blaze::*;
 pub use slime::*;
-pub use sheep::*;
 pub use squid::*;
 pub use pet::*;
 pub use fish::*;
-pub use pig::*;
 pub use bat::*;
 pub use bee::*;
 
 
 macro_rules! vanilla_entities {
-    ([
+    (
         $($entity_id:ident $entity_name:literal [$($comp_id:ident),*]),*
         $(,)?
-    ]) => {
+    ) => {
         mc_core::entities!(pub VANILLA_ENTITIES "minecraft" [
             $($entity_id $entity_name [VanillaEntity $(,$comp_id)*]),*
         ]);
     }
 }
 
-vanilla_entities!([
+vanilla_entities! {
     // Living entities //
     AXOLOTL "axolotl" [MobEntity, LivingEntity, BreedableEntity, FromBucketEntity, AxolotlEntity],
     BAT "bat" [MobEntity, LivingEntity, BatEntity],
     BEE "bee" [MobEntity, LivingEntity, BreedableEntity, AngryEntity, BeeEntity],
-    BLAZE "blaze" [MobEntity, LivingEntity],
+    BLAZE "blaze" [MobEntity, LivingEntity, BlazeEntity],
     CAT "cat" [MobEntity, LivingEntity, BreedableEntity, TamableEntity, CatEntity],
-    CAVE_SPIDER "cave_spider" [MobEntity, LivingEntity],
-    CHICKEN "chicken" [],
+    CAVE_SPIDER "cave_spider" [MobEntity, LivingEntity, CaveSpiderEntity],
+    CHICKEN "chicken" [MobEntity, LivingEntity, BreedableEntity, ChickenEntity],
     COD "cod" [MobEntity, LivingEntity, FromBucketEntity, CodEntity],
-    COW "cow" [],
-    CREEPER "creeper" [],
+    COW "cow" [MobEntity, LivingEntity, BreedableEntity, CowEntity],
+    CREEPER "creeper" [MobEntity, LivingEntity, CreeperEntity],
     DOLPHIN "dolphin" [],
     DONKEY "donkey" [],
     DROWNED "drowned" [],
@@ -167,4 +171,4 @@ vanilla_entities!([
     LIGHTNING_BOLT "lightning_bolt" [],
     MARKER "marker" [],
     PAINTING "painting" [],
-]);
+}
