@@ -1,6 +1,7 @@
+use std::ops::{Deref, DerefMut};
 use std::collections::VecDeque;
-use std::error::Error;
 use std::sync::{Arc, RwLock};
+use std::error::Error;
 
 use hecs::EntityBuilder;
 use thiserror::Error;
@@ -8,7 +9,6 @@ use thiserror::Error;
 use super::chunk::{Chunk, ChunkHeight};
 use crate::world::level::LevelEnv;
 use crate::block::BlockState;
-use std::ops::{Deref, DerefMut};
 
 
 /// Common level source error.
@@ -39,7 +39,6 @@ pub trait LevelSource {
     /// Request loading of the chunk at the given position. If you return an error, you must
     /// return back the given `ChunkInfo` together with the `LevelSourceError`. If you return
     /// `Ok(())` **you must** give a result later when calling `poll_chunk`.
-    #[allow(unused)]
     fn request_chunk_load(&mut self, info: ChunkInfo) -> Result<(), (LevelSourceError, ChunkInfo)> {
         Err((LevelSourceError::UnsupportedChunkLoad, info))
     }
@@ -47,17 +46,21 @@ pub trait LevelSource {
     /// Poll the next loaded chunk that is ready to be inserted into the level's chunk storage.
     /// Every requested load chunk `request_chunk_load` method that returned `Ok(())` should
     /// return some some result here, even if it's an error.
-    #[allow(unused)]
     fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
         None
     }
 
     /// Request saving of the chunk at the given position.
-    #[allow(unused)]
+    #[allow(unused_variables)]
     fn request_chunk_save(&mut self, chunk: Arc<RwLock<Chunk>>) -> Result<(), LevelSourceError> {
         Err(LevelSourceError::UnsupportedChunkSave)
     }
 
+}
+
+
+pub trait SyncLevelSource {
+    fn chunk_load(info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)>;
 }
 
 
@@ -252,6 +255,68 @@ where
 
         // Then we poll chunks from the generator.
         self.generator.poll_chunk()
+
+    }
+
+}
+
+use crossbeam_channel::{Sender, Receiver, RecvTimeoutError, unbounded, bounded};
+
+pub struct ThreadedLevelSource {
+    request_sender: Sender<ChunkInfo>,
+    result_receiver: Receiver<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>,
+}
+
+impl ThreadedLevelSource {
+
+    pub fn spawn<S>(source: S) -> Self
+    where
+        S: LevelSource
+    {
+
+        let (
+            request_sender,
+            request_receiver
+        ) = unbounded();
+
+        Self {
+            request_sender,
+            result_receiver: ThreadedLevelSourceWorker::spawn(source, request_receiver)
+        }
+
+    }
+
+}
+
+
+struct ThreadedLevelSourceWorker<S: LevelSource> {
+    source: S,
+    request_receiver: Receiver<ChunkInfo>,
+    result_sender: Sender<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>,
+}
+
+impl<S: LevelSource> ThreadedLevelSourceWorker<S> {
+
+    fn spawn(source: S, request_receiver: Receiver<ChunkInfo>) -> Receiver<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
+
+        let (
+            result_sender,
+            result_receiver
+        ) = bounded(128);
+
+        let worker = Self {
+            source,
+            request_receiver,
+            result_sender
+        };
+
+        std::thread::spawn(move || worker.run());
+
+        result_receiver
+
+    }
+
+    fn run(mut self) {
 
     }
 

@@ -12,6 +12,7 @@ license = "Apache-2.0"
 
 [dependencies]
 mc-core = { path = "../core" }
+mc-vanilla = { path = "../vanilla" }
 
 [features]
 default = ["release-1-2"]

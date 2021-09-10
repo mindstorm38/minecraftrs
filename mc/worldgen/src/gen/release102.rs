@@ -1,10 +1,13 @@
 //!
-//! Generation for release 1.2
+//! Generator for release 1.2
 //!
 
-use crate::rand::jrand::JavaRandom;
-use crate::rand::noise::{NoiseCube, FixedOctavesPerlinNoise};
-use crate::world::loader::{ChunkLoader, ChunkError};
+use mc_core::rand::java::JavaRandom;
+use mc_core::rand::noise::{NoiseCube, FixedOctavesPerlinNoise};
+
+use mc_core::world::source::LevelSource;
+
+/*use crate::world::loader::{ChunkLoader, ChunkError};
 use crate::world::chunk::Chunk;
 use crate::world::{WorldInfo, WorldAccess};
 use super::layer::{Layer, build_biome_rect};
@@ -12,7 +15,19 @@ use crate::world::gen::carver::Carver;
 use crate::res::Registrable;
 use std::cell::RefCell;
 use std::num::Wrapping;
-use std::rc::Rc;
+use std::rc::Rc;*/
+
+pub struct LevelGenRelease102 {
+
+}
+
+impl LevelSource for LevelGenRelease102 {
+
+}
+
+
+
+
 
 
 struct ChunkGeneratorInternal {

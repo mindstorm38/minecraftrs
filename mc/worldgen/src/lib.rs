@@ -4,6 +4,8 @@
 //! "gen" + <major_version> + <("0" if minor_version < 10)minor_version>
 //!
 
+pub mod gen;
+
 /*use crate::world::WorldInfo;
 use crate::world::loader::ChunkLoader;
 use crate::version::{Version, VersionType::*};
