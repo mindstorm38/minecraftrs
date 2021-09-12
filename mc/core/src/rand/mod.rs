@@ -1,2 +1,2 @@
-pub mod java;
-pub mod noise;
+mod java;
+pub use java::*;

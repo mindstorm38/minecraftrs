@@ -39,6 +39,14 @@ impl Biome {
 
 }
 
+impl PartialEq for &'static Biome {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(*self, *other)
+    }
+}
+
+impl Eq for &'static Biome {}
+
 
 /// This is a global biomes palette, it is used in chunk storage to store biomes.
 /// It allows you to register individual biomes in it as well as static biomes

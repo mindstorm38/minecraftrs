@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::time::Instant;
 use std::sync::Arc;
 
 use thiserror::Error;
@@ -79,7 +80,9 @@ pub struct Chunk {
     /// more players are in the chunk.
     inhabited_time: u64,
     /// A list of entity handles that are located in this vertical chunk.
-    entities: HashSet<Entity>
+    entities: HashSet<Entity>,
+    /// Last save instant.
+    last_save: Instant
 }
 
 impl Chunk {
@@ -94,7 +97,8 @@ impl Chunk {
             sub_chunks: (0..height.len()).map(|_| None).collect(),
             sub_chunks_offset: height.min,
             inhabited_time: 0,
-            entities: HashSet::new()
+            entities: HashSet::new(),
+            last_save: Instant::now()
         }
 
     }
@@ -133,6 +137,16 @@ impl Chunk {
     #[inline]
     pub fn set_inhabited_time(&mut self, time: u64) {
         self.inhabited_time = time;
+    }
+
+    #[inline]
+    pub fn get_last_save(&self) -> Instant {
+        self.last_save
+    }
+
+    #[inline]
+    pub fn update_last_save(&mut self) {
+        self.last_save = Instant::now();
     }
 
     /// Ensure that a sub chunk is existing at a specific chunk-Y coordinate, if this coordinate

@@ -2,26 +2,118 @@
 //! Generator for release 1.2
 //!
 
-use mc_core::rand::java::JavaRandom;
-use mc_core::rand::noise::{NoiseCube, FixedOctavesPerlinNoise};
+use mc_core::world::source::{LevelGenerator, ProtoChunk};
+use mc_core::rand::JavaRandom;
 
-use mc_core::world::source::LevelSource;
+use crate::noise::{FixedPerlinNoiseOctaves, NoiseCube};
+use crate::carver::Carver;
 
-/*use crate::world::loader::{ChunkLoader, ChunkError};
-use crate::world::chunk::Chunk;
-use crate::world::{WorldInfo, WorldAccess};
-use super::layer::{Layer, build_biome_rect};
-use crate::world::gen::carver::Carver;
-use crate::res::Registrable;
-use std::cell::RefCell;
-use std::num::Wrapping;
-use std::rc::Rc;*/
+use crate::layer_new::{ComputeLayer, RootLayer};
+use crate::layer_new::{IslandLayer, ZoomLayer, AddIslandLayer};
+
 
 pub struct LevelGenRelease102 {
 
+    rand: JavaRandom,
+
+    noise_main1: FixedPerlinNoiseOctaves,
+    noise_main2: FixedPerlinNoiseOctaves,
+    noise_main3: FixedPerlinNoiseOctaves,
+    noise_main4: FixedPerlinNoiseOctaves,
+    noise_main5: FixedPerlinNoiseOctaves,
+    noise_surface: FixedPerlinNoiseOctaves,
+
+    noise_field: NoiseCube,
+
+    ravine_carver: Carver,
+    cave_carver: Carver
+
 }
 
-impl LevelSource for LevelGenRelease102 {
+impl LevelGenRelease102 {
+
+    fn new(seed: i64) -> Self {
+
+        const WIDTH: usize = 5;
+        const HEIGHT: usize = 17;
+
+        let mut rand = JavaRandom::new(world_info.seed);
+
+        Self {
+            noise_main1: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, HEIGHT, WIDTH),
+            noise_main2: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, HEIGHT, WIDTH),
+            noise_main3: FixedPerlinNoiseOctaves::new(&mut rand, 8, WIDTH, HEIGHT, WIDTH),
+            noise_surface: FixedPerlinNoiseOctaves::new(&mut rand, 4, 16, 16, 1),
+            noise_main4: FixedPerlinNoiseOctaves::new(&mut rand, 10, WIDTH, 1, WIDTH),
+            noise_main5: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, 1, WIDTH),
+            noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
+            ravine_carver: Carver::new_ravine(),
+            cave_carver: Carver::new_cave(),
+            rand,
+        }
+
+    }
+
+    fn new_layers(seed: i64) -> impl ComputeLayer {
+
+        let layer = RootLayer::new(IslandLayer::new(1))
+            .then(ZoomLayer::new_fuzzy(2000))
+            .then(AddIslandLayer::new(1));
+
+        /*// Common layers
+        let mut common = Layer::new_island(1);
+        common = Layer::new_fuzzy_zoom(2000, common);
+        common = Layer::new_add_island(1, common);
+        common = Layer::new_zoom(2001, common);
+        common = Layer::new_add_island(2, common);
+        common = Layer::new_add_snow(2, common);
+        common = Layer::new_zoom(2002, common);
+        common = Layer::new_add_island(3, common);
+        common = Layer::new_zoom(2003, common);
+        common = Layer::new_add_island(4, common);
+        common = Layer::new_add_mushroom_island(5, common);
+
+        // River layers
+        // Cloning all the common hierarchy
+        let mut river = Layer::new_river_init(100, common.clone());
+        river = Layer::new_zoom_multiple(1000, river, 6);
+        river = Layer::new_river(1, river);
+        river = Layer::new_smooth(1000, river);
+
+        // Definitive biomes layers
+        let mut biome = Layer::new_biome_1_2(200, common);
+        biome = Layer::new_zoom_multiple(1000, biome, 2);
+        biome = Layer::new_hills(1000, biome);
+        for i in 0..4 {
+            biome = Layer::new_zoom(1000 + i, biome);
+            match i {
+                0 => biome = Layer::new_add_island(3, biome),
+                1 => {
+                    biome = Layer::new_shore(1000, biome);
+                    biome = Layer::new_biome_rivers(1000, biome);
+                },
+                _ => {}
+            }
+        }
+        biome = Layer::new_smooth(1000, biome);
+
+        let mixed = Layer::new_mix_biome_river(100, biome, river);
+        let mut voronoi = Layer::new_voronoi(10, mixed);
+
+        voronoi.init_world_seed(seed);
+        voronoi*/
+
+    }
+
+}
+
+impl LevelGenerator for LevelGenRelease102 {
+
+    fn generate(&mut self, chunk: &mut ProtoChunk) {
+
+
+
+    }
 
 }
 
@@ -30,19 +122,19 @@ impl LevelSource for LevelGenRelease102 {
 
 
 
-struct ChunkGeneratorInternal {
+/*struct ChunkGeneratorInternal {
 
     world_info: Rc<WorldInfo>,
     rand: JavaRandom,
 
     voronoi_layer: Layer,
 
-    noise_main1: FixedOctavesPerlinNoise,
-    noise_main2: FixedOctavesPerlinNoise,
-    noise_main3: FixedOctavesPerlinNoise,
-    noise_main4: FixedOctavesPerlinNoise,
-    noise_main5: FixedOctavesPerlinNoise,
-    noise_surface: FixedOctavesPerlinNoise,
+    noise_main1: FixedPerlinNoiseOctaves,
+    noise_main2: FixedPerlinNoiseOctaves,
+    noise_main3: FixedPerlinNoiseOctaves,
+    noise_main4: FixedPerlinNoiseOctaves,
+    noise_main5: FixedPerlinNoiseOctaves,
+    noise_surface: FixedPerlinNoiseOctaves,
 
     noise_field: NoiseCube,
 
@@ -58,16 +150,16 @@ impl ChunkGeneratorInternal {
         const WIDTH: usize = 5;
         const HEIGHT: usize = 17;
 
-        let mut rand = JavaRandom::new(world_info.seed);
+        let mut rand = JavaRandom::new(world_info.seed);FixedPerlinNoiseOctaves
 
         ChunkGeneratorInternal {
             voronoi_layer: Self::new_layers(world_info.seed),
-            noise_main1: FixedOctavesPerlinNoise::new(&mut rand, 16, WIDTH, HEIGHT, WIDTH),
-            noise_main2: FixedOctavesPerlinNoise::new(&mut rand, 16, WIDTH, HEIGHT, WIDTH),
-            noise_main3: FixedOctavesPerlinNoise::new(&mut rand, 8, WIDTH, HEIGHT, WIDTH),
-            noise_surface: FixedOctavesPerlinNoise::new(&mut rand, 4, 16, 16, 1),
-            noise_main4: FixedOctavesPerlinNoise::new(&mut rand, 10, WIDTH, 1, WIDTH),
-            noise_main5: FixedOctavesPerlinNoise::new(&mut rand, 16, WIDTH, 1, WIDTH),
+            noise_main1: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, HEIGHT, WIDTH),
+            noise_main2: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, HEIGHT, WIDTH),
+            noise_main3: FixedPerlinNoiseOctaves::new(&mut rand, 8, WIDTH, HEIGHT, WIDTH),
+            noise_surface: FixedPerlinNoiseOctaves::new(&mut rand, 4, 16, 16, 1),
+            noise_main4: FixedPerlinNoiseOctaves::new(&mut rand, 10, WIDTH, 1, WIDTH),
+            noise_main5: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, 1, WIDTH),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
             ravine_carver: Carver::new_ravine(),
             cave_carver: Carver::new_cave(),
@@ -521,3 +613,4 @@ impl ChunkLoader for ChunkGenerator102 {
     }
 
 }
+*/
