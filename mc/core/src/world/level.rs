@@ -129,7 +129,7 @@ impl Level {
             match res {
                 Ok(ProtoChunk {
                     inner: mut chunk,
-                    mut entities
+                    mut proto_entities
                 }) => {
 
                     let (cx, cz) = chunk.get_position();
@@ -137,10 +137,10 @@ impl Level {
 
                     // This list retains all entity handles with the same order as proto chunk
                     // entities data.
-                    let mut entities_handles = Vec::with_capacity(entities.len());
+                    let mut entities_handles = Vec::with_capacity(proto_entities.len());
 
                     // Then we only add entities without their passengers, but store their handles.
-                    for (entity_builder, _) in &mut entities {
+                    for (entity_builder, _) in &mut proto_entities {
                         unsafe {
                             let entity = self.entities.add_entity_unchecked(entity_builder);
                             chunk.add_entity_unchecked(entity);
@@ -149,7 +149,7 @@ impl Level {
                     }
 
                     // Now that we have created all our entities, we can set passengers.
-                    for (i, (_, passengers)) in entities.into_iter().enumerate() {
+                    for (i, (_, passengers)) in proto_entities.into_iter().enumerate() {
                         if let Some(passengers) = passengers {
 
                             // Here we don't check is passengers is empty because ProtoChunk only

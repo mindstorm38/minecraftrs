@@ -8,8 +8,7 @@
 //! [`LayerSummary.pdf`]: https://github.com/Cubitect/cubiomes/blob/master/LayerSummary.pdf
 //!
 
-use crate::math::Rect;
-use crate::biome::{Biome, BiomeRegistry};
+use mc_core::math::Rect;
 use std::num::Wrapping;
 
 

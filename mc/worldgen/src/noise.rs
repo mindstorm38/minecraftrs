@@ -1,5 +1,5 @@
-use super::java::JavaRandom;
-use crate::math::{lerp, Cube};
+use mc_core::math::{lerp, Cube};
+use mc_core::rand::JavaRandom;
 use std::cell::RefCell;
 
 
@@ -47,6 +47,8 @@ pub struct PerlinNoise {
 
 impl PerlinNoise {
 
+    /// Construct a new perlin noise generator, the given RNG is used to construct the
+    /// internal permutation table and is not kept into the structure.
     pub fn new(rand: &mut JavaRandom) -> Self {
 
         let mut permutations = vec![0; 512];
@@ -165,25 +167,22 @@ impl PerlinNoise {
 /// Octaves perlin noise generator with variable octaves count.
 ///
 /// Valid for: 1.2.5
-pub struct OctavesPerlinNoise {
+pub struct PerlinNoiseOctaves {
     generators: Vec<PerlinNoise>
 }
 
-impl OctavesPerlinNoise {
+impl PerlinNoiseOctaves {
 
     pub fn new(rand: &mut JavaRandom, octaves: usize) -> Self {
         assert!(octaves > 0);
-        OctavesPerlinNoise {
+        PerlinNoiseOctaves {
             generators: (0..octaves).map(|_| PerlinNoise::new(rand)).collect()
         }
     }
 
     pub fn generate(&self, cube: &mut NoiseCube, x: i32, y: i32, z: i32, x_scale: f64, y_scale: f64, z_scale: f64) {
 
-        // println!("Generating octaves perlin noise at {}/{}/{} scales: {}/{}/{}", x, y, z, x_scale, y_scale, z_scale);
         cube.reset(0.0);
-
-        //println!("Generate noise octaves, x: {}, y: {}, z: {}, xSize: {}, ySize: {}, zSize: {}, xScale: {}, yScale: {}, zScale: {}", x, y, z, cube.x_size, cube.y_size, cube.z_size, x_scale, y_scale, z_scale);
 
         let mut scale = 1.0;
 
@@ -201,8 +200,6 @@ impl OctavesPerlinNoise {
             rx += (rx_floor % 0x1000000) as f64;
             rz += (rz_floor % 0x1000000) as f64;
 
-            //println!(" => rx: {}, ry: {}, rz: {}, xScale: {}, yScale: {}, zScale: {}, scale: {}", rx, ry, rz, x_scale, y_scale, z_scale, scale);
-
             generator.generate(cube, rx, ry, rz, x_scale * scale, y_scale * scale, z_scale * scale, scale);
             scale /= 2.0;
 
@@ -213,25 +210,25 @@ impl OctavesPerlinNoise {
 }
 
 
-pub struct FixedOctavesPerlinNoise(OctavesPerlinNoise, RefCell<NoiseCube>);
+/// A `PerlinNoiseOctaves` wrapped with a noise cube.
+pub struct FixedPerlinNoiseOctaves(PerlinNoiseOctaves, NoiseCube);
 
-impl FixedOctavesPerlinNoise {
+impl FixedPerlinNoiseOctaves {
 
     pub fn new(rand: &mut JavaRandom, octaves: usize, x_size: usize, y_size: usize, z_size: usize) -> Self {
-        FixedOctavesPerlinNoise(
-            OctavesPerlinNoise::new(rand, octaves),
-            RefCell::new(NoiseCube::new_default(x_size, y_size, z_size))
+        Self(
+            PerlinNoiseOctaves::new(rand, octaves),
+            NoiseCube::new_default(x_size, y_size, z_size)
         )
     }
 
-    // &mut self just to known that mutations happens, but it's not mandatory
     pub fn generate(&mut self, x: i32, y: i32, z: i32, x_scale: f64, y_scale: f64, z_scale: f64) {
-        self.0.generate(&mut self.1.borrow_mut(), x, y, z, x_scale, y_scale, z_scale);
+        self.0.generate(&mut self.1, x, y, z, x_scale, y_scale, z_scale);
     }
 
     #[inline]
     pub fn get_noise(&self, x: usize, y: usize, z: usize) -> f64 {
-        self.1.borrow().get(x, y, z)
+        self.1.get(x, y, z)
     }
 
 }
