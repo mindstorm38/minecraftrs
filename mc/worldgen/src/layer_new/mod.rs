@@ -4,13 +4,14 @@ use mc_core::biome::Biome;
 use mc_core::math::Rect;
 
 mod island;
-pub use island::*;
-
 mod zoom;
-pub use zoom::*;
-
 mod snow;
+mod river;
+
+pub use island::*;
+pub use zoom::*;
 pub use snow::*;
+pub use river::*;
 
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -41,8 +42,12 @@ pub type LayerData = Rect<State>;
 
 /// A layer trait to implement the layer generation algorithm.
 pub trait Layer {
+
+    /// A method called to set the world's seed that will be used to generate biomes.
     fn seed(&mut self, seed: i64);
+
     fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &mut [&mut dyn ComputeLayer]);
+
 }
 
 
@@ -61,13 +66,25 @@ pub trait ComputeLayer {
 
 }
 
-/// A non-object-safe trait only used to implement a default common method to structures
-/// already implementing `ComputeLayer` trait.
-pub trait ComputeLayerExt: ComputeLayer {
 
-    fn then<N>(self, layer: N) -> IntermediateLayer<Self, N>
+/// This type of layer is the root of the layers tree.
+pub struct RootLayer<L> {
+    layer: L
+}
+
+impl<L> RootLayer<L>
+where
+    L: Layer
+{
+
+    pub fn new(layer: L) -> Self {
+        Self {
+            layer
+        }
+    }
+
+    pub fn then<N>(self, layer: N) -> IntermediateLayer<Self, N>
     where
-        Self: Sized,
         N: Layer
     {
         IntermediateLayer {
@@ -78,23 +95,10 @@ pub trait ComputeLayerExt: ComputeLayer {
 
 }
 
-
-/// This type of layer is the root of the layers tree.
-pub struct RootLayer<L: Layer> {
-    layer: L
-}
-
-impl<L: Layer> RootLayer<L> {
-
-    pub fn new(layer: L) -> Self {
-        Self {
-            layer
-        }
-    }
-
-}
-
-impl<L: Layer> ComputeLayer for RootLayer<L> {
+impl<L> ComputeLayer for RootLayer<L>
+where
+    L: Layer
+{
 
     fn seed(&mut self, seed: i64) {
         self.layer.seed(seed);
@@ -106,15 +110,46 @@ impl<L: Layer> ComputeLayer for RootLayer<L> {
 
 }
 
-impl<L: Layer> ComputeLayerExt for RootLayer<L> {}
+impl<L> Clone for RootLayer<L>
+    where
+        L: Layer + Clone
+{
+    fn clone(&self) -> Self {
+        Self {
+            layer: self.layer.clone()
+        }
+    }
+}
 
-/// The type of all layers that or not `RootLayer`.
-pub struct IntermediateLayer<P: ComputeLayer, L: Layer> {
+/// The type of all layers that are created from `RootLayer` or `Self`.
+pub struct IntermediateLayer<P, L> {
     previous: P,
     layer: L
 }
 
-impl<P: ComputeLayer, L: Layer> ComputeLayer for IntermediateLayer<P, L> {
+impl<P, L> IntermediateLayer<P, L>
+where
+    P: ComputeLayer,
+    L: Layer
+{
+
+    pub fn then<N>(self, layer: N) -> IntermediateLayer<Self, N>
+    where
+        N: Layer
+    {
+        IntermediateLayer {
+            previous: self,
+            layer
+        }
+    }
+
+}
+
+impl<P, L> ComputeLayer for IntermediateLayer<P, L>
+where
+    P: ComputeLayer,
+    L: Layer
+{
 
     fn seed(&mut self, seed: i64) {
         self.previous.seed(seed);
@@ -127,7 +162,18 @@ impl<P: ComputeLayer, L: Layer> ComputeLayer for IntermediateLayer<P, L> {
 
 }
 
-impl<P: ComputeLayer, L: Layer> ComputeLayerExt for IntermediateLayer<P, L> {}
+impl<P, L> Clone for IntermediateLayer<P, L>
+where
+    P: ComputeLayer + Clone,
+    L: Layer + Clone
+{
+    fn clone(&self) -> Self {
+        Self {
+            previous: self.previous.clone(),
+            layer: self.layer.clone()
+        }
+    }
+}
 
 
 /// A LCG RNG specific for layers.

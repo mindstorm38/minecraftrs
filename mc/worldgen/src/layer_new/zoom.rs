@@ -22,7 +22,7 @@ impl ZoomLayer {
     }
 
     #[inline]
-    pub fn new_weird(base_seed: i64) -> Self {
+    pub fn new_smart(base_seed: i64) -> Self {
         Self::new(base_seed, false)
     }
 
@@ -68,7 +68,7 @@ impl Layer for ZoomLayer {
                 tmp.set(dx * 2 + 1, dz * 2 + 1, if fuzzy {
                     self.rand.choose(&[v1, v3, v2, v4])
                 } else {
-                    choose_weird(&mut self.rand, v1, v3, v2, v4)
+                    choose_smart(&mut self.rand, v1, v3, v2, v4)
                 });
 
                 v1 = v3;
@@ -90,7 +90,9 @@ impl Layer for ZoomLayer {
 
 }
 
-fn choose_weird(rand: &mut LayerRand, v1: State, v2: State, v3: State, v4: State) -> State {
+/// Internal method to choose from 4 states the most commonly represented.
+#[inline]
+fn choose_smart(rand: &mut LayerRand, v1: State, v2: State, v3: State, v4: State) -> State {
 
     if v2 == v3 && v3 == v4 {
         v2

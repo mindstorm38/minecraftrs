@@ -7,11 +7,12 @@ use mc_core::rand::JavaRandom;
 
 use crate::noise::{FixedPerlinNoiseOctaves, NoiseCube};
 
-use crate::layer_new::{ComputeLayer, ComputeLayerExt, RootLayer};
+use crate::layer_new::{ComputeLayer, RootLayer};
 use crate::layer_new::{
     IslandLayer, AddIslandLayer, AddMushroomIsland,
     ZoomLayer,
-    AddSnowLayer
+    AddSnowLayer,
+    InitRiverLayer
 };
 
 
@@ -29,6 +30,8 @@ pub struct LevelGenRelease102 {
     noise_surface: FixedPerlinNoiseOctaves,
 
     noise_field: NoiseCube,
+
+    layers: Box<dyn ComputeLayer>
 
     //ravine_carver: Carver,
     //cave_carver: Carver
@@ -52,6 +55,7 @@ impl LevelGenRelease102 {
             noise_main4: FixedPerlinNoiseOctaves::new(&mut rand, 10, WIDTH, 1, WIDTH),
             noise_main5: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, 1, WIDTH),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
+            layers: Self::new_layers(seed),
             // ravine_carver: Carver::new_ravine(),
             // cave_carver: Carver::new_cave(),
             rand,
@@ -59,22 +63,34 @@ impl LevelGenRelease102 {
 
     }
 
-    fn new_layers(seed: i64) -> impl ComputeLayer {
+    pub fn new_layers(seed: i64) -> Box<dyn ComputeLayer> {
 
         let mut layer = RootLayer::new(IslandLayer::new(1))
             .then(ZoomLayer::new_fuzzy(2000))
             .then(AddIslandLayer::new(1))
-            .then(ZoomLayer::new_weird(2001))
+            .then(ZoomLayer::new_smart(2001))
             .then(AddIslandLayer::new(2))
             .then(AddSnowLayer::new(2))
-            .then(ZoomLayer::new_weird(2002))
+            .then(ZoomLayer::new_smart(2002))
             .then(AddIslandLayer::new(3))
-            .then(ZoomLayer::new_weird(2003))
+            .then(ZoomLayer::new_smart(2003))
             .then(AddIslandLayer::new(4))
             .then(AddMushroomIsland::new(5));
 
+        let mut river = layer.clone()
+            .then(InitRiverLayer::new(100))
+            .then(ZoomLayer::new_smart(1000))
+            .then(ZoomLayer::new_smart(1000))
+            .then(ZoomLayer::new_smart(1000))
+            .then(ZoomLayer::new_smart(1000))
+            .then(ZoomLayer::new_smart(1000))
+            .then(ZoomLayer::new_smart(1000));
+
+        let mut biome = layer;
+
         layer.seed(seed);
-        layer
+        // Box::new(layer)
+        todo!()
 
         /*// Common layers
         let mut common = Layer::new_island(1);
