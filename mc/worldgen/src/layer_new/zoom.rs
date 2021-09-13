@@ -34,7 +34,7 @@ impl Layer for ZoomLayer {
         self.rand.init_world_seed(seed);
     }
 
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &[&mut dyn ComputeLayer]) {
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &mut [&mut dyn ComputeLayer]) {
 
         let x_half = x >> 1;
         let z_half = z >> 1;
@@ -44,7 +44,7 @@ impl Layer for ZoomLayer {
         let z_size_rounded = z_size_half << 1;
 
         let input = parents[0].generate_size(x_half, z_half, x_size_half, z_size_half);
-
+        let fuzzy = self.fuzzy;
         let mut tmp = LayerData::new(x_size_rounded, z_size_rounded, State::Uninit);
 
         for dz in 0..(z_size_half - 1) {
@@ -63,12 +63,12 @@ impl Layer for ZoomLayer {
                 let v4 = input.get(dx + 1, dz + 1);
 
                 tmp.set(dx * 2 + 0, dz * 2 + 0, v1);
-                tmp.set(dx * 2 + 0, dz * 2 + 1, internal.rand.choose(&[v1, v2]));
-                tmp.set(dx * 2 + 1, dz * 2 + 0, internal.rand.choose(&[v1, v3]));
+                tmp.set(dx * 2 + 0, dz * 2 + 1, self.rand.choose(&[v1, v2]));
+                tmp.set(dx * 2 + 1, dz * 2 + 0, self.rand.choose(&[v1, v3]));
                 tmp.set(dx * 2 + 1, dz * 2 + 1, if fuzzy {
                     self.rand.choose(&[v1, v3, v2, v4])
                 } else {
-                    choose_weird(&mut internal.rand, v1, v3, v2, v4)
+                    choose_weird(&mut self.rand, v1, v3, v2, v4)
                 });
 
                 v1 = v3;

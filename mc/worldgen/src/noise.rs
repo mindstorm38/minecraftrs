@@ -1,6 +1,5 @@
 use mc_core::math::{lerp, Cube};
 use mc_core::rand::JavaRandom;
-use std::cell::RefCell;
 
 
 pub type NoiseCube = Cube<f64>;

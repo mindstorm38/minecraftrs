@@ -1,7 +1,7 @@
 use crate::layer_new::{LayerData, ComputeLayer, LayerRand, State};
 use super::Layer;
 
-use mc_vanilla::biome::{PLAINS, OCEAN};
+use mc_vanilla::biome::{PLAINS, OCEAN, SNOWY_TUNDRA, FROZEN_OCEAN, MUSHROOM_FIELDS};
 use mc_core::biome::Biome;
 
 
@@ -24,7 +24,7 @@ impl Layer for IslandLayer {
         self.rand.init_world_seed(seed);
     }
 
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, _parents: &[&mut dyn ComputeLayer]) {
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, _parents: &mut [&mut dyn ComputeLayer]) {
 
         for dz in 0..output.x_size {
             for dx in 0..output.z_size {
@@ -63,15 +63,10 @@ impl Layer for AddIslandLayer {
         self.rand.init_world_seed(seed);
     }
 
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &[&mut dyn ComputeLayer]) {
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &mut [&mut dyn ComputeLayer]) {
 
         macro_rules! post_inc {
             ($v:ident) => (($v, $v += 1).0);
-        }
-
-        #[inline]
-        fn is_ocean(biome: &'static Biome) -> bool {
-            biome == &OCEAN
         }
 
         let input = parents[0].generate_size(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
@@ -110,18 +105,20 @@ impl Layer for AddIslandLayer {
 
                     center = if self.rand.next_int(3) == 0 {
                         to_set
-                    } else if to_set == ICE_PLAINS::ID {
-                        FROZEN_OCEAN::ID
+                    } else if to_set == &SNOWY_TUNDRA {
+                        // Snowy Tundra is the modern name of Ice plains
+                        &FROZEN_OCEAN
                     } else {
-                        OCEAN::ID
+                        &OCEAN
                     };
 
                 } else if !is_ocean(center) && (is_ocean(sw) || is_ocean(nw) || is_ocean(se) || is_ocean(ne)) {
 
                     if self.rand.next_int(5) == 0 {
-                        center = match center {
-                            ICE_PLAINS::ID => FROZEN_OCEAN::ID,
-                            _ => OCEAN::ID
+                        center = if center == &SNOWY_TUNDRA {
+                            &FROZEN_OCEAN
+                        } else {
+                            &OCEAN
                         };
                     }
 
@@ -134,4 +131,58 @@ impl Layer for AddIslandLayer {
 
     }
 
+}
+
+
+/// A layer that adds a mushroom island 1% of the time for each ocean biome that have
+/// ocean biomes on all its sides.
+pub struct AddMushroomIsland {
+    rand: LayerRand
+}
+
+impl AddMushroomIsland {
+    pub fn new(base_seed: i64) -> Self {
+        Self {
+            rand: LayerRand::new(base_seed)
+        }
+    }
+}
+
+impl Layer for AddMushroomIsland {
+
+    fn seed(&mut self, seed: i64) {
+        self.rand.init_world_seed(seed);
+    }
+
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &mut [&mut dyn ComputeLayer]) {
+
+        let input = parents[0].generate_size(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+
+        for dz in 0..output.z_size {
+            for dx in 0..output.x_size {
+
+                let sw = input.get(dx + 0, dz + 0).expect_biome();
+                let nw = input.get(dx + 2, dz + 0).expect_biome();
+                let se = input.get(dx + 0, dz + 2).expect_biome();
+                let ne = input.get(dx + 2, dz + 2).expect_biome();
+                let center = input.get(dx + 1, dz + 1).expect_biome();
+
+                self.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
+
+                if is_ocean(center) && is_ocean(sw) && is_ocean(nw) && is_ocean(se) && is_ocean(ne) && self.rand.next_int(100) == 0 {
+                    output.set(dx, dz, State::Biome(&MUSHROOM_FIELDS));
+                } else {
+                    output.set(dx, dz, State::Biome(center));
+                }
+
+            }
+        }
+
+    }
+
+}
+
+#[inline]
+fn is_ocean(biome: &'static Biome) -> bool {
+    biome == &OCEAN
 }

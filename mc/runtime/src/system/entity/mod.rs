@@ -1,4 +1,4 @@
-use mc_core::rand::java::JavaRandom;
+use mc_core::rand::JavaRandom;
 
 mod ai;
 pub use ai::*;

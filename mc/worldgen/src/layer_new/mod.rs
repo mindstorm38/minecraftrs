@@ -5,8 +5,12 @@ use mc_core::math::Rect;
 
 mod island;
 pub use island::*;
+
 mod zoom;
 pub use zoom::*;
+
+mod snow;
+pub use snow::*;
 
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -38,7 +42,7 @@ pub type LayerData = Rect<State>;
 /// A layer trait to implement the layer generation algorithm.
 pub trait Layer {
     fn seed(&mut self, seed: i64);
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &[&mut dyn ComputeLayer]);
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &mut [&mut dyn ComputeLayer]);
 }
 
 
@@ -55,8 +59,15 @@ pub trait ComputeLayer {
         data
     }
 
+}
+
+/// A non-object-safe trait only used to implement a default common method to structures
+/// already implementing `ComputeLayer` trait.
+pub trait ComputeLayerExt: ComputeLayer {
+
     fn then<N>(self, layer: N) -> IntermediateLayer<Self, N>
     where
+        Self: Sized,
         N: Layer
     {
         IntermediateLayer {
@@ -90,10 +101,12 @@ impl<L: Layer> ComputeLayer for RootLayer<L> {
     }
 
     fn generate(&mut self, x: i32, z: i32, output: &mut LayerData) {
-        self.layer.generate(x, z, output, &[]);
+        self.layer.generate(x, z, output, &mut []);
     }
 
 }
+
+impl<L: Layer> ComputeLayerExt for RootLayer<L> {}
 
 /// The type of all layers that or not `RootLayer`.
 pub struct IntermediateLayer<P: ComputeLayer, L: Layer> {
@@ -109,10 +122,12 @@ impl<P: ComputeLayer, L: Layer> ComputeLayer for IntermediateLayer<P, L> {
     }
 
     fn generate(&mut self, x: i32, z: i32, output: &mut LayerData) {
-        self.layer.generate(x, z, output, &[&mut self.previous]);
+        self.layer.generate(x, z, output, &mut [&mut self.previous]);
     }
 
 }
+
+impl<P: ComputeLayer, L: Layer> ComputeLayerExt for IntermediateLayer<P, L> {}
 
 
 /// A LCG RNG specific for layers.

@@ -6,12 +6,17 @@ use mc_core::world::source::{LevelGenerator, ProtoChunk};
 use mc_core::rand::JavaRandom;
 
 use crate::noise::{FixedPerlinNoiseOctaves, NoiseCube};
-use crate::carver::Carver;
 
-use crate::layer_new::{ComputeLayer, RootLayer};
-use crate::layer_new::{IslandLayer, ZoomLayer, AddIslandLayer};
+use crate::layer_new::{ComputeLayer, ComputeLayerExt, RootLayer};
+use crate::layer_new::{
+    IslandLayer, AddIslandLayer, AddMushroomIsland,
+    ZoomLayer,
+    AddSnowLayer
+};
 
 
+/// The LevelGenerator for Minecraft 1.2 release.
+// #[derive(Clone)]
 pub struct LevelGenRelease102 {
 
     rand: JavaRandom,
@@ -25,8 +30,8 @@ pub struct LevelGenRelease102 {
 
     noise_field: NoiseCube,
 
-    ravine_carver: Carver,
-    cave_carver: Carver
+    //ravine_carver: Carver,
+    //cave_carver: Carver
 
 }
 
@@ -37,7 +42,7 @@ impl LevelGenRelease102 {
         const WIDTH: usize = 5;
         const HEIGHT: usize = 17;
 
-        let mut rand = JavaRandom::new(world_info.seed);
+        let mut rand = JavaRandom::new(seed);
 
         Self {
             noise_main1: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, HEIGHT, WIDTH),
@@ -47,8 +52,8 @@ impl LevelGenRelease102 {
             noise_main4: FixedPerlinNoiseOctaves::new(&mut rand, 10, WIDTH, 1, WIDTH),
             noise_main5: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, 1, WIDTH),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
-            ravine_carver: Carver::new_ravine(),
-            cave_carver: Carver::new_cave(),
+            // ravine_carver: Carver::new_ravine(),
+            // cave_carver: Carver::new_cave(),
             rand,
         }
 
@@ -56,9 +61,20 @@ impl LevelGenRelease102 {
 
     fn new_layers(seed: i64) -> impl ComputeLayer {
 
-        let layer = RootLayer::new(IslandLayer::new(1))
+        let mut layer = RootLayer::new(IslandLayer::new(1))
             .then(ZoomLayer::new_fuzzy(2000))
-            .then(AddIslandLayer::new(1));
+            .then(AddIslandLayer::new(1))
+            .then(ZoomLayer::new_weird(2001))
+            .then(AddIslandLayer::new(2))
+            .then(AddSnowLayer::new(2))
+            .then(ZoomLayer::new_weird(2002))
+            .then(AddIslandLayer::new(3))
+            .then(ZoomLayer::new_weird(2003))
+            .then(AddIslandLayer::new(4))
+            .then(AddMushroomIsland::new(5));
+
+        layer.seed(seed);
+        layer
 
         /*// Common layers
         let mut common = Layer::new_island(1);
