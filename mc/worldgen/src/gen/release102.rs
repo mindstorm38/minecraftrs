@@ -7,7 +7,7 @@ use mc_core::rand::JavaRandom;
 
 use crate::noise::{FixedPerlinNoiseOctaves, NoiseCube};
 
-use crate::layer_new::{ComputeLayer, RootLayer};
+use crate::layer_new::{ComputeLayer, RootLayer, LayerSystem};
 use crate::layer_new::{
     IslandLayer, AddIslandLayer, AddMushroomIsland,
     ZoomLayer,
@@ -31,7 +31,7 @@ pub struct LevelGenRelease102 {
 
     noise_field: NoiseCube,
 
-    layers: Box<dyn ComputeLayer>
+    layer_system: LayerSystem
 
     //ravine_carver: Carver,
     //cave_carver: Carver
@@ -55,7 +55,7 @@ impl LevelGenRelease102 {
             noise_main4: FixedPerlinNoiseOctaves::new(&mut rand, 10, WIDTH, 1, WIDTH),
             noise_main5: FixedPerlinNoiseOctaves::new(&mut rand, 16, WIDTH, 1, WIDTH),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
-            layers: Self::new_layers(seed),
+            layer_system: Self::new_layers(seed),
             // ravine_carver: Carver::new_ravine(),
             // cave_carver: Carver::new_cave(),
             rand,
@@ -63,9 +63,15 @@ impl LevelGenRelease102 {
 
     }
 
-    pub fn new_layers(seed: i64) -> Box<dyn ComputeLayer> {
+    pub fn new_layers(seed: i64) -> LayerSystem {
 
-        let mut layer = RootLayer::new(IslandLayer::new(1))
+        let mut system = LayerSystem::new();
+        system.push_layer(IslandLayer::new(1));
+        system.push_layer(ZoomLayer::new_fuzzy(2000));
+        system.seed(seed);
+        system
+
+        /*let mut layer = RootLayer::new(IslandLayer::new(1))
             .then(ZoomLayer::new_fuzzy(2000))
             .then(AddIslandLayer::new(1))
             .then(ZoomLayer::new_smart(2001))
@@ -88,9 +94,8 @@ impl LevelGenRelease102 {
 
         let mut biome = layer;
 
-        layer.seed(seed);
-        // Box::new(layer)
-        todo!()
+        //layer.seed(seed);
+        // Box::new(layer)*/
 
         /*// Common layers
         let mut common = Layer::new_island(1);
