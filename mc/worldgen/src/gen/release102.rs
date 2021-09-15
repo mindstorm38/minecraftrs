@@ -81,6 +81,7 @@ impl LevelGenRelease102 {
         system.push(ZoomLayer::new_smart(2003));
         system.push(AddIslandLayer::new(4));
         system.push(AddMushroomIsland::new(5));
+        let common_idx = system.last_index().unwrap();
 
         system.push(InitRiverLayer::new(100));
         system.push_iter((0..6).map(|i| ZoomLayer::new_smart(1000 + i as i64)));
@@ -88,7 +89,7 @@ impl LevelGenRelease102 {
         system.push(SmoothLayer::new(1000));
         let river_idx = system.last_index().unwrap();
 
-        system.push(BiomeLayer::new_102(200));
+        system.push_with_parents(BiomeLayer::new_102(200), vec![common_idx]);
         system.push_iter((0..2).map(|i| ZoomLayer::new_smart(1000 + i as i64)));
         system.push(HillsLayer::new(1000));
         for i in 0..4 {
