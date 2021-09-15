@@ -1,4 +1,5 @@
-use mc_worldgen::layer_new::{Layer, IslandLayer};
+use mc_worldgen::layer_new::{Layer, island::IslandLayer, State};
+use mc_worldgen::gen::release102::LevelGenRelease102;
 
 fn main() {
 
@@ -8,5 +9,8 @@ fn main() {
     println!("Size 'IslandLayer' {}o", std::mem::size_of_val(&layer));
     println!("Size 'dyn Layer' {}o", std::mem::size_of_val(layer_ref));
     println!("Size '&dyn Layer' {}o", std::mem::size_of_val(&layer_ref));
+    println!("Size 'State' {}o", std::mem::size_of::<State>());
+
+    let gen = LevelGenRelease102::new(0);
 
 }

@@ -7,12 +7,15 @@ use mc_core::rand::JavaRandom;
 
 use crate::noise::{FixedPerlinNoiseOctaves, NoiseCube};
 
-use crate::layer_new::{ComputeLayer, RootLayer, LayerSystem};
 use crate::layer_new::{
-    IslandLayer, AddIslandLayer, AddMushroomIsland,
-    ZoomLayer,
-    AddSnowLayer,
-    InitRiverLayer
+    LayerSystem,
+    island::{IslandLayer, AddIslandLayer, AddMushroomIsland},
+    zoom::ZoomLayer,
+    snow::AddSnowLayer,
+    river::{InitRiverLayer, AddRiverLayer},
+    smooth::SmoothLayer,
+    biome::{BiomeLayer, HillsLayer, ShoreLayer, BiomeRiversLayer, MixBiomeAndRiverLayer},
+    voronoi::VoronoiLayer
 };
 
 
@@ -40,7 +43,7 @@ pub struct LevelGenRelease102 {
 
 impl LevelGenRelease102 {
 
-    fn new(seed: i64) -> Self {
+    pub fn new(seed: i64) -> Self {
 
         const WIDTH: usize = 5;
         const HEIGHT: usize = 17;
@@ -63,39 +66,54 @@ impl LevelGenRelease102 {
 
     }
 
-    pub fn new_layers(seed: i64) -> LayerSystem {
+    fn new_layers(seed: i64) -> LayerSystem {
 
         let mut system = LayerSystem::new();
-        system.push_layer(IslandLayer::new(1));
-        system.push_layer(ZoomLayer::new_fuzzy(2000));
+
+        system.push(IslandLayer::new(1));
+        system.push(ZoomLayer::new_fuzzy(2000));
+        system.push(AddIslandLayer::new(1));
+        system.push(ZoomLayer::new_smart(2001));
+        system.push(AddIslandLayer::new(2));
+        system.push(AddSnowLayer::new(2));
+        system.push(ZoomLayer::new_smart(2002));
+        system.push(AddIslandLayer::new(3));
+        system.push(ZoomLayer::new_smart(2003));
+        system.push(AddIslandLayer::new(4));
+        system.push(AddMushroomIsland::new(5));
+
+        system.push(InitRiverLayer::new(100));
+        system.push_iter((0..6).map(|i| ZoomLayer::new_smart(1000 + i as i64)));
+        system.push(AddRiverLayer);
+        system.push(SmoothLayer::new(1000));
+        let river_idx = system.last_index().unwrap();
+
+        system.push(BiomeLayer::new_102(200));
+        system.push_iter((0..2).map(|i| ZoomLayer::new_smart(1000 + i as i64)));
+        system.push(HillsLayer::new(1000));
+        for i in 0..4 {
+            system.push(ZoomLayer::new_smart(1000 + i));
+            match i {
+                0 => system.push(AddIslandLayer::new(3)),
+                1 => {
+                    system.push(ShoreLayer::new(1000));
+                    system.push(BiomeRiversLayer::new(1000));
+                },
+                _ => {}
+            }
+        }
+        system.push(SmoothLayer::new(1000));
+        let biome_idx = system.last_index().unwrap();
+
+        system.push_with_parents(MixBiomeAndRiverLayer, vec![biome_idx, river_idx]);
+        system.push(VoronoiLayer::new(10));
+
         system.seed(seed);
+
+        println!("System:\n{:?}", system);
+        let data = system.borrow_root().unwrap().generate_size(0, 0, 16, 16);
+
         system
-
-        /*let mut layer = RootLayer::new(IslandLayer::new(1))
-            .then(ZoomLayer::new_fuzzy(2000))
-            .then(AddIslandLayer::new(1))
-            .then(ZoomLayer::new_smart(2001))
-            .then(AddIslandLayer::new(2))
-            .then(AddSnowLayer::new(2))
-            .then(ZoomLayer::new_smart(2002))
-            .then(AddIslandLayer::new(3))
-            .then(ZoomLayer::new_smart(2003))
-            .then(AddIslandLayer::new(4))
-            .then(AddMushroomIsland::new(5));
-
-        let mut river = layer.clone()
-            .then(InitRiverLayer::new(100))
-            .then(ZoomLayer::new_smart(1000))
-            .then(ZoomLayer::new_smart(1000))
-            .then(ZoomLayer::new_smart(1000))
-            .then(ZoomLayer::new_smart(1000))
-            .then(ZoomLayer::new_smart(1000))
-            .then(ZoomLayer::new_smart(1000));
-
-        let mut biome = layer;
-
-        //layer.seed(seed);
-        // Box::new(layer)*/
 
         /*// Common layers
         let mut common = Layer::new_island(1);

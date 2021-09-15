@@ -1,8 +1,7 @@
-use super::{Layer, NewLayer, LayerData, ComputeLayer, LayerRand, State};
+use super::{Layer, LayerData, LayerRand, State, LayerContext};
 
 use mc_vanilla::biome::{PLAINS, OCEAN, SNOWY_TUNDRA, FROZEN_OCEAN, MUSHROOM_FIELDS};
 use mc_core::biome::Biome;
-use crate::layer_new::LayerContext;
 
 
 /// The initial island layer, it set the biome to either `PLAINS` or `OCEAN`.
@@ -24,33 +23,7 @@ impl Layer for IslandLayer {
         self.rand.init_world_seed(seed);
     }
 
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, _parents: &mut [&mut dyn ComputeLayer]) {
-
-        for dz in 0..output.x_size {
-            for dx in 0..output.z_size {
-                self.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
-                output.set(dx, dz, match self.rand.next_int(10) {
-                    0 => State::Biome(&PLAINS),
-                    _ => State::Biome(&OCEAN)
-                })
-            }
-        }
-
-        if x <= 0 && z <= 0 && x > -(output.x_size as i32) && z > -(output.z_size as i32) {
-            output.set((-x) as usize, (-z) as usize, State::Biome(&PLAINS));
-        }
-
-    }
-
-}
-
-impl NewLayer for IslandLayer {
-
-    fn seed(&mut self, seed: i64) {
-        self.rand.init_world_seed(seed);
-    }
-
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, _context: LayerContext) {
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, _ctx: LayerContext) {
 
         for dz in 0..output.x_size {
             for dx in 0..output.z_size {
@@ -89,13 +62,14 @@ impl Layer for AddIslandLayer {
         self.rand.init_world_seed(seed);
     }
 
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &mut [&mut dyn ComputeLayer]) {
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, ctx: LayerContext) {
 
         macro_rules! post_inc {
             ($v:ident) => (($v, $v += 1).0);
         }
 
-        let input = parents[0].generate_size(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+        let input = ctx.borrow_parent(0).unwrap()
+            .generate_size(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
 
         for dz in 0..output.z_size {
             for dx in 0..output.x_size {
@@ -180,9 +154,10 @@ impl Layer for AddMushroomIsland {
         self.rand.init_world_seed(seed);
     }
 
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &mut [&mut dyn ComputeLayer]) {
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, ctx: LayerContext) {
 
-        let input = parents[0].generate_size(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+        let input = ctx.borrow_parent(0).unwrap()
+            .generate_size(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
 
         for dz in 0..output.z_size {
             for dx in 0..output.x_size {

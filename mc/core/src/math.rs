@@ -45,13 +45,15 @@ impl<T> Rect<T> {
     }
 
     pub fn new(x_size: usize, z_size: usize, def: T) -> Self
-        where T: Clone
+    where
+        T: Clone
     {
         Rect { data: vec![def; x_size * z_size], x_size, z_size }
     }
 
     pub fn new_default(x_size: usize, z_size: usize) -> Self
-        where T: Clone + Default
+    where
+        T: Clone + Default
     {
         Self::new(x_size, z_size, T::default())
     }
@@ -70,9 +72,16 @@ impl<T> Rect<T> {
 
     #[inline]
     pub fn get(&self, x: usize, z: usize) -> T
-        where T: Copy
+    where
+        T: Copy
     {
         self.data[self.get_index(x, z)]
+    }
+
+    #[inline]
+    pub fn get_ref(&self, x: usize, z: usize) -> &T {
+        let idx = self.get_index(x, z);
+        &self.data[idx]
     }
 
     #[inline]
@@ -100,22 +109,25 @@ impl<T> Cube<T> {
     }
 
     pub fn new(x_size: usize, y_size: usize, z_size: usize, def: T) -> Self
-        where T: Clone
+    where
+        T: Clone
     {
         Cube { data: vec![def; x_size * y_size * z_size], x_size, y_size, z_size }
     }
 
     pub fn new_default(x_size: usize, y_size: usize, z_size: usize) -> Self
-        where T: Clone + Default
+    where
+        T: Clone + Default
     {
         Self::new(x_size, y_size, z_size, T::default())
     }
 
     pub fn reset(&mut self, value: T)
-        where T: Copy
+    where
+        T: Clone
     {
         for v in &mut self.data {
-            *v = value;
+            *v = value.clone();
         }
     }
 
@@ -133,7 +145,8 @@ impl<T> Cube<T> {
 
     #[inline]
     pub fn add(&mut self, x: usize, y: usize, z: usize, value: T)
-        where T: AddAssign
+    where
+        T: AddAssign
     {
         let idx = self.get_index(x, y, z);
         self.data[idx] += value;
@@ -141,9 +154,16 @@ impl<T> Cube<T> {
 
     #[inline]
     pub fn get(&self, x: usize, y: usize, z: usize) -> T
-        where T: Copy
+    where
+        T: Copy
     {
         self.data[self.get_index(x, y, z)]
+    }
+
+    #[inline]
+    pub fn get_ref(&self, x: usize, y: usize, z: usize) -> &T {
+        let idx = self.get_index(x, y, z);
+        &self.data[idx]
     }
 
     #[inline]

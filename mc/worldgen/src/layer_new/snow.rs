@@ -1,4 +1,4 @@
-use super::{LayerRand, Layer, LayerData, ComputeLayer, State};
+use super::{LayerRand, Layer, LayerData, State, LayerContext};
 use mc_vanilla::biome::{PLAINS, SNOWY_TUNDRA};
 
 /// A layer that replace 20% of the plains with snowy tundras (ice plains).
@@ -20,9 +20,10 @@ impl Layer for AddSnowLayer {
         self.rand.init_world_seed(seed);
     }
 
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &mut [&mut dyn ComputeLayer]) {
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, ctx: LayerContext) {
 
-        let input = parents[0].generate_size(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+        let input = ctx.borrow_parent(0).unwrap()
+            .generate_size(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
 
         for dz in 0..output.z_size {
             for dx in 0..output.x_size {

@@ -1,22 +1,20 @@
 use std::num::Wrapping;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut, BorrowError, Ref};
 
 use mc_core::biome::Biome;
 use mc_core::math::Rect;
+use std::fmt::{Debug, Formatter, Write};
 
-mod island;
-mod zoom;
-mod snow;
-mod river;
-
-pub use island::*;
-pub use zoom::*;
-pub use snow::*;
-pub use river::*;
-
+pub mod island;
+pub mod zoom;
+pub mod snow;
+pub mod river;
+pub mod smooth;
+pub mod biome;
+pub mod voronoi;
 
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq)]
 pub enum State {
     /// Special state for initial vec. Must not be set by any layer.
     Uninit,
@@ -34,7 +32,28 @@ impl State {
     fn expect_biome(&self) -> &'static Biome {
         match self {
             State::Biome(biome) => *biome,
-            _ => panic!("Expected biome state from parent compute layer.")
+            _ => panic!("Expected biome state from parent layer.")
+        }
+    }
+}
+
+impl Debug for State {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            State::Uninit => f.write_str("[]"),
+            State::NoRiver => f.write_str("NR"),
+            State::PotentialRiver(p) => f.write_fmt(format_args!("R{}", *p)),
+            State::River => f.write_str("R "),
+            State::Biome(biome) => f.write_str(biome.get_name())
+        }
+    }
+}
+
+impl PartialEq for State {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (State::Biome(b0), State::Biome(b1)) => (*b0) == (*b1),
+            (a, b) => std::mem::discriminant(a) == std::mem::discriminant(b)
         }
     }
 }
@@ -48,23 +67,7 @@ pub trait Layer {
     /// A method called to set the world's seed that will be used to generate biomes.
     fn seed(&mut self, seed: i64);
 
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, parents: &mut [&mut dyn ComputeLayer]);
-
-}
-
-
-/// A trait for different types of compute layer, like `RootLayer` and `IntermediateLayer`.
-/// Compute layers are actual layers that can be chained.
-pub trait ComputeLayer {
-
-    fn seed(&mut self, seed: i64);
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData);
-
-    fn generate_size(&mut self, x: i32, z: i32, x_size: usize, z_size: usize) -> LayerData {
-        let mut data = LayerData::new(x_size, z_size, State::Uninit);
-        self.generate(x, z, &mut data);
-        data
-    }
+    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, ctx: LayerContext);
 
 }
 
@@ -73,7 +76,7 @@ pub trait ComputeLayer {
 /// speed up generation and improve API.
 struct LayerStorage {
     /// The storage of the layer.
-    layer: Box<dyn NewLayer>,
+    layer: Box<dyn Layer>,
     /// A void pointer to the layer, it is only used to call generate function.
     layer_ptr: *mut (),
     /// The generate method pointer, stored in this method in order to avoid one
@@ -84,12 +87,16 @@ struct LayerStorage {
     /// the parent index is not in the range of the array, the parent index is
     /// calculated from the index of the calling layer minus the given parent
     /// index.
-    parent_indices: Option<Vec<usize>>
+    parent_indices: Vec<usize>,
+    /// Debug name of the layer type.
+    layer_type_name: &'static str
 }
 
 // We enforce send because the 'layer_ptr' should be valid as long as the object is not dropped.
 unsafe impl Send for LayerStorage {}
 
+
+/// The layer system is a linear sequence storage of layers.
 pub struct LayerSystem {
     layers: Vec<RefCell<LayerStorage>>,
 }
@@ -102,78 +109,125 @@ impl LayerSystem {
         }
     }
 
-    pub fn push_layer_with_parents<L>(&mut self, layer: L, parent_indices: Option<Vec<usize>>) -> usize
+    pub fn push_with_parents<L>(&mut self, layer: L, parent_indices: Vec<usize>)
     where
-        L: NewLayer + 'static
+        L: Layer + 'static
     {
-        let boxed_layer = Box::new(layer);
-        let layer_ptr = unsafe { boxed_layer.as_ref() as *const L as *mut () };
+        let layer = Box::new(layer);
+        let layer_ptr = unsafe { layer.as_ref() as *const L as *mut () };
         let generate_func: fn(&mut L, i32, i32, &mut LayerData, LayerContext) = L::generate;
-        let push_index = self.layers.len();
         self.layers.push(RefCell::new(LayerStorage {
-            layer: boxed_layer,
+            layer,
             layer_ptr,
             generate_func: unsafe { std::mem::transmute(generate_func) },
-            parent_indices
+            parent_indices,
+            layer_type_name: std::any::type_name::<L>()
         }));
-        push_index
     }
 
     #[inline]
-    pub fn push_layer<L>(&mut self, layer: L) -> usize
+    pub fn push<L>(&mut self, layer: L)
     where
-        L: NewLayer + 'static
+        L: Layer + 'static
     {
-        self.push_layer_with_parents(layer, None)
+        self.push_with_parents(layer, Vec::new())
     }
 
+    #[inline]
+    pub fn push_iter<I, L>(&mut self, layers_it: I)
+    where
+        I: Iterator<Item = L>,
+        L: Layer + 'static
+    {
+        for layer in layers_it {
+            self.push(layer);
+        }
+    }
+
+    /// Returns the last layer index, if there is no layer, `None` is returned.
+    pub fn last_index(&self) -> Option<usize> {
+        if self.layers.is_empty() { None } else { Some(self.layers.len() - 1) }
+    }
+
+    /// Seed all layers.
     pub fn seed(&mut self, seed: i64) {
         for layer in &self.layers {
             layer.borrow_mut().layer.seed(seed);
         }
     }
 
-    pub fn generate(&self, index: usize, x: i32, z: i32, output: &mut LayerData) -> bool {
-
-        if index < self.layers.len() {
-            return false;
-        }
-
-        // Here we don't care of the boxed dynamic layer because we want to use our own
-        // dynamic dispatching that take one indirection less.
-        let storage = self.layers[index].borrow_mut();
-
-        let ctx = LayerContext {
-            system: self,
-            layer_index: index,
-            parent_indices: storage.parent_indices
-                .as_ref()
-                .map(|v| v.as_slice())
-                .unwrap_or(&[])
-        };
-
-        (storage.generate_func)(storage.layer_ptr, x, z, output, ctx);
-        true
-
+    /// Try to borrow a layer.
+    pub fn borrow_layer(&self, index: usize) -> Option<LayerRef> {
+        self.layers.get(index)?.try_borrow_mut().ok().map(move |layer| {
+            LayerRef {
+                layer,
+                system: self,
+                layer_index: index
+            }
+        })
     }
 
-    pub fn generate_size(&self, index: usize, x: i32, z: i32, x_size: usize, z_size: usize) -> Option<LayerData> {
-        let mut data = LayerData::new(x_size, z_size, State::Uninit);
-        if self.generate(index, x, z, &mut data) {
-            Some(data)
-        } else {
+    /// Try to borrow the root layer (the last added layer).
+    pub fn borrow_root(&self) -> Option<LayerRef> {
+        if self.layers.is_empty() {
             None
+        } else {
+            self.borrow_layer(self.layers.len() - 1)
         }
-    }
-
-    pub fn generate_root(&self, x: i32, z: i32, x_size: usize, z_size: usize) -> LayerData {
-        assert!(!self.layers.is_empty(), "This layer system has no layer to generate.");
-        // SAFETY: We can unwrap because we assert that there is at least a layer.
-        self.generate_size(self.layers.len() - 1, x, z, x_size, z_size).unwrap()
     }
 
 }
 
+impl Debug for LayerSystem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for (i, layer) in self.layers.iter().enumerate() {
+            match layer.try_borrow() {
+                Ok(layer) => {
+                    f.write_fmt(format_args!("#{:02} {}", i, layer.layer_type_name))?;
+                    if !layer.parent_indices.is_empty() {
+                        f.write_str(" parents: ");
+                        f.debug_list()
+                            .entries(layer.parent_indices.iter())
+                            .finish();
+                    }
+                    f.write_char('\n');
+                },
+                Err(_) => f.write_str("- already mutably borrowed")?
+            }
+        }
+        Ok(())
+    }
+}
+
+/// A rich reference to a layer, returned when borrowing a layer. This structure keep the
+/// `RefMut` from the ref cell, this allows only on ref to the same layer at the same time.
+/// Once you the this ref, you can start generating this layer.
+pub struct LayerRef<'a> {
+    layer: RefMut<'a, LayerStorage>,
+    system: &'a LayerSystem,
+    layer_index: usize,
+}
+
+impl<'a> LayerRef<'a> {
+
+    pub fn generate(&self, x: i32, z: i32, output: &mut LayerData) {
+        (self.layer.generate_func)(self.layer.layer_ptr, x, z, output, LayerContext {
+            system: self.system,
+            layer_index: self.layer_index,
+            parent_indices: &self.layer.parent_indices[..]
+        });
+        println!("Generated layer {}", self.layer.layer_type_name);
+    }
+
+    pub fn generate_size(&self, x: i32, z: i32, x_size: usize, z_size: usize) -> LayerData {
+        let mut data = LayerData::new(x_size, z_size, State::Uninit);
+        self.generate(x, z, &mut data);
+        data
+    }
+
+}
+
+/// This is a temporary context given to the generate method of implementations of `Layer`.
 pub struct LayerContext<'a> {
     system: &'a LayerSystem,
     layer_index: usize,
@@ -193,130 +247,11 @@ impl<'a> LayerContext<'a> {
             .unwrap_or(self.layer_index - 1 - parent_index)
     }
 
-    pub fn generate(&self, parent_index: usize, x: i32, z: i32, output: &mut LayerData) -> bool {
-        self.system.generate(self.get_parent_index(parent_index), x, z, output)
-    }
-
-    pub fn generate_size(&self, parent_index: usize, x: i32, z: i32, x_size: usize, z_size: usize) -> Option<LayerData> {
-        self.system.generate_size(self.get_parent_index(parent_index), x, z, x_size, z_size)
+    pub fn borrow_parent(&self, parent_index: usize) -> Option<LayerRef> {
+        self.system.borrow_layer(self.get_parent_index(parent_index))
     }
 
 }
-
-pub trait NewLayer {
-    fn seed(&mut self, seed: i64);
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData, context: LayerContext);
-}
-
-
-/// This type of layer is the root of the layers tree.
-pub struct RootLayer<L> {
-    layer: L
-}
-
-impl<L> RootLayer<L>
-where
-    L: Layer
-{
-
-    pub fn new(layer: L) -> Self {
-        Self {
-            layer
-        }
-    }
-
-    pub fn then<N>(self, layer: N) -> IntermediateLayer<Self, N>
-    where
-        N: Layer
-    {
-        IntermediateLayer {
-            previous: self,
-            layer
-        }
-    }
-
-}
-
-impl<L> ComputeLayer for RootLayer<L>
-where
-    L: Layer
-{
-
-    fn seed(&mut self, seed: i64) {
-        self.layer.seed(seed);
-    }
-
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData) {
-        self.layer.generate(x, z, output, &mut []);
-    }
-
-}
-
-impl<L> Clone for RootLayer<L>
-    where
-        L: Layer + Clone
-{
-    fn clone(&self) -> Self {
-        Self {
-            layer: self.layer.clone()
-        }
-    }
-}
-
-/// The type of all layers that are created from `RootLayer` or `Self`.
-pub struct IntermediateLayer<P, L> {
-    previous: P,
-    layer: L
-}
-
-impl<P, L> IntermediateLayer<P, L>
-where
-    P: ComputeLayer,
-    L: Layer
-{
-
-    pub fn then<N>(self, layer: N) -> IntermediateLayer<Self, N>
-    where
-        N: Layer
-    {
-        IntermediateLayer {
-            previous: self,
-            layer
-        }
-    }
-
-}
-
-impl<P, L> ComputeLayer for IntermediateLayer<P, L>
-where
-    P: ComputeLayer,
-    L: Layer
-{
-
-    fn seed(&mut self, seed: i64) {
-        self.previous.seed(seed);
-        self.layer.seed(seed);
-    }
-
-    fn generate(&mut self, x: i32, z: i32, output: &mut LayerData) {
-        self.layer.generate(x, z, output, &mut [&mut self.previous]);
-    }
-
-}
-
-impl<P, L> Clone for IntermediateLayer<P, L>
-where
-    P: ComputeLayer + Clone,
-    L: Layer + Clone
-{
-    fn clone(&self) -> Self {
-        Self {
-            previous: self.previous.clone(),
-            layer: self.layer.clone()
-        }
-    }
-}
-
 
 /// A LCG RNG specific for layers.
 #[derive(Debug, Clone)]
