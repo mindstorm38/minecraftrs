@@ -48,7 +48,7 @@ impl Layer for BiomeLayer {
 
         for dz in 0..output.z_size {
             for dx in 0..output.x_size {
-                let mut biome = output.get(dx, dz).expect_biome();
+                let biome = output.get(dx, dz).expect_biome();
                 if biome == &PLAINS {
                     self.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
                     output.set(dx, dz, State::Biome(self.rand.choose(self.biomes)));

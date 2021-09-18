@@ -2,21 +2,21 @@
 //! Generator for release 1.2
 //!
 
-use mc_core::world::source::{LevelGenerator, ProtoChunk};
+use std::num::Wrapping;
+
+use mc_core::world::source::{LevelGenerator, ProtoChunk, ChunkInfo, LevelSourceError};
 use mc_core::rand::JavaRandom;
 
 use crate::noise::{FixedPerlinNoiseOctaves, NoiseCube};
 
-use crate::layer_new::{
-    LayerSystem,
-    island::{IslandLayer, AddIslandLayer, AddMushroomIsland},
-    zoom::ZoomLayer,
-    snow::AddSnowLayer,
-    river::{InitRiverLayer, AddRiverLayer},
-    smooth::SmoothLayer,
-    biome::{BiomeLayer, HillsLayer, ShoreLayer, BiomeRiversLayer, MixBiomeAndRiverLayer},
-    voronoi::VoronoiLayer
-};
+use crate::layer_new::{LayerSystem};
+use crate::layer_new::island::{IslandLayer, AddIslandLayer, AddMushroomIsland};
+use crate::layer_new::zoom::ZoomLayer;
+use crate::layer_new::snow::AddSnowLayer;
+use crate::layer_new::river::{InitRiverLayer, AddRiverLayer};
+use crate::layer_new::smooth::SmoothLayer;
+use crate::layer_new::biome::{BiomeLayer, HillsLayer, ShoreLayer, BiomeRiversLayer, MixBiomeAndRiverLayer};
+use crate::layer_new::voronoi::VoronoiLayer;
 
 
 /// The LevelGenerator for Minecraft 1.2 release.
@@ -110,10 +110,6 @@ impl LevelGenRelease102 {
         system.push(VoronoiLayer::new(10));
 
         system.seed(seed);
-
-        println!("System:\n{:?}", system);
-        let data = system.borrow_root().unwrap().generate_size(0, 0, 16, 16);
-
         system
 
         /*// Common layers
@@ -161,13 +157,36 @@ impl LevelGenRelease102 {
 
     }
 
+    /*fn initialize_biomes(&mut self, chunk: &mut Chunk) -> [&'static Biome; 256] {
+        let (cx, cz) = chunk.get_position();
+        let layer_biomes = self.layer_system.borrow_root().unwrap()
+            .generate_size(cx * 16, cz * 16, 16, 16);
+        let biomes = layer_into_biomes::<256>(layer_biomes).unwrap();
+        chunk.set_biomes_2d(&biomes);
+        biomes
+    }*/
+
 }
 
 impl LevelGenerator for LevelGenRelease102 {
 
-    fn generate(&mut self, chunk: &mut ProtoChunk) {
+    fn generate(&mut self, info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)> {
 
+        const POS_LIMIT: i32 = 1_875_004;
+        const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);
+        const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
 
+        if info.cx < -POS_LIMIT || info.cz < -POS_LIMIT || info.cx >= POS_LIMIT || info.cz >= POS_LIMIT {
+            // In order to return position, we need a better LevelGenerator trait
+            return Err((LevelSourceError::UnsupportedChunkPosition, info));
+        }
+
+        self.rand.set_seed((Wrapping(info.cx as i64) * X_MUL + Wrapping(info.cz as i64) * Z_MUL).0);
+
+        let chunk = info.build_proto_chunk();
+        // let biomes = self.initialize_biomes(&mut *chunk);
+
+        Ok(chunk)
 
     }
 
