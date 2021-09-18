@@ -212,7 +212,7 @@ where
 /// to do this you need to wrap it into `LevelGeneratorSource`, this structure will clone your
 /// generator in any given workers count and run them asynchronously.
 pub trait LevelGenerator {
-    fn generate(&mut self, chunk: &mut ProtoChunk);
+    fn generate(&mut self, info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)>;
 }
 
 
@@ -291,9 +291,8 @@ where
         loop {
             match self.request_receiver.recv() {
                 Ok(chunk_info) => {
-                    let mut proto_chunk = chunk_info.build_proto_chunk();
-                    self.generator.generate(&mut proto_chunk);
-                    if let Err(_) = self.result_sender.send(Ok(proto_chunk)) {
+                    let res = self.generator.generate(chunk_info);
+                    if let Err(_) = self.result_sender.send(res) {
                         break
                     }
                 },
@@ -327,7 +326,8 @@ impl SuperFlatGenerator {
 
 impl LevelGenerator for SuperFlatGenerator {
 
-    fn generate(&mut self, chunk: &mut ProtoChunk) {
+    fn generate(&mut self, info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)> {
+        let mut chunk = info.build_proto_chunk();
         for &(state, y, height) in &self.layers {
             for y in y..(y + height as i32) {
                 // TODO: This algorithm is not optimized, we can optimize it if we add
@@ -339,6 +339,7 @@ impl LevelGenerator for SuperFlatGenerator {
                 }
             }
         }
+        Ok(chunk)
     }
 
 }

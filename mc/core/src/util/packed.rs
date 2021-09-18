@@ -89,7 +89,7 @@ impl PackedArray {
         self.cells.iter().copied().unpack_aligned(self.byte_size).take(self.length)
     }
 
-    pub fn replace(&mut self, mut replacer: impl FnMut(u64) -> u64) {
+    pub fn replace(&mut self, mut replacer: impl FnMut(usize, u64) -> u64) {
         let byte_size = self.byte_size as usize;
         let vpc = Self::calc_values_per_cell(self.byte_size);
         let mask = Self::calc_mask(self.byte_size);
@@ -99,7 +99,7 @@ impl PackedArray {
             let mut new_cell = 0;
             for value_index in 0..vpc {
                 let bit_index = value_index * byte_size;
-                new_cell |= (replacer(old_cell & mask) & mask) << bit_index;
+                new_cell |= (replacer(index, old_cell & mask) & mask) << bit_index;
                 old_cell >>= self.byte_size;
                 index += 1;
                 if index >= self.length {
@@ -111,16 +111,16 @@ impl PackedArray {
     }
 
     pub fn resize_byte(&mut self, new_byte_size: u8) {
-        self.internal_resize_byte::<fn(u64) -> u64>(new_byte_size, None);
+        self.internal_resize_byte::<fn(usize, u64) -> u64>(new_byte_size, None);
     }
 
-    pub fn resize_byte_and_replace(&mut self, new_byte_size: u8, replacer: impl FnMut(u64) -> u64) {
+    pub fn resize_byte_and_replace(&mut self, new_byte_size: u8, replacer: impl FnMut(usize, u64) -> u64) {
         self.internal_resize_byte(new_byte_size, Some(replacer));
     }
 
     fn internal_resize_byte<F>(&mut self, new_byte_size: u8, mut replacer: Option<F>)
     where
-        F: FnMut(u64) -> u64
+        F: FnMut(usize, u64) -> u64
     {
 
         if new_byte_size == self.byte_size {
@@ -163,7 +163,7 @@ impl PackedArray {
                     let new_bit_index = (index % new_vpc) * new_byte_size;
 
                     if let Some(ref mut replacer) = replacer {
-                        value = replacer(value);
+                        value = replacer(index, value);
                     }
 
                     let cell = &mut self.cells[new_cell_index];
@@ -406,7 +406,7 @@ mod tests {
             assert_eq!(value, if i == 2 { 3 } else { 15 }, "set failed");
         }
 
-        array.replace(|val| val / 2);
+        array.replace(|_, val| val / 2);
 
         for (i, value) in array.iter().enumerate() {
             assert_eq!(value, if i == 2 { 1 } else { 7 }, "replace failed");
@@ -420,7 +420,7 @@ mod tests {
             assert_eq!(value, if i == 2 { 1 } else { 7 }, "resize failed to transform values");
         }
 
-        array.resize_byte_and_replace(16, |val| val * 5678);
+        array.resize_byte_and_replace(16, |_, val| val * 5678);
         assert_eq!(array.cells.len(), 8, "resize and replace failed to change cells len");
         assert_eq!(array.byte_size, 16, "resize and replace failed to set the new byte size");
 
