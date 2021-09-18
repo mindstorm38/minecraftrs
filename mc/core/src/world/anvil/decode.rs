@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use std::sync::Arc;
 use std::io::Read;
 
@@ -14,7 +15,6 @@ use crate::util::PackedIterator;
 use crate::block::BlockState;
 use crate::biome::Biome;
 use crate::util::NbtExt;
-use std::mem::MaybeUninit;
 
 
 #[derive(Error, Debug)]
