@@ -13,6 +13,8 @@ pub mod smooth;
 pub mod biome;
 pub mod voronoi;
 
+pub mod iter;
+
 
 #[derive(Copy, Clone, Eq)]
 pub enum State {
@@ -310,6 +312,10 @@ impl LayerRand {
         }
         Self::hash_seed(&mut self.chunk_seed, self.world_seed.0);
         i as u32
+    }
+
+    pub fn skip(&mut self) {
+        Self::hash_seed(&mut self.chunk_seed, self.world_seed.0);
     }
 
     pub fn choose<T: Copy>(&mut self, elements: &[T]) -> T {
