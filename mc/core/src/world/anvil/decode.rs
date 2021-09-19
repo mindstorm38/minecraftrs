@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::mem::MaybeUninit;
 use std::sync::Arc;
 use std::io::Read;
 
@@ -50,8 +50,6 @@ pub fn decode_chunk_from_reader(reader: &mut impl Read, chunk: &mut ProtoChunk) 
 /// Decode a chunk from its NBT data.
 pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<(), DecodeError> {
 
-    let global_start = Instant::now();
-
     // TODO: Use data version to apply data fixers
     let _data_version = tag_root.get_i32("DataVersion")?;
     let tag_level = tag_root.get_compound_tag("Level")?;
@@ -83,61 +81,53 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
     let env = chunk.clone_env();
     let height = chunk.get_height();
 
-    // Biomes are computed before section decoding, biome references are stored in a
-    // vec of 64 or `height.len() * 64` biomes, this depends on the used format.
-    let start = Instant::now();
-    let biomes: Option<Vec<&'static Biome>> = match tag_level.get_i32_vec("Biomes").ok() {
-        Some(raw_biomes) => {
+    if let Ok(raw_biomes) = tag_level.get_i32_vec("Biomes") {
 
-            if raw_biomes.len() == 256 {
+        if raw_biomes.len() == 256 {
 
-                static FROM_2D_INDICES: [usize; 16] = [
-                    0, 4, 8, 12,
-                    64, 68, 72, 76,
-                    128, 132, 136, 140,
-                    192, 196, 200, 204
-                ];
+            let mut biomes: [MaybeUninit<&'static Biome>; 256] = unsafe {
+                MaybeUninit::uninit().assume_init()
+            };
 
-                let mut vec = Vec::with_capacity(64);
+            let mut raw_biomes_it = raw_biomes.iter();
 
-                for _ in 0..4 {
-                    for idx in FROM_2D_INDICES {
-                        let id = raw_biomes[idx];
-                        vec.push(env.biomes.get_biome_from_id(id)
-                            .ok_or_else(|| DecodeError::UnknownBiome(id))?);
-                    }
+            for uninit_biome in &mut biomes {
+                // SAFETY: Unwrap should be safe because len of 'raw_biomes' and 'biomes' are equal.
+                let raw_biome_id = raw_biomes_it.next().unwrap();
+                match env.biomes.get_biome_from_id(*raw_biome_id) {
+                    Some(biome) => *uninit_biome = MaybeUninit::new(biome),
+                    None => return Err(DecodeError::UnknownBiome(*raw_biome_id))
                 }
-
-                Some(vec)
-
-            } else if raw_biomes.len() == height.len() * 64 {
-
-                let mut vec = Vec::with_capacity(raw_biomes.len());
-
-                for id in raw_biomes {
-                    vec.push(env.biomes.get_biome_from_id(*id)
-                        .ok_or_else(|| DecodeError::UnknownBiome(*id))?);
-                }
-
-                Some(vec)
-
-            } else {
-                return Err(DecodeError::Malformed(format!("Malformed biomes array of length {}.", raw_biomes.len())));
             }
 
-        },
-        None => None
-    };
+            let biomes: [&'static Biome; 256] = unsafe { std::mem::transmute(biomes) };
+            chunk.set_biomes_2d(&biomes);
 
-    println!("time to process biomes: {}ms", start.elapsed().as_secs_f32() * 1000.0);
+        } else if raw_biomes.len() == height.len() * 64 {
+
+            let mut vec = Vec::with_capacity(raw_biomes.len());
+
+            for id in raw_biomes {
+                match env.biomes.get_biome_from_id(*id) {
+                    Some(biome) => vec.push(biome),
+                    None => return Err(DecodeError::UnknownBiome(*id))
+                }
+            }
+
+            chunk.set_biomes_3d(&vec[..]);
+
+        } else {
+            return Err(DecodeError::Malformed(format!("Malformed biomes array of length {}.", raw_biomes.len())));
+        }
+
+    }
 
     // Sections
-    let start = Instant::now();
     for tag_section in tag_level.get_compound_tag_vec("Sections")? {
 
         let cy = tag_section.get_i8("Y")?;
 
-        if let Some(chunk_offset) = chunk.get_chunk_offset(cy) {
+        if let Some(_chunk_offset) = chunk.get_chunk_offset(cy) {
 
             let mut sub_chunk = SubChunk::new_default(Arc::clone(&env));
 
@@ -163,24 +153,12 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
                 }
             }
 
-            if let Some(biomes) = &biomes {
-                if biomes.len() == 64 {
-                    sub_chunk.set_biomes(biomes.iter().copied());
-                } else {
-                    let sub_chunk_biomes = &biomes[(chunk_offset * 64)..((chunk_offset + 1) * 64)];
-                    sub_chunk.set_biomes(sub_chunk_biomes.into_iter().copied());
-                }
-            }
-
             // SAFETY: We can unwrap because we have already checked the validity of 'cy'.
             chunk.replace_sub_chunk(cy, sub_chunk).unwrap();
 
         }
 
     }
-
-    println!("time to process sections: {}ms", start.elapsed().as_secs_f32() * 1000.0);
-    println!("time to process chunk: {}ms", global_start.elapsed().as_secs_f32() * 1000.0);
 
     Ok(())
 

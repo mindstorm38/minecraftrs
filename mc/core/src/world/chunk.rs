@@ -72,8 +72,16 @@ pub struct Chunk {
     env: Arc<LevelEnv>,
     /// The array of sub chunks, defined once with a specific size depending on the height.
     sub_chunks: Vec<Option<SubChunk>>,
-    /// The offset of the
+    /// The offset of the lower chunk.
     sub_chunks_offset: i8,
+    /// Modern cube biomes array, this array does not use any palette since the global palette
+    /// should be small enough to only take 7 to 8 bits per point. Since there 64 biomes in
+    /// a sub chunk, this make only 64 octets to store a sub chunk.
+    ///
+    /// **Biomes are stored separately from sub chunks because sub chunks are not necessarily
+    /// existing for empty sub chunks even at valid Y positions. But biomes must always be
+    /// defined for all the height.**
+    biomes: PackedArray,
     /// The current generation status of this chunk.
     status: ChunkStatus,
     /// Total number of ticks players has been in this chunk, this increase faster when
@@ -89,6 +97,8 @@ impl Chunk {
 
     pub(super) fn new(env: Arc<LevelEnv>, height: ChunkHeight, cx: i32, cz: i32) -> Self {
 
+        let biomes_byte_size = SubChunk::get_biomes_byte_size(&env);
+
         Chunk {
             cx,
             cz,
@@ -96,6 +106,7 @@ impl Chunk {
             status: ChunkStatus::Empty,
             sub_chunks: (0..height.len()).map(|_| None).collect(),
             sub_chunks_offset: height.min,
+            biomes: PackedArray::new(height.len() * 64, biomes_byte_size, None),
             inhabited_time: 0,
             entities: HashSet::new(),
             last_save: Instant::now()
@@ -188,7 +199,7 @@ impl Chunk {
     }
 
     /// Get a sub chunk mutable reference at a specified index.
-    pub fn mut_sub_chunk(&mut self, cy: i8) -> Option<&mut SubChunk> {
+    pub fn get_sub_chunk_mut(&mut self, cy: i8) -> Option<&mut SubChunk> {
         let offset = self.calc_chunk_offset(cy)?;
         match self.sub_chunks.get_mut(offset) {
             Some(Some(chunk)) => Some(chunk),
@@ -214,7 +225,7 @@ impl Chunk {
     ///
     /// As its name implies, this method only calculate the offset, the returned
     /// offset might be out of the chunk's height.
-    pub fn calc_chunk_offset(&self, cy: i8) -> Option<usize> {
+    fn calc_chunk_offset(&self, cy: i8) -> Option<usize> {
         cy.checked_sub(self.sub_chunks_offset).map(|v| v as usize)
     }
 
@@ -253,7 +264,7 @@ impl Chunk {
     ///
     /// Return `Ok(())` if the biome was successfully set, `Err(ChunkError::IllegalVerticalPos)` if
     /// the given Y coordinate is invalid for the level or `Err(ChunkError::IllegalBlock)` if the
-    /// given block state is not registered in the current world..
+    /// given block state is not registered in the current world.
     ///
     /// # Panics (debug-only)
     /// This method panics if either X or Z is higher than 15.
@@ -269,16 +280,89 @@ impl Chunk {
 
     // BIOMES //
 
-    pub fn get_biome(&self, x: u8, y: i32, z: u8) -> ChunkResult<&'static Biome> {
-        match self.get_sub_chunk((y >> 4) as i8) {
-            None => Err(ChunkError::SubChunkUnloaded),
-            Some(sub_chunk) => Ok(sub_chunk.get_biome(x, (y & 15) as u8, z))
-        }
+    fn calc_biome_offset(&self, x: u8, y: i32, z: u8) -> usize {
+        calc_biome_index(x, (y - self.sub_chunks_offset as i32 * 4) as usize, z)
     }
 
+    /// Get a biome at specific biome coordinates, biome coordinates are different from block
+    /// coordinates because there is only 4x4x4 biomes samples for each sub chunk.
+    /// Given X and Z coordinates must be lower than 4 and given Y coordinate must be valid
+    /// for the chunk height.
+    ///
+    /// Returns `Ok(biome)` or `Err(ChunkError::SubChunkOutOfRange)` if the given Y coordinate
+    /// is not supported by this chunk's height.
+    ///
+    /// # Panics (debug-only)
+    /// This method panics if either X or Z is higher than 3.
+    pub fn get_biome(&self, x: u8, y: i32, z: u8) -> ChunkResult<&'static Biome> {
+        let offset = self.calc_biome_offset(x, y, z);
+        let sid = self.biomes.get(offset).ok_or(ChunkError::SubChunkOutOfRange)? as u16;
+        Ok(self.env.biomes.get_biome_from(sid).unwrap())
+        /*match self.get_sub_chunk((y >> 4) as i8) {
+            None => Err(ChunkError::SubChunkUnloaded),
+            Some(sub_chunk) => Ok(sub_chunk.get_biome(x, (y & 15) as u8, z))
+        }*/
+    }
+
+    #[inline]
+    pub fn get_biome_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static Biome> {
+        self.get_biome(((x >> 2) & 3) as u8, y >> 2, ((z >> 2) & 3) as u8)
+    }
+
+    /// Get a biome at specific biome coordinates, biome coordinates are different from block
+    /// coordinates because there is only 4x4x4 biomes samples for each sub chunk.
+    /// Given X and Z coordinates must be lower than 4 and given Y coordinate must be valid
+    /// for the chunk height.
+    ///
+    /// Returns `Ok(biome)` or `Err(ChunkError::SubChunkOutOfRange)` if the given Y coordinate
+    /// is not supported by this chunk's height.
+    ///
+    /// # Panics (debug-only)
+    /// This method panics if either X or Z is higher than 3.
     pub fn set_biome(&mut self, x: u8, y: i32, z: u8, biome: &'static Biome) -> ChunkResult<()> {
-        self.ensure_sub_chunk((y >> 4) as i8, None)?
-            .set_biome(x, (y & 15) as u8, z, biome)
+        let offset = self.calc_biome_offset(x, y, z);
+        let sid = self.env.biomes.get_sid_from(biome).ok_or(ChunkError::IllegalBiome)?;
+        if offset < self.biomes.len() {
+            self.biomes.set(offset, sid as u64);
+            Ok(())
+        } else {
+            Err(ChunkError::SubChunkOutOfRange)
+        }
+        /*self.ensure_sub_chunk((y >> 4) as i8, None)?
+            .set_biome(x, (y & 15) as u8, z, biome)*/
+    }
+
+    #[inline]
+    pub fn set_biome_at(&mut self, x: i32, y: i32, z: i32, biome: &'static Biome) -> ChunkResult<()> {
+        self.set_biome(((x >> 2) & 3) as u8, y >> 2, ((z >> 2) & 3) as u8, biome)
+    }
+
+    pub fn set_biomes_3d(&mut self, biomes: &[&'static Biome]) -> ChunkResult<()> {
+        assert_eq!(biomes.len(), self.sub_chunks.len() * 64, "Given biomes array must be {} biomes long.", self.sub_chunks.len() * 64);
+        let env_biomes = &self.env.biomes;
+        self.biomes.replace(move |i, old| {
+            env_biomes.get_sid_from(biomes[i]).map(|v| v as u64).unwrap_or(old)
+        });
+        Ok(())
+    }
+
+    pub fn set_biomes_2d(&mut self, biomes: &[&'static Biome]) -> ChunkResult<()> {
+
+        assert_eq!(biomes.len(), 256, "Given biomes array must be 256 biomes long.");
+
+        let mut layer_biomes = [0; 16];
+
+        for y in 0..4 {
+            for x in 0..4 {
+                let idx = x + y * 4;
+                let biome = biomes[idx * 4];
+                layer_biomes[idx] = self.env.biomes.get_sid_from(biome).ok_or(ChunkError::IllegalBiome)?;
+            }
+        }
+
+        self.biomes.replace(move |i, _| layer_biomes[i % 16] as u64);
+        Ok(())
+
     }
 
     // ENTITIES //
@@ -330,10 +414,10 @@ pub struct SubChunk {
     blocks_palette: Option<Palette<*const BlockState>>,
     /// Cube blocks array.
     blocks: PackedArray,
-    /// Modern cube biomes array, this array does not use any palette since the global palette
+    /*/// Modern cube biomes array, this array does not use any palette since the global palette
     /// should be small enough to only take 7 to 8 bits per point. Since there 64 biomes in
     /// a sub chunk, this make only 64 octets to store.
-    biomes: PackedArray,
+    biomes: PackedArray,*/
 }
 
 // We must unsafely implement Send + Sync because of the `Palette<*const BlockState>`, this field
@@ -367,14 +451,14 @@ impl SubChunk {
             }
         };
 
-        let default_biome = match options {
+        /*let default_biome = match options {
             Some(SubChunkOptions { default_biome: Some(default_biome), .. }) => {
                 env.biomes.get_sid_from(*default_biome).ok_or_else(|| ChunkError::IllegalBiome)?
             },
             _ => 0
         };
 
-        let biomes_byte_size = Self::get_biomes_byte_size(&env);
+        let biomes_byte_size = Self::get_biomes_byte_size(&env);*/
 
         // The palettes are initialized with an initial state and biome (usually air and void, if
         // vanilla environment), this is required because the packed array has default values of 0,
@@ -383,7 +467,7 @@ impl SubChunk {
             env,
             blocks_palette: Some(Palette::new(Some(default_state), BLOCKS_PALETTE_CAPACITY)),
             blocks: PackedArray::new(BLOCKS_DATA_SIZE, 4, None),
-            biomes: PackedArray::new(BIOMES_DATA_SIZE, biomes_byte_size, Some(default_biome as u64))
+            // biomes: PackedArray::new(BIOMES_DATA_SIZE, biomes_byte_size, Some(default_biome as u64))
         })
 
     }
@@ -481,7 +565,7 @@ impl SubChunk {
         if let Some(ref local_palette) = self.blocks_palette {
             let new_byte_size = Self::get_blocks_byte_size(&self.env);
             let global_palette = &self.env.blocks;
-            self.blocks.resize_byte_and_replace(new_byte_size, move |sid| {
+            self.blocks.resize_byte_and_replace(new_byte_size, move |_, sid| {
                 let state = local_palette.get_item(sid as usize).unwrap();
                 global_palette.get_sid_from(unsafe { std::mem::transmute(state) }).unwrap() as u64
             });
@@ -510,7 +594,7 @@ impl SubChunk {
             // We resize raw because we don't care of the old content, and the new byte size might
             // be smaller than the old one.
             self.blocks.resize_raw(byte_size);
-            self.blocks.replace(|_| {
+            self.blocks.replace(|_, _| {
                 blocks.next().unwrap_or(0)
             });
 
@@ -522,7 +606,7 @@ impl SubChunk {
             let global_blocks = &self.env.blocks;
 
             self.blocks.resize_raw(byte_size);
-            self.blocks.replace(|_| {
+            self.blocks.replace(|_, _| {
                 let palette_idx = blocks.next().unwrap_or(0);
                 let state = palette[palette_idx as usize];
                 // SAFETY: We can unwrap because this is an safety condition of the method.
@@ -533,7 +617,7 @@ impl SubChunk {
 
     }
 
-    // BIOMES //
+    /*// BIOMES //
 
     pub fn get_biome(&self, x: u8, y: u8, z: u8) -> &'static Biome {
         let sid = self.biomes.get(calc_biome_index(x >> 2, y >> 2, z >> 2)).unwrap() as u16;
@@ -567,7 +651,7 @@ impl SubChunk {
             global_biomes.get_sid_from(biome).map(|sid| sid as u64).unwrap_or(v)
         });
 
-    }
+    }*/
 
 }
 
@@ -604,7 +688,7 @@ fn calc_block_index(x: u8, y: u8, z: u8) -> usize {
 
 
 #[inline]
-fn calc_biome_index(x: u8, y: u8, z: u8) -> usize {
-    debug_assert!(x < 4 && y < 4 && z < 4, "x: {}, y: {}, z: {}", x, y, z);
-    x as usize | ((z as usize) << 2) | ((y as usize) << 4)
+fn calc_biome_index(x: u8, y: usize, z: u8) -> usize {
+    debug_assert!(x < 4 && z < 4, "x: {}, z: {}", x, z);
+    x as usize | ((z as usize) << 2) | (y << 4)
 }

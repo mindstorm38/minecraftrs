@@ -1,5 +1,5 @@
+use std::cell::{RefCell, RefMut};
 use std::num::Wrapping;
-use std::cell::{RefCell, RefMut, BorrowError, Ref};
 
 use mc_core::biome::Biome;
 use mc_core::math::Rect;
@@ -46,7 +46,7 @@ impl Debug for State {
             State::NoRiver => f.write_str("NR"),
             State::PotentialRiver(p) => f.write_fmt(format_args!("R{}", *p)),
             State::River => f.write_str("R "),
-            State::Biome(biome) => f.write_str(biome.get_name())
+            State::Biome(biome) => f.write_fmt(format_args!("{:02}", biome.get_id()))
         }
     }
 }
@@ -60,7 +60,39 @@ impl PartialEq for State {
     }
 }
 
+/// Type alias for a layer data.
 pub type LayerData = Rect<State>;
+
+pub fn debug_layer_data(data: &LayerData) {
+
+    print!("   ");
+    for x in 0..data.x_size {
+        print!("{:02} ", x);
+    }
+    println!();
+
+    for z in 0..data.z_size {
+        print!("{:02} ", z);
+        for x in 0..data.x_size {
+            print!("{:?} ", data.get_ref(x, z));
+        }
+        println!();
+    }
+
+}
+
+/*pub fn layer_into_biomes<const LEN: usize>(data: LayerData) -> Option<[&'static Biome; LEN]> {
+    if data.data.len() == LEN {
+        let mut arr: [MaybeUninit<&'static Biome>; LEN] = unsafe { MaybeUninit::uninit().assume_init() };
+        let mut state_it = data.data.into_iter();
+        for uninit_biome in &mut arr {
+            *uninit_biome = MaybeUninit::new(state_it.next().unwrap().expect_biome());
+        }
+        Some(unsafe { std::mem::transmute(arr) })
+    } else {
+        None
+    }
+}*/
 
 
 /// A layer trait to implement the layer generation algorithm.
@@ -116,7 +148,7 @@ impl LayerSystem {
         L: Layer + 'static
     {
         let layer = Box::new(layer);
-        let layer_ptr = unsafe { layer.as_ref() as *const L as *mut () };
+        let layer_ptr = layer.as_ref() as *const L as *mut ();
         let generate_func: fn(&mut L, i32, i32, &mut LayerData, LayerContext) = L::generate;
         self.layers.push(RefCell::new(LayerStorage {
             layer,
@@ -187,12 +219,12 @@ impl Debug for LayerSystem {
                 Ok(layer) => {
                     f.write_fmt(format_args!("#{:02} {}", i, layer.layer_type_name))?;
                     if !layer.parent_indices.is_empty() {
-                        f.write_str(" parents: ");
+                        f.write_str(" parents: ")?;
                         f.debug_list()
                             .entries(layer.parent_indices.iter())
-                            .finish();
+                            .finish()?;
                     }
-                    f.write_char('\n');
+                    f.write_char('\n')?;
                 },
                 Err(_) => f.write_str("- already mutably borrowed")?
             }
@@ -218,7 +250,6 @@ impl<'a> LayerRef<'a> {
             layer_index: self.layer_index,
             parent_indices: &self.layer.parent_indices[..]
         });
-        println!("Generated layer {}", self.layer.layer_type_name);
     }
 
     pub fn generate_size(&self, x: i32, z: i32, x_size: usize, z_size: usize) -> LayerData {
