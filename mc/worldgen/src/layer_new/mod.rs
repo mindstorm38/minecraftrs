@@ -13,8 +13,6 @@ pub mod smooth;
 pub mod biome;
 pub mod voronoi;
 
-pub mod iter;
-
 
 #[derive(Copy, Clone, Eq)]
 pub enum State {

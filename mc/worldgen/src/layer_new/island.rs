@@ -35,6 +35,7 @@ impl Layer for IslandLayer {
             }
         }
 
+        // ANALYSIS: This seems to force a PLAINS biome at 0/0
         if x <= 0 && z <= 0 && x > -(output.x_size as i32) && z > -(output.z_size as i32) {
             output.set((-x) as usize, (-z) as usize, State::Biome(&PLAINS));
         }

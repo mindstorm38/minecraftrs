@@ -11,6 +11,7 @@ pub mod noise;
 pub mod gen;
 
 pub mod layer_new;
+pub mod layer_it;
 
 /*use crate::world::WorldInfo;
 use crate::world::loader::ChunkLoader;

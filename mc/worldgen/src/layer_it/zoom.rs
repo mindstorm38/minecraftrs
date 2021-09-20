@@ -1,91 +1,39 @@
-
-use mc_vanilla::biome::{PLAINS, OCEAN};
-use mc_core::biome::Biome;
-
 use crate::layer_new::LayerRand;
+use super::{Layer, LayerCache};
 
 
-/// A work-in-progress iterative layer processor, this type of processor only works cell by cell.
-pub trait Layer {
-
-    type Item;
-    fn seed(&mut self, seed: i64);
-    fn next(&mut self, x: i32, z: i32) -> Self::Item;
-
-    fn next_grid(&mut self, x: i32, z: i32, x_size: usize, z_size: usize) -> Vec<Self::Item> {
-        let mut data = Vec::with_capacity(x_size * z_size);
-        for z in z..(z + z_size as i32) {
-            for x in x..(x + x_size as i32) {
-                data.push(self.next(x, z));
-            }
-        }
-        data
-    }
-
-}
-
-
-pub struct IslandLayer {
-    rand: LayerRand
-}
-
-impl IslandLayer {
-    pub fn new(base_seed: i64) -> Self {
-        Self {
-            rand: LayerRand::new(base_seed)
-        }
-    }
-}
-
-impl Layer for IslandLayer {
-
-    type Item = &'static Biome;
-
-    fn seed(&mut self, seed: i64) {
-        self.rand.init_world_seed(seed);
-    }
-
-    fn next(&mut self, x: i32, z: i32) -> Self::Item {
-        self.rand.init_chunk_seed(x, z);
-        match self.rand.next_int(10) {
-            0 => &PLAINS,
-            _ => &OCEAN
-        }
-    }
-
-}
-
-
-pub struct ZoomLayer<P, const FUZZY: bool> {
+pub struct ZoomLayer<P: Layer, const FUZZY: bool> {
     parent: P,
-    rand: LayerRand
+    rand: LayerRand,
+    cache: LayerCache<P::Item>
 }
 
-impl<P> ZoomLayer<P, true> {
+impl<P: Layer> ZoomLayer<P, true> {
 
-    pub fn new_fuzzy(base_seed: i64, parent: P) -> Self {
+    pub fn new_fuzzy(parent: P, base_seed: i64) -> Self {
         Self {
             parent,
-            rand: LayerRand::new(base_seed)
+            rand: LayerRand::new(base_seed),
+            cache: LayerCache::new()
         }
     }
 
 }
 
-impl<P> ZoomLayer<P, false> {
+impl<P: Layer> ZoomLayer<P, false> {
 
-    pub fn new_smart(base_seed: i64, parent: P) -> Self {
+    pub fn new_smart(parent: P, base_seed: i64) -> Self {
         Self {
             parent,
-            rand: LayerRand::new(base_seed)
+            rand: LayerRand::new(base_seed),
+            cache: LayerCache::new()
         }
     }
 
 }
 
-impl<P, const FUZZY: bool> Layer for ZoomLayer<P, FUZZY>
+impl<P: Layer, const FUZZY: bool> Layer for ZoomLayer<P, FUZZY>
 where
-    P: Layer,
     P::Item: Copy + PartialEq
 {
 
@@ -97,7 +45,9 @@ where
 
     fn next(&mut self, x: i32, z: i32) -> Self::Item {
 
-        // Note that the conversion from the old algorithm that worked in a buffer is WIP.
+        if let Some(&data) = self.cache.get(x, z) {
+            return data;
+        }
 
         let x_half = x >> 1;
         let z_half = z >> 1;
@@ -109,7 +59,7 @@ where
 
         self.rand.init_chunk_seed(x_half << 1, z_half << 1);
 
-        if x_odd && z_odd {
+        let ret = if x_odd && z_odd {
             let v2 = self.parent.next(x_half, z_half + 1);
             let v3 = self.parent.next(x_half + 1, z_half);
             let v4 = self.parent.next(x_half + 1, z_half + 1);
@@ -129,7 +79,10 @@ where
             self.rand.choose(&[v1, v2])
         } else {
             v1
-        }
+        };
+
+        self.cache.insert(x, z, ret);
+        ret
 
     }
 
@@ -138,8 +91,8 @@ where
 /// Internal method to choose from 4 states the most commonly represented.
 #[inline]
 fn choose_smart<T>(rand: &mut LayerRand, v1: T, v2: T, v3: T, v4: T) -> T
-where
-    T: Copy + PartialEq
+    where
+        T: Copy + PartialEq
 {
 
     if v2 == v3 && v3 == v4 {
