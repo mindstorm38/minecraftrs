@@ -107,7 +107,7 @@ where
 
         let v1 = self.parent.next(x_half, z_half);
 
-        self.rand.init_chunk_seed(x, z);
+        self.rand.init_chunk_seed(x_half << 1, z_half << 1);
 
         if x_odd && z_odd {
             let v2 = self.parent.next(x_half, z_half + 1);
