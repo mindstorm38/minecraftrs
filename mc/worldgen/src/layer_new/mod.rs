@@ -81,6 +81,25 @@ pub fn debug_layer_data(data: &LayerData) {
 
 }
 
+pub fn debug_biomes_grid(biomes: &[&'static Biome], x_size: usize) {
+
+    print!("   ");
+    for x in 0..x_size {
+        print!("{:02} ", x);
+    }
+
+    for (i, &biome) in biomes.iter().enumerate() {
+        if i % x_size == 0 {
+            println!();
+            print!("{:02} ", i / x_size);
+        }
+        print!("{:02} ", biome.get_id());
+    }
+
+    println!();
+
+}
+
 /*pub fn layer_into_biomes<const LEN: usize>(data: LayerData) -> Option<[&'static Biome; LEN]> {
     if data.data.len() == LEN {
         let mut arr: [MaybeUninit<&'static Biome>; LEN] = unsafe { MaybeUninit::uninit().assume_init() };

@@ -7,14 +7,34 @@ use crate::layer_new::LayerRand;
 
 /// A work-in-progress iterative layer processor, this type of processor only works cell by cell.
 pub trait Layer {
-    type Item: Copy;
+
+    type Item;
     fn seed(&mut self, seed: i64);
     fn next(&mut self, x: i32, z: i32) -> Self::Item;
+
+    fn next_grid(&mut self, x: i32, z: i32, x_size: usize, z_size: usize) -> Vec<Self::Item> {
+        let mut data = Vec::with_capacity(x_size * z_size);
+        for z in z..(z + z_size as i32) {
+            for x in x..(x + x_size as i32) {
+                data.push(self.next(x, z));
+            }
+        }
+        data
+    }
+
 }
 
 
 pub struct IslandLayer {
     rand: LayerRand
+}
+
+impl IslandLayer {
+    pub fn new(base_seed: i64) -> Self {
+        Self {
+            rand: LayerRand::new(base_seed)
+        }
+    }
 }
 
 impl Layer for IslandLayer {
@@ -41,10 +61,32 @@ pub struct ZoomLayer<P, const FUZZY: bool> {
     rand: LayerRand
 }
 
+impl<P> ZoomLayer<P, true> {
+
+    pub fn new_fuzzy(base_seed: i64, parent: P) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed)
+        }
+    }
+
+}
+
+impl<P> ZoomLayer<P, false> {
+
+    pub fn new_smart(base_seed: i64, parent: P) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed)
+        }
+    }
+
+}
+
 impl<P, const FUZZY: bool> Layer for ZoomLayer<P, FUZZY>
 where
     P: Layer,
-    P::Item: PartialEq
+    P::Item: Copy + PartialEq
 {
 
     type Item = P::Item;
@@ -64,6 +106,8 @@ where
         let z_odd = (z & 1) == 1;
 
         let v1 = self.parent.next(x_half, z_half);
+
+        self.rand.init_chunk_seed(x, z);
 
         if x_odd && z_odd {
             let v2 = self.parent.next(x_half, z_half + 1);
