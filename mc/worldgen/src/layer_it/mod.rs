@@ -62,30 +62,51 @@ pub trait Layer {
 
 
 pub struct LayerCache<T> {
-    inner: HashMap<(i32, i32), T>,
-    history: VecDeque<(i32, i32)>
+    // inner: HashMap<(i32, i32), T>,
+    // history: VecDeque<(i32, i32)>,
+    inner: Vec<T>,
+    x: i32,
+    z: i32,
+    end_x: i32
 }
 
 impl<T> LayerCache<T> {
 
     pub fn new() -> Self {
         Self {
-            inner: HashMap::new(),
-            history: VecDeque::new()
+            // inner: HashMap::new(),
+            // history: VecDeque::new(),
+            inner: Vec::new(),
+            x: 0,
+            z: 0,
+            end_x: 0
         }
     }
 
     pub fn get(&self, x: i32, z: i32) -> Option<&T> {
-        self.inner.get(&(x, z))
+        if self.inner.is_empty() || x < self.x || z < self.z || x >= self.end_x {
+            None
+        } else {
+            self.inner.get((x - self.x) as usize + (z - self.z) as usize * (self.end_x - self.x) as usize)
+        }
     }
 
     pub fn insert(&mut self, x: i32, z: i32, data: T) {
-        self.inner.insert((x, z), data);
+        if self.inner.is_empty() {
+            self.inner.push(data);
+            self.x = x;
+            self.z = z;
+            self.end_x = x + 1;
+        } else if x == self.end_x && z == self.z {
+            self.inner.push(data);
+            self.end_x += 1;
+        }
+        /*self.inner.insert((x, z), data);
         self.history.push_back((x, z));
         if self.inner.len() > 48 {
             // SAFETY: Unwrap should be safe because the inner len equals history len, so not empty.
             self.inner.remove(&self.history.pop_front().unwrap());
-        }
+        }*/
     }
 
 }
