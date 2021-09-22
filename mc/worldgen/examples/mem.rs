@@ -22,6 +22,10 @@ fn main() {
     system.push(zoom::ZoomLayer::new_smart(2001));
     system.push(island::AddIslandLayer::new(2));
     system.push(snow::AddSnowLayer::new(2));
+    system.push(zoom::ZoomLayer::new_smart(2002));
+    system.push(island::AddIslandLayer::new(3));
+    system.push(zoom::ZoomLayer::new_smart(2003));
+    system.push(island::AddIslandLayer::new(4));
 
     let start = Instant::now();
     let layer = system.borrow_root().unwrap().generate_size(16, 16, 16, 16);

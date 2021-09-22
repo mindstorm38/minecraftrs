@@ -45,44 +45,44 @@ where
 
     fn next(&mut self, x: i32, z: i32) -> Self::Item {
 
-        if let Some(&data) = self.cache.get(x, z) {
-            return data;
-        }
+        let parent = &mut self.parent;
+        let rand = &mut self.rand;
 
-        let x_half = x >> 1;
-        let z_half = z >> 1;
+        self.cache.get_or_insert(x, z, || {
 
-        let x_odd = (x & 1) == 1;
-        let z_odd = (z & 1) == 1;
+            let x_half = x >> 1;
+            let z_half = z >> 1;
 
-        let v1 = self.parent.next(x_half, z_half);
+            let x_odd = (x & 1) == 1;
+            let z_odd = (z & 1) == 1;
 
-        self.rand.init_chunk_seed(x_half << 1, z_half << 1);
+            let v1 = parent.next(x_half, z_half);
 
-        let ret = if x_odd && z_odd {
-            let v2 = self.parent.next(x_half, z_half + 1);
-            let v3 = self.parent.next(x_half + 1, z_half);
-            let v4 = self.parent.next(x_half + 1, z_half + 1);
-            self.rand.skip();
-            self.rand.skip();
-            if FUZZY {
-                self.rand.choose(&[v1, v3, v2, v4])
+            rand.init_chunk_seed(x_half << 1, z_half << 1);
+
+            if x_odd && z_odd {
+                let v2 = parent.next(x_half, z_half + 1);
+                let v3 = parent.next(x_half + 1, z_half);
+                let v4 = parent.next(x_half + 1, z_half + 1);
+                rand.skip();
+                rand.skip();
+                if FUZZY {
+                    rand.choose(&[v1, v3, v2, v4])
+                } else {
+                    choose_smart(rand, v1, v3, v2, v4)
+                }
+            } else if x_odd {
+                let v3 = parent.next(x_half + 1, z_half);
+                rand.skip();
+                rand.choose(&[v1, v3])
+            } else if z_odd {
+                let v2 = parent.next(x_half, z_half + 1);
+                rand.choose(&[v1, v2])
             } else {
-                choose_smart(&mut self.rand, v1, v3, v2, v4)
+                v1
             }
-        } else if x_odd {
-            let v3 = self.parent.next(x_half + 1, z_half);
-            self.rand.skip();
-            self.rand.choose(&[v1, v3])
-        } else if z_odd {
-            let v2 = self.parent.next(x_half, z_half + 1);
-            self.rand.choose(&[v1, v2])
-        } else {
-            v1
-        };
 
-        self.cache.insert(x, z, ret);
-        ret
+        }).clone()
 
     }
 

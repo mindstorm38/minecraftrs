@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 pub mod island;
 pub mod zoom;
@@ -61,52 +61,116 @@ pub trait Layer {
 }
 
 
+/// A hash-table based cache specific to common biome layers coordinates. This cache
+/// currently works better when working with 16x16 rectangle aligned by 16 on axis.
 pub struct LayerCache<T> {
-    // inner: HashMap<(i32, i32), T>,
-    // history: VecDeque<(i32, i32)>,
-    inner: Vec<T>,
-    x: i32,
-    z: i32,
-    end_x: i32
+    data: Vec<Option<(i32, i32, T)>>,
 }
 
 impl<T> LayerCache<T> {
 
     pub fn new() -> Self {
         Self {
-            // inner: HashMap::new(),
-            // history: VecDeque::new(),
-            inner: Vec::new(),
-            x: 0,
-            z: 0,
-            end_x: 0
+            data: (0..256).map(|_| None).collect()
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.data.fill_with(|| None);
+    }
+
+    #[inline]
+    fn calc_index(x: i32, z: i32) -> usize {
+        (x & 0xF) as usize | (((z & 0xF) as usize) << 4)
+    }
+
+    pub fn insert(&mut self, x: i32, z: i32, item: T) {
+        self.data[Self::calc_index(x, z)] = Some((x, z, item));
     }
 
     pub fn get(&self, x: i32, z: i32) -> Option<&T> {
-        if self.inner.is_empty() || x < self.x || z < self.z || x >= self.end_x {
-            None
+        let (cx, cz, item) = self.data[Self::calc_index(x, z)].as_ref()?;
+        if *cx == x && *cz == z {
+            Some(item)
         } else {
-            self.inner.get((x - self.x) as usize + (z - self.z) as usize * (self.end_x - self.x) as usize)
+            None
         }
     }
 
-    pub fn insert(&mut self, x: i32, z: i32, data: T) {
-        if self.inner.is_empty() {
-            self.inner.push(data);
-            self.x = x;
-            self.z = z;
-            self.end_x = x + 1;
-        } else if x == self.end_x && z == self.z {
-            self.inner.push(data);
-            self.end_x += 1;
+    pub fn entry<'a>(&'a mut self, x: i32, z: i32) -> LayerCacheEntry<'a, T> {
+        match &mut self.data[Self::calc_index(x, z)] {
+            cell @ Some((cx, cz, _)) if *cx == x && *cz == z => {
+                LayerCacheEntry::Coherent(LayerCacheCoherentEntry {
+                    data: cell
+                })
+            },
+            cell => {
+                LayerCacheEntry::Dirty(LayerCacheDirtyEntry {
+                    cell,
+                    x,
+                    z
+                })
+            }
         }
-        /*self.inner.insert((x, z), data);
-        self.history.push_back((x, z));
-        if self.inner.len() > 48 {
-            // SAFETY: Unwrap should be safe because the inner len equals history len, so not empty.
-            self.inner.remove(&self.history.pop_front().unwrap());
-        }*/
+    }
+
+    pub fn get_or_insert<F>(&mut self, x: i32, z: i32, func: F) -> &T
+    where
+        F: FnOnce() -> T
+    {
+        match &mut self.data[Self::calc_index(x, z)] {
+            Some((cx, cz, item)) => {
+                if *cx != x || *cz != z {
+                    *cx = x;
+                    *cz = z;
+                    *item = func();
+                }
+                &*item
+            },
+            none => {
+                *none = Some((x, z, func()));
+                &none.as_ref().unwrap().2
+            }
+        }
+    }
+
+}
+
+pub enum LayerCacheEntry<'a, T> {
+    Coherent(LayerCacheCoherentEntry<'a, T>),
+    Dirty(LayerCacheDirtyEntry<'a, T>)
+}
+
+pub struct LayerCacheCoherentEntry<'a, T> {
+    data: &'a mut Option<(i32, i32, T)>
+}
+
+impl<'a, T> LayerCacheCoherentEntry<'a, T> {
+
+    #[inline]
+    pub fn get(&self) -> &'a T {
+        match self.data {
+            Some(data)
+        }
+    }
+
+}
+
+pub struct LayerCacheDirtyEntry<'a, T> {
+    cell: &'a mut Option<(i32, i32, T)>,
+    x: i32,
+    z: i32
+}
+
+impl<'a, T> LayerCacheDirtyEntry<'a, T> {
+
+    #[inline]
+    pub fn insert(mut self, item: T) -> &'a T {
+        *self.cell = Some((self.x, self.z, item));
+        match self.cell {
+            Some(v) => &v.2,
+            None => unsafe { std::hint::unreachable_unchecked() }
+        }
     }
 
 }

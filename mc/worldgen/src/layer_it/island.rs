@@ -1,5 +1,5 @@
 use crate::layer_new::LayerRand;
-use super::Layer;
+use super::{Layer, LayerCache, LayerCacheEntry};
 
 use mc_vanilla::biome::{PLAINS, OCEAN, SNOWY_TUNDRA, FROZEN_OCEAN};
 use mc_core::biome::Biome;
@@ -40,13 +40,15 @@ impl Layer for IslandLayer {
 pub struct AddIslandLayer<P> {
     parent: P,
     rand: LayerRand,
+    cache: LayerCache<&'static Biome>
 }
 
 impl<P> AddIslandLayer<P> {
     pub fn new(parent: P, base_seed: i64) -> Self {
         Self {
             parent,
-            rand: LayerRand::new(base_seed)
+            rand: LayerRand::new(base_seed),
+            cache: LayerCache::new()
         }
     }
 }
@@ -68,56 +70,66 @@ where
             ($v:ident) => (($v, $v += 1).0);
         }
 
-        let center = self.parent.next(x, z);
-        let sw = self.parent.next(x - 1, z - 1);
-        let nw = self.parent.next(x + 1, z - 1);
-        let se = self.parent.next(x - 1, z + 1);
-        let ne = self.parent.next(x + 1, z + 1);
+        match self.cache.entry(x, z) {
+            LayerCacheEntry::Coherent(c) => *c.get(),
+            LayerCacheEntry::Dirty(mut d) => {
 
-        self.rand.init_chunk_seed(x, z);
+                let center = self.parent.next(x, z);
+                let sw = self.parent.next(x - 1, z - 1);
+                let nw = self.parent.next(x + 1, z - 1);
+                let se = self.parent.next(x - 1, z + 1);
+                let ne = self.parent.next(x + 1, z + 1);
 
-        if is_ocean(center) && (!is_ocean(sw) || !is_ocean(nw) || !is_ocean(se) || !is_ocean(ne)) {
+                self.rand.init_chunk_seed(x, z);
 
-            let mut bound = 1;
-            let mut to_set = &PLAINS;
+                let val = if is_ocean(center) && (!is_ocean(sw) || !is_ocean(nw) || !is_ocean(se) || !is_ocean(ne)) {
 
-            if !is_ocean(sw) && self.rand.next_int(post_inc!(bound)) == 0 {
-                to_set = sw;
-            }
+                    let mut bound = 1;
+                    let mut to_set = &PLAINS;
 
-            if !is_ocean(nw) && self.rand.next_int(post_inc!(bound)) == 0 {
-                to_set = nw;
-            }
+                    if !is_ocean(sw) && self.rand.next_int(post_inc!(bound)) == 0 {
+                        to_set = sw;
+                    }
 
-            if !is_ocean(se) && self.rand.next_int(post_inc!(bound)) == 0 {
-                to_set = se;
-            }
+                    if !is_ocean(nw) && self.rand.next_int(post_inc!(bound)) == 0 {
+                        to_set = nw;
+                    }
 
-            if !is_ocean(ne) && self.rand.next_int(bound) == 0 {
-                to_set = ne;
-            }
+                    if !is_ocean(se) && self.rand.next_int(post_inc!(bound)) == 0 {
+                        to_set = se;
+                    }
 
-            if self.rand.next_int(3) == 0 {
-                to_set
-            } else if to_set == &SNOWY_TUNDRA {
-                // Snowy Tundra is the modern name of Ice plains
-                &FROZEN_OCEAN
-            } else {
-                &OCEAN
-            }
+                    if !is_ocean(ne) && self.rand.next_int(bound) == 0 {
+                        to_set = ne;
+                    }
 
-        } else if !is_ocean(center) && (is_ocean(sw) || is_ocean(nw) || is_ocean(se) || is_ocean(ne)) {
-            if self.rand.next_int(5) == 0 {
-                if center == &SNOWY_TUNDRA {
-                    &FROZEN_OCEAN
+                    if self.rand.next_int(3) == 0 {
+                        to_set
+                    } else if to_set == &SNOWY_TUNDRA {
+                        // Snowy Tundra is the modern name of Ice plains
+                        &FROZEN_OCEAN
+                    } else {
+                        &OCEAN
+                    }
+
+                } else if !is_ocean(center) && (is_ocean(sw) || is_ocean(nw) || is_ocean(se) || is_ocean(ne)) {
+                    if self.rand.next_int(5) == 0 {
+                        if center == &SNOWY_TUNDRA {
+                            &FROZEN_OCEAN
+                        } else {
+                            &OCEAN
+                        }
+                    } else {
+                        center
+                    }
                 } else {
-                    &OCEAN
-                }
-            } else {
-                center
+                    center
+                };
+
+                d.insert(val);
+                val
+
             }
-        } else {
-            center
         }
 
     }
