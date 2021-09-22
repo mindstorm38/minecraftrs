@@ -40,7 +40,9 @@ where
     type Item = P::Item;
 
     fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
         self.rand.init_world_seed(seed);
+        self.cache.clear();
     }
 
     fn next(&mut self, x: i32, z: i32) -> Self::Item {
@@ -48,7 +50,7 @@ where
         let parent = &mut self.parent;
         let rand = &mut self.rand;
 
-        self.cache.get_or_insert(x, z, || {
+        self.cache.get_or_insert(x, z, move || {
 
             let x_half = x >> 1;
             let z_half = z >> 1;

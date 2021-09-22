@@ -41,7 +41,8 @@ fn main() {
         .zoom_smart(2002)
         .add_island(3)
         .zoom_smart(2003)
-        .add_island(4);
+        .add_island(4)
+        .add_mushroom_island(5);
 
     let start = Instant::now();
     let biomes = it.next_grid(16, 16, 16, 16);

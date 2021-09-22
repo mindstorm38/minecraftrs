@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub mod island;
 pub mod zoom;
@@ -58,6 +60,44 @@ pub trait Layer {
         snow::AddSnowLayer::new(self, base_seed)
     }
 
+    fn add_mushroom_island(self, base_seed: i64) -> island::AddMushroomIsland<Self>
+    where
+        Self: Sized
+    {
+        island::AddMushroomIsland::new(self, base_seed)
+    }
+
+}
+
+
+/// A common layer implementation to work with shared layers.
+pub struct SharedLayer<P> {
+    layer: Rc<RefCell<P>>
+}
+
+impl<P> SharedLayer<P> {
+    pub fn new(layer: Rc<RefCell<P>>) -> Self {
+        Self {
+            layer
+        }
+    }
+}
+
+impl<P> Layer for SharedLayer<P>
+where
+    P: Layer
+{
+
+    type Item = P::Item;
+
+    fn seed(&mut self, seed: i64) {
+        self.layer.borrow_mut().seed(seed);
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+        self.layer.borrow_mut().next(x, z)
+    }
+
 }
 
 
@@ -97,23 +137,6 @@ impl<T> LayerCache<T> {
         }
     }
 
-    pub fn entry<'a>(&'a mut self, x: i32, z: i32) -> LayerCacheEntry<'a, T> {
-        match &mut self.data[Self::calc_index(x, z)] {
-            cell @ Some((cx, cz, _)) if *cx == x && *cz == z => {
-                LayerCacheEntry::Coherent(LayerCacheCoherentEntry {
-                    data: cell
-                })
-            },
-            cell => {
-                LayerCacheEntry::Dirty(LayerCacheDirtyEntry {
-                    cell,
-                    x,
-                    z
-                })
-            }
-        }
-    }
-
     pub fn get_or_insert<F>(&mut self, x: i32, z: i32, func: F) -> &T
     where
         F: FnOnce() -> T
@@ -131,45 +154,6 @@ impl<T> LayerCache<T> {
                 *none = Some((x, z, func()));
                 &none.as_ref().unwrap().2
             }
-        }
-    }
-
-}
-
-pub enum LayerCacheEntry<'a, T> {
-    Coherent(LayerCacheCoherentEntry<'a, T>),
-    Dirty(LayerCacheDirtyEntry<'a, T>)
-}
-
-pub struct LayerCacheCoherentEntry<'a, T> {
-    data: &'a mut Option<(i32, i32, T)>
-}
-
-impl<'a, T> LayerCacheCoherentEntry<'a, T> {
-
-    #[inline]
-    pub fn get(&self) -> &'a T {
-        match self.data {
-            Some(data)
-        }
-    }
-
-}
-
-pub struct LayerCacheDirtyEntry<'a, T> {
-    cell: &'a mut Option<(i32, i32, T)>,
-    x: i32,
-    z: i32
-}
-
-impl<'a, T> LayerCacheDirtyEntry<'a, T> {
-
-    #[inline]
-    pub fn insert(mut self, item: T) -> &'a T {
-        *self.cell = Some((self.x, self.z, item));
-        match self.cell {
-            Some(v) => &v.2,
-            None => unsafe { std::hint::unreachable_unchecked() }
         }
     }
 
