@@ -34,7 +34,7 @@ impl<P: Layer> ZoomLayer<P, false> {
 
 impl<P: Layer, const FUZZY: bool> Layer for ZoomLayer<P, FUZZY>
 where
-    P::Item: Copy + PartialEq
+    P::Item: Copy + Eq
 {
 
     type Item = P::Item;

@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::mem::MaybeUninit;
 
 pub mod island;
+pub mod smooth;
+pub mod river;
+pub mod biome;
 pub mod zoom;
 pub mod snow;
 
@@ -67,6 +71,91 @@ pub trait Layer {
         island::AddMushroomIsland::new(self, base_seed)
     }
 
+    fn init_river(self, base_seed: i64) -> river::InitRiverLayer<Self>
+    where
+        Self: Sized
+    {
+        river::InitRiverLayer::new(self, base_seed)
+    }
+
+    fn add_river(self) -> river::AddRiverLayer<Self>
+    where
+        Self: Sized
+    {
+        river::AddRiverLayer::new(self)
+    }
+
+    fn smooth(self, base_seed: i64) -> smooth::SmoothLayer<Self>
+    where
+        Self: Sized
+    {
+        smooth::SmoothLayer::new(self, base_seed)
+    }
+
+    fn biome(self, base_seed: i64, version: (u8, u8)) -> Option<biome::BiomeLayer<Self>>
+    where
+        Self: Sized
+    {
+        biome::BiomeLayer::from_version(self, base_seed, version)
+    }
+
+    fn into_box(self) -> BoxLayer<Self::Item>
+    where
+        Self: Sized + 'static
+    {
+        BoxLayer::new(self)
+    }
+
+    fn into_shared(self) -> SharedLayer<Self>
+    where
+        Self: Sized
+    {
+        SharedLayer::new_single(self)
+    }
+
+    fn into_shared_split(self) -> (SharedLayer<Self>, SharedLayer<Self>)
+    where
+        Self: Sized
+    {
+        SharedLayer::new_split(self)
+    }
+
+}
+
+
+/// A `Layer` implementation that allows to get a fixed-size layer with any layer hierarchy
+/// into it. The only constraint is that you must know the item type of the layer.
+pub struct BoxLayer<I> {
+    layer: Box<dyn Layer<Item = I>>
+}
+
+impl<I> BoxLayer<I> {
+    pub fn new<L>(layer: L) -> Self
+    where
+        L: Layer<Item = I> + 'static
+    {
+        Self {
+            layer: Box::new(layer)
+        }
+    }
+}
+
+impl<I> Layer for BoxLayer<I> {
+    
+    type Item = I;
+
+    fn seed(&mut self, seed: i64) {
+        self.layer.seed(seed);
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+        self.layer.next(x, z)
+    }
+
+    fn next_grid(&mut self, x: i32, z: i32, x_size: usize, z_size: usize) -> Vec<Self::Item> {
+        self.layer.next_grid(x, z, x_size, z_size)
+    }
+    
 }
 
 
@@ -76,10 +165,27 @@ pub struct SharedLayer<P> {
 }
 
 impl<P> SharedLayer<P> {
+
     pub fn new(layer: Rc<RefCell<P>>) -> Self {
         Self {
             layer
         }
+    }
+
+    pub fn new_single(layer: P) -> Self {
+        Self::new(Rc::new(RefCell::new(layer)))
+    }
+
+    pub fn new_split(layer: P) -> (Self, Self) {
+        let layer = Self::new_single(layer);
+        (layer.clone(), layer)
+    }
+
+}
+
+impl<P> Clone for SharedLayer<P> {
+    fn clone(&self) -> Self {
+        Self { layer: Rc::clone(&self.layer) }
     }
 }
 
@@ -98,7 +204,13 @@ where
         self.layer.borrow_mut().next(x, z)
     }
 
+    fn next_grid(&mut self, x: i32, z: i32, x_size: usize, z_size: usize) -> Vec<Self::Item> {
+        self.layer.borrow_mut().next_grid(x, z, x_size, z_size)
+    }
+
 }
+
+
 
 
 /// A hash-table based cache specific to common biome layers coordinates. This cache

@@ -32,7 +32,10 @@ fn main() {
     println!("Sequential (time: {}us):", start.elapsed().as_micros());
     debug_layer_data(&layer);
 
-    let mut it = layer_it::island::IslandLayer::new(1)
+    let (
+        it_river,
+        it_biome
+    ) = layer_it::island::IslandLayer::new(1)
         .zoom_fuzzy(2000)
         .add_island(1)
         .zoom_smart(2001)
@@ -42,11 +45,31 @@ fn main() {
         .add_island(3)
         .zoom_smart(2003)
         .add_island(4)
-        .add_mushroom_island(5);
+        .add_mushroom_island(5)
+        .into_box()
+        .into_shared_split();
+
+    let mut it_river = it_river
+        .init_river(100)
+        .zoom_smart(1000)
+        .zoom_smart(1001)
+        .zoom_smart(1002)
+        .zoom_smart(1003)
+        .zoom_smart(1004)
+        .zoom_smart(1005)
+        .add_river()
+        .smooth(1000)
+        .into_box();
+
+    let mut it_biome = it_biome
+        .biome(200, (1, 2)).unwrap()
+        .zoom_smart(1000)
+        .zoom_smart(1001)
+        .into_box();
 
     let start = Instant::now();
-    let biomes = it.next_grid(16, 16, 16, 16);
-    println!("Iterative (time: {}us, sizeof: {}):", start.elapsed().as_micros(), std::mem::size_of_val(&it));
+    let biomes = it_biome.next_grid(16, 16, 16, 16);
+    println!("Iterative (time: {}us):", start.elapsed().as_micros());
     debug_biomes_grid(&biomes[..], 16);
 
 }

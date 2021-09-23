@@ -75,7 +75,7 @@ where
         let parent = &mut self.parent;
         let rand = &mut self.rand;
 
-        self.cache.get_or_insert(x, z, move || {
+        *self.cache.get_or_insert(x, z, move || {
 
             let center = parent.next(x, z);
             let sw = parent.next(x - 1, z - 1);
@@ -129,7 +129,7 @@ where
                 center
             }
 
-        }).clone()
+        })
 
     }
 
@@ -170,7 +170,7 @@ where
         let parent = &mut self.parent;
         let rand = &mut self.rand;
 
-        self.cache.get_or_insert(x, z, move || {
+        *self.cache.get_or_insert(x, z, move || {
 
             let mut center = parent.next(x, z);
             let sw = parent.next(x - 1, z - 1);
@@ -187,7 +187,7 @@ where
 
             center
 
-        }).clone()
+        })
 
     }
 
