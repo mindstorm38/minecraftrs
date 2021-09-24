@@ -1,5 +1,5 @@
 use crate::layer_new::LayerRand;
-use super::Layer;
+use super::{Layer, LayerCache};
 
 use mc_core::biome::Biome;
 use mc_vanilla::biome::{
@@ -68,6 +68,84 @@ where
         } else {
             biome
         }
+    }
+
+}
+
+
+/// This layer convert 1/3 of the non-hills biomes to their hills variant if the
+/// hill is in between normal variant on the 4 sides.
+pub struct HillsLayer<P> {
+    parent: P,
+    rand: LayerRand,
+    repl_cache: LayerCache<&'static Biome>
+}
+
+impl<P> HillsLayer<P> {
+    pub fn new(parent: P, base_seed: i64) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed),
+            repl_cache: LayerCache::new()
+        }
+    }
+}
+
+impl<P> Layer for HillsLayer<P>
+where
+    P: Layer<Item = &'static Biome>
+{
+
+    type Item = &'static Biome;
+
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.rand.init_world_seed(seed);
+        self.repl_cache.clear();
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+
+        let mut biome = self.parent.next(x, z);
+
+        self.rand.init_chunk_seed(x, z);
+        if self.rand.next_int(3) == 0 {
+
+            let repl = match biome {
+                _ if biome == &DESERT => Some(&DESERT_HILLS),
+                _ if biome == &FOREST => Some(&WOODED_HILLS),  // Forest hills before 1.13
+                _ if biome == &TAIGA => Some(&TAIGA_HILLS),
+                _ if biome == &PLAINS => Some(&FOREST),
+                _ if biome == &SNOWY_TUNDRA => Some(&SNOWY_MOUNTAINS),
+                _ if biome == &JUNGLE => Some(&JUNGLE_HILLS),
+                _ => None
+            };
+
+            if let Some(repl) = repl {
+
+                let parent = &mut self.parent;
+
+                biome = *self.repl_cache.get_or_insert(x, z, move || {
+
+                    let south = parent.next(x - 1, z);
+                    let north = parent.next(x + 1, z);
+                    let west = parent.next(x, z - 1);
+                    let east = parent.next(x, z + 1);
+
+                    if south == biome && north == biome && west == biome && east == biome {
+                        repl
+                    } else {
+                        biome
+                    }
+
+                })
+
+            }
+
+        }
+
+        biome
+
     }
 
 }
