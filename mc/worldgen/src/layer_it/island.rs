@@ -136,13 +136,13 @@ where
 }
 
 
-pub struct AddMushroomIsland<P> {
+pub struct AddMushroomIslandLayer<P> {
     parent: P,
     rand: LayerRand,
     cache: LayerCache<&'static Biome>
 }
 
-impl<P> AddMushroomIsland<P> {
+impl<P> AddMushroomIslandLayer<P> {
     pub fn new(parent: P, base_seed: i64) -> Self {
         Self {
             parent,
@@ -152,7 +152,7 @@ impl<P> AddMushroomIsland<P> {
     }
 }
 
-impl<P> Layer for AddMushroomIsland<P>
+impl<P> Layer for AddMushroomIslandLayer<P>
 where
     P: Layer<Item = &'static Biome>
 {

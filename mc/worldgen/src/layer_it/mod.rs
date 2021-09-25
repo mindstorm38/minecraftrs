@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::mem::MaybeUninit;
+
+use mc_core::biome::Biome;
 
 pub mod island;
 pub mod smooth;
@@ -34,90 +34,116 @@ pub trait Layer {
         data
     }
 
-    // Extensions
+}
 
-    fn add_island(self, base_seed: i64) -> island::AddIslandLayer<Self>
-    where
-        Self: Sized
-    {
-        island::AddIslandLayer::new(self, base_seed)
+
+#[repr(transparent)]
+pub struct LayerBuilder<L: Layer>(pub L);
+
+impl<L: Layer> LayerBuilder<L> {
+
+    // Island //
+
+    pub fn with_island(base_seed: i64) -> LayerBuilder<island::IslandLayer> {
+        LayerBuilder(island::IslandLayer::new(base_seed))
     }
 
-    fn zoom_fuzzy(self, base_seed: i64) -> zoom::ZoomLayer<Self, true>
-    where
-        Self: Sized
+}
+
+impl<L: Layer> LayerBuilder<L> {
+
+    // Zoom //
+
+    pub fn then_zoom_fuzzy(self, base_seed: i64) -> LayerBuilder<zoom::ZoomLayer<L, true>>
+    where L::Item: Copy + Eq
     {
-        zoom::ZoomLayer::new_fuzzy(self, base_seed)
+        LayerBuilder(zoom::ZoomLayer::new_fuzzy(self.0, base_seed))
     }
 
-    fn zoom_smart(self, base_seed: i64) -> zoom::ZoomLayer<Self, false>
-    where
-        Self: Sized
+    pub fn then_zoom_smart(self, base_seed: i64) -> LayerBuilder<zoom::ZoomLayer<L, false>>
+    where L::Item: Copy + Eq
     {
-        zoom::ZoomLayer::new_smart(self, base_seed)
+        LayerBuilder(zoom::ZoomLayer::new_smart(self.0, base_seed))
     }
 
-    fn add_snow(self, base_seed: i64) -> snow::AddSnowLayer<Self>
-    where
-        Self: Sized
-    {
-        snow::AddSnowLayer::new(self, base_seed)
+    // Smooth //
+
+    pub fn then_smooth(self, base_seed: i64) -> LayerBuilder<smooth::SmoothLayer<L>>
+    where L::Item: Copy + Eq {
+        LayerBuilder(smooth::SmoothLayer::new(self.0, base_seed))
     }
 
-    fn add_mushroom_island(self, base_seed: i64) -> island::AddMushroomIsland<Self>
+    // Conversions //
+
+    pub fn into_box(self) -> LayerBuilder<BoxLayer<L::Item>>
     where
-        Self: Sized
+        L: 'static
     {
-        island::AddMushroomIsland::new(self, base_seed)
+        LayerBuilder(BoxLayer::new(self.0))
     }
 
-    fn init_river(self, base_seed: i64) -> river::InitRiverLayer<Self>
-    where
-        Self: Sized
-    {
-        river::InitRiverLayer::new(self, base_seed)
+    pub fn into_shared(self) -> LayerBuilder<SharedLayer<L>> {
+        LayerBuilder(SharedLayer::new_single(self.0))
     }
 
-    fn add_river(self) -> river::AddRiverLayer<Self>
-    where
-        Self: Sized
-    {
-        river::AddRiverLayer::new(self)
+    pub fn into_shared_split(self) -> (LayerBuilder<SharedLayer<L>>, LayerBuilder<SharedLayer<L>>) {
+        let (a, b) = SharedLayer::new_split(self.0);
+        (LayerBuilder(a), LayerBuilder(b))
     }
 
-    fn smooth(self, base_seed: i64) -> smooth::SmoothLayer<Self>
-    where
-        Self: Sized
-    {
-        smooth::SmoothLayer::new(self, base_seed)
+    pub fn build(self) -> L {
+        self.0
     }
 
-    fn biome(self, base_seed: i64, version: (u8, u8)) -> Option<biome::BiomeLayer<Self>>
-    where
-        Self: Sized
-    {
-        biome::BiomeLayer::from_version(self, base_seed, version)
+}
+
+impl<L: Layer<Item = &'static Biome>> LayerBuilder<L> {
+
+    // Island //
+
+    pub fn then_add_island(self, base_seed: i64) -> LayerBuilder<island::AddIslandLayer<L>> {
+        LayerBuilder(island::AddIslandLayer::new(self.0, base_seed))
     }
 
-    fn into_box(self) -> BoxLayer<Self::Item>
-    where
-        Self: Sized + 'static
-    {
-        BoxLayer::new(self)
+    pub fn then_add_mushroom_island(self, base_seed: i64) -> LayerBuilder<island::AddMushroomIslandLayer<L>> {
+        LayerBuilder(island::AddMushroomIslandLayer::new(self.0, base_seed))
     }
 
-    fn into_shared(self) -> SharedLayer<Self>
-    where
-        Self: Sized
-    {
-        SharedLayer::new_single(self)
+    // Snow //
+
+    pub fn then_add_snow(self, base_seed: i64) -> LayerBuilder<snow::AddSnowLayer<L>> {
+        LayerBuilder(snow::AddSnowLayer::new(self.0, base_seed))
     }
 
-    fn into_shared_split(self) -> (SharedLayer<Self>, SharedLayer<Self>)
-    where
-        Self: Sized
-    {
-        SharedLayer::new_split(self)
+    // River //
+
+    pub fn then_init_river(self, base_seed: i64) -> LayerBuilder<river::InitRiverLayer<L>> {
+        LayerBuilder(river::InitRiverLayer::new(self.0, base_seed))
+    }
+
+    // Biome //
+
+    pub fn then_biome(self, base_seed: i64, version: (u8, u8)) -> Option<LayerBuilder<biome::BiomeLayer<L>>> {
+        biome::BiomeLayer::with_version(self.0, base_seed, version)
+            .map(|l| LayerBuilder(l))
+    }
+
+    pub fn then_hills(self, base_seed: i64) -> LayerBuilder<biome::HillsLayer<L>> {
+        LayerBuilder(biome::HillsLayer::new(self.0, base_seed))
+    }
+
+    pub fn then_shore(self) -> LayerBuilder<biome::ShoreLayer<L>> {
+        LayerBuilder(biome::ShoreLayer::new(self.0))
+    }
+
+}
+
+impl<L: Layer<Item = u8>> LayerBuilder<L> {
+
+    // River //
+
+    pub fn then_add_river(self) -> LayerBuilder<river::AddRiverLayer<L>> {
+        LayerBuilder(river::AddRiverLayer::new(self.0))
     }
 
 }
@@ -209,8 +235,6 @@ where
     }
 
 }
-
-
 
 
 /// A hash-table based cache specific to common biome layers coordinates. This cache

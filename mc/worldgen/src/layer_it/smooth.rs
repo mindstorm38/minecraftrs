@@ -21,7 +21,7 @@ impl<P: Layer> SmoothLayer<P> {
 
 impl<P: Layer> Layer for SmoothLayer<P>
 where
-    P::Item: Clone + Eq
+    P::Item: Copy + Eq
 {
 
     type Item = P::Item;
@@ -37,7 +37,7 @@ where
         let parent = &mut self.parent;
         let rand = &mut self.rand;
 
-        self.cache.get_or_insert(x, z, move || {
+        *self.cache.get_or_insert(x, z, move || {
 
             let south = parent.next(x - 1, z);
             let north = parent.next(x + 1, z);
@@ -60,7 +60,7 @@ where
                 center
             }
 
-        }).clone()
+        })
 
     }
 

@@ -27,9 +27,15 @@ impl<P> BiomeLayer<P> {
         }
     }
 
-    pub fn from_version(parent: P, base_seed: i64, version: (u8, u8)) -> Option<Self> {
+    pub fn with_version(parent: P, base_seed: i64, version: (u8, u8)) -> Option<Self> {
+        match version {
+            (1, 2) => Some(Self::with_version_1_2(parent, base_seed)),
+            _ => None
+        }
+    }
 
-        static BIOMES_1_2: [&'static Biome; 7] = [
+    pub fn with_version_1_2(parent: P, base_seed: i64) -> Self {
+        static BIOMES: [&'static Biome; 7] = [
             &DESERT,
             &FOREST,
             &MOUNTAINS,  // Extreme hills before 1.13
@@ -38,12 +44,7 @@ impl<P> BiomeLayer<P> {
             &TAIGA,
             &JUNGLE
         ];
-
-        match version {
-            (1, 2) => Some(Self::new(parent, base_seed, &BIOMES_1_2)),
-            _ => None
-        }
-
+        Self::new(parent, base_seed, &BIOMES)
     }
 
 }
@@ -145,6 +146,70 @@ where
         }
 
         biome
+
+    }
+
+}
+
+
+/// A layer that add some shore and edge biomes depending on island and hills placements.
+pub struct ShoreLayer<P> {
+    parent: P,
+    cache: LayerCache<&'static Biome>
+}
+
+impl<P> ShoreLayer<P> {
+    pub fn new(parent: P) -> Self {
+        Self {
+            parent,
+            cache: LayerCache::new()
+        }
+    }
+}
+
+
+impl<P> Layer for ShoreLayer<P>
+where
+    P: Layer<Item = &'static Biome>
+{
+
+    type Item = &'static Biome;
+
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.cache.clear();
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+
+        let parent = &mut self.parent;
+
+        *self.cache.get_or_insert(x, z, move || {
+
+            macro_rules! south {() => { parent.next(x - 1, z) }}
+            macro_rules! north {() => { parent.next(x + 1, z) }}
+            macro_rules! west {() => { parent.next(x, z - 1) }}
+            macro_rules! east {() => { parent.next(x, z + 1) }}
+
+            let mut center = parent.next(x, z);
+
+            if center == &MUSHROOM_FIELDS {
+                if south!() == &OCEAN && north!() == &OCEAN && west!() == &OCEAN && east!() == &OCEAN {
+                    center = &MUSHROOM_FIELD_SHORE;
+                }
+            } else if center != &OCEAN && center != &RIVER && center != &SWAMP && center != &MOUNTAINS {
+                if south!() == &OCEAN || north!() == &OCEAN || west!() == &OCEAN || east!() == &OCEAN {
+                    center = &BEACH;
+                }
+            } else if center == &MOUNTAINS {
+                if south!() != &MOUNTAINS || north!() != &MOUNTAINS || west!() != &MOUNTAINS || east!() != &MOUNTAINS {
+                    center = &MOUNTAIN_EDGE;
+                }
+            }
+
+            center
+
+        })
 
     }
 

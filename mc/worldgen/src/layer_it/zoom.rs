@@ -50,7 +50,7 @@ where
         let parent = &mut self.parent;
         let rand = &mut self.rand;
 
-        self.cache.get_or_insert(x, z, move || {
+        *self.cache.get_or_insert(x, z, move || {
 
             let x_half = x >> 1;
             let z_half = z >> 1;
@@ -84,7 +84,7 @@ where
                 v1
             }
 
-        }).clone()
+        })
 
     }
 
