@@ -40,12 +40,12 @@ pub trait Layer {
 #[repr(transparent)]
 pub struct LayerBuilder<L: Layer>(pub L);
 
-impl<L: Layer> LayerBuilder<L> {
+impl LayerBuilder<island::IslandLayer> {
 
     // Island //
 
-    pub fn with_island(base_seed: i64) -> LayerBuilder<island::IslandLayer> {
-        LayerBuilder(island::IslandLayer::new(base_seed))
+    pub fn with_island(base_seed: i64) -> Self {
+        Self(island::IslandLayer::new(base_seed))
     }
 
 }
