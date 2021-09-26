@@ -27,6 +27,7 @@ where
     type Item = &'static Biome;
 
     fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
         self.rand.init_world_seed(seed);
     }
 

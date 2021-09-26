@@ -1,7 +1,9 @@
-use mc_worldgen::layer_new::{LayerSystem, Layer, island, zoom, snow, State, debug_layer_data, debug_biomes_grid};
+use mc_worldgen::layer_new::{LayerSystem, Layer, island, zoom, snow, State, debug_layer_data, debug_biomes_grid, debug_rivers_grid, debug_pot_rivers_grid};
 use mc_worldgen::layer_it::{Layer as ItLayer, LayerBuilder};
 use mc_worldgen::layer_it;
 use std::time::Instant;
+
+use mc_worldgen::gen::release102::LevelGenRelease102;
 
 fn main() {
 
@@ -13,9 +15,9 @@ fn main() {
     println!("Size '&dyn Layer' {}o", std::mem::size_of_val(&layer_ref));
     println!("Size 'State' {}o", std::mem::size_of::<State>());
 
-    // let _gen = LevelGenRelease102::new(0);
+    let gen = LevelGenRelease102::new(0);
 
-    let mut system = LayerSystem::new();
+    /*let mut system = LayerSystem::new();
     system.push(island::IslandLayer::new(1));
     system.push(zoom::ZoomLayer::new_fuzzy(2000));
     system.push(island::AddIslandLayer::new(1));
@@ -25,10 +27,11 @@ fn main() {
     system.push(zoom::ZoomLayer::new_smart(2002));
     system.push(island::AddIslandLayer::new(3));
     system.push(zoom::ZoomLayer::new_smart(2003));
-    system.push(island::AddIslandLayer::new(4));
+    system.push(island::AddIslandLayer::new(4));*/
 
     let start = Instant::now();
-    let layer = system.borrow_root().unwrap().generate_size(16, 16, 16, 16);
+    let layer = gen.layer_system.borrow_root().unwrap()
+        .generate_size(512, 512, 16, 16);
     println!("Sequential (time: {}us):", start.elapsed().as_micros());
     debug_layer_data(&layer);
 
@@ -49,7 +52,7 @@ fn main() {
         .into_box()
         .into_shared_split();
 
-    let mut it_river = it_river
+    let it_river = it_river
         .then_init_river(100)
         .then_zoom_smart(1000)
         .then_zoom_smart(1001)
@@ -59,9 +62,10 @@ fn main() {
         .then_zoom_smart(1005)
         .then_add_river()
         .then_smooth(1000)
-        .into_box();
+        .into_box()
+        .build();
 
-    let mut it_biome = it_biome
+    let it_biome = it_biome
         .then_biome(200, (1, 2)).unwrap()
         .then_zoom_smart(1000)
         .then_zoom_smart(1001)
@@ -70,16 +74,22 @@ fn main() {
         .then_add_island(3)
         .then_zoom_smart(1001)
         .then_shore()
-        // .then_biome_river()
+        .then_biome_river(1000)
         .then_zoom_smart(1002)
         .then_zoom_smart(1003)
         .then_smooth(1000)
-        .into_box();
+        .into_box()
+        .build();
 
-    // mix
+    let mut it_mix = LayerBuilder::with_biome_and_river_mix(it_biome, it_river)
+        .then_zoom_voronoi(10)
+        .into_box()
+        .build();
+
+    it_mix.seed(0);
 
     let start = Instant::now();
-    let biomes = it_biome.build().next_grid(16, 16, 16, 16);
+    let biomes = it_mix.next_grid(512, 512, 16, 16);
     println!("Iterative (time: {}us):", start.elapsed().as_micros());
     debug_biomes_grid(&biomes[..], 16);
 

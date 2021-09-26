@@ -14,7 +14,7 @@ pub mod biome;
 pub mod voronoi;
 
 
-#[derive(Copy, Clone, Eq)]
+#[derive(Copy, Clone)]
 pub enum State {
     /// Special state for initial vec. Must not be set by any layer.
     Uninit,
@@ -53,10 +53,13 @@ impl PartialEq for State {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (State::Biome(b0), State::Biome(b1)) => (*b0) == (*b1),
+            (State::PotentialRiver(p0), State::PotentialRiver(p1)) => (*p0) == (*p1),
             (a, b) => std::mem::discriminant(a) == std::mem::discriminant(b)
         }
     }
 }
+
+impl Eq for State {  }
 
 /// Type alias for a layer data.
 pub type LayerData = Rect<State>;
@@ -98,18 +101,47 @@ pub fn debug_biomes_grid(biomes: &[&'static Biome], x_size: usize) {
 
 }
 
-/*pub fn layer_into_biomes<const LEN: usize>(data: LayerData) -> Option<[&'static Biome; LEN]> {
-    if data.data.len() == LEN {
-        let mut arr: [MaybeUninit<&'static Biome>; LEN] = unsafe { MaybeUninit::uninit().assume_init() };
-        let mut state_it = data.data.into_iter();
-        for uninit_biome in &mut arr {
-            *uninit_biome = MaybeUninit::new(state_it.next().unwrap().expect_biome());
-        }
-        Some(unsafe { std::mem::transmute(arr) })
-    } else {
-        None
+pub fn debug_rivers_grid(rivers: &[bool], x_size: usize) {
+
+    print!("   ");
+    for x in 0..x_size {
+        print!("{:02} ", x);
     }
-}*/
+
+    for (i, &river) in rivers.iter().enumerate() {
+        if i % x_size == 0 {
+            println!();
+            print!("{:02} ", i / x_size);
+        }
+        if river {
+            print!("R  ");
+        } else {
+            print!("NR ");
+        }
+    }
+
+    println!();
+
+}
+
+pub fn debug_pot_rivers_grid(rivers: &[u8], x_size: usize) {
+
+    print!("   ");
+    for x in 0..x_size {
+        print!("{:02} ", x);
+    }
+
+    for (i, &river) in rivers.iter().enumerate() {
+        if i % x_size == 0 {
+            println!();
+            print!("{:02} ", i / x_size);
+        }
+        print!("R{} ", river);
+    }
+
+    println!();
+
+}
 
 
 /// A layer trait to implement the layer generation algorithm.

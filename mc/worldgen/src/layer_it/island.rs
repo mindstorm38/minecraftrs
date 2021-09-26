@@ -26,12 +26,15 @@ impl Layer for IslandLayer {
     }
 
     fn next(&mut self, x: i32, z: i32) -> Self::Item {
-        self.rand.init_chunk_seed(x, z);
-        match self.rand.next_int(10) {
-            0 => &PLAINS,
-            _ => &OCEAN
+        if x == 0 && z == 0 {
+            &PLAINS
+        } else {
+            self.rand.init_chunk_seed(x, z);
+            match self.rand.next_int(10) {
+                0 => &PLAINS,
+                _ => &OCEAN
+            }
         }
-        // TODO: Check to implements forced plains biomes at 0/0
     }
 
 }

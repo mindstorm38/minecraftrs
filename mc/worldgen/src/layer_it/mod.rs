@@ -41,13 +41,19 @@ pub trait Layer {
 pub struct LayerBuilder<L: Layer>(pub L);
 
 impl LayerBuilder<island::IslandLayer> {
-
-    // Island //
-
     pub fn with_island(base_seed: i64) -> Self {
         Self(island::IslandLayer::new(base_seed))
     }
+}
 
+impl<B, R> LayerBuilder<biome::MixBiomeAndRiverLayer<B, R>>
+where
+    B: Layer<Item = &'static Biome>,
+    R: Layer<Item = bool>
+{
+    pub fn with_biome_and_river_mix(biome_parent: B, river_parent: R) -> Self {
+        Self(biome::MixBiomeAndRiverLayer::new(biome_parent, river_parent))
+    }
 }
 
 impl<L: Layer> LayerBuilder<L> {
@@ -64,6 +70,11 @@ impl<L: Layer> LayerBuilder<L> {
     where L::Item: Copy + Eq
     {
         LayerBuilder(zoom::ZoomLayer::new_smart(self.0, base_seed))
+    }
+
+    pub fn then_zoom_voronoi(self, base_seed: i64) -> LayerBuilder<zoom::VoronoiLayer<L>>
+    where L::Item: Copy {
+        LayerBuilder(zoom::VoronoiLayer::new(self.0, base_seed))
     }
 
     // Smooth //
@@ -134,6 +145,10 @@ impl<L: Layer<Item = &'static Biome>> LayerBuilder<L> {
 
     pub fn then_shore(self) -> LayerBuilder<biome::ShoreLayer<L>> {
         LayerBuilder(biome::ShoreLayer::new(self.0))
+    }
+
+    pub fn then_biome_river(self, base_seed: i64) -> LayerBuilder<biome::BiomeRiverLayer<L>> {
+        LayerBuilder(biome::BiomeRiverLayer::new(self.0, base_seed))
     }
 
 }

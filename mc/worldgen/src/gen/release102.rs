@@ -34,7 +34,7 @@ pub struct LevelGenRelease102 {
 
     noise_field: NoiseCube,
 
-    layer_system: LayerSystem
+    pub layer_system: LayerSystem
 
     //ravine_carver: Carver,
     //cave_carver: Carver
