@@ -167,6 +167,7 @@ where
 
     fn seed(&mut self, seed: i64) {
         self.parent.seed(seed);
+        self.rand.init_world_seed(seed);
     }
 
     fn next(&mut self, x: i32, z: i32) -> Self::Item {
@@ -195,13 +196,13 @@ where
         let d0 = (self.rand.next_int(1024) as f64 / 1024.0 - 0.5) * VAL + 4.0;
         let d1 = (self.rand.next_int(1024) as f64 / 1024.0 - 0.5) * VAL + 4.0;
 
-        let cdz = (x & 3) as f64;
-        let cdx = (z & 3) as f64;
+        let cdx = (x & 3) as f64;
+        let cdz = (z & 3) as f64;
 
-        let a = (cdz - a1) * (cdz  - a1) + (cdx - a0) * (cdx - a0);
-        let b = (cdz - b1) * (cdz  - b1) + (cdx - b0) * (cdx - b0);
-        let c = (cdz - c1) * (cdz  - c1) + (cdx - c0) * (cdx - c0);
-        let d = (cdz - d1) * (cdz  - d1) + (cdx - d0) * (cdx - d0);
+        let a = (cdz - a1) * (cdz - a1) + (cdx - a0) * (cdx - a0);
+        let b = (cdz - b1) * (cdz - b1) + (cdx - b0) * (cdx - b0);
+        let c = (cdz - c1) * (cdz - c1) + (cdx - c0) * (cdx - c0);
+        let d = (cdz - d1) * (cdz - d1) + (cdx - d0) * (cdx - d0);
 
         if a < b && a < c && a < d {
             self.parent.next(x_new + 0, z_new + 0)

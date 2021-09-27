@@ -29,7 +29,7 @@ pub enum State {
 }
 
 impl State {
-    fn expect_biome(&self) -> &'static Biome {
+    pub fn expect_biome(&self) -> &'static Biome {
         match self {
             State::Biome(biome) => *biome,
             _ => panic!("Expected biome state from parent layer.")

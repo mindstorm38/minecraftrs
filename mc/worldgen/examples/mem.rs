@@ -17,24 +17,6 @@ fn main() {
 
     let gen = LevelGenRelease102::new(0);
 
-    /*let mut system = LayerSystem::new();
-    system.push(island::IslandLayer::new(1));
-    system.push(zoom::ZoomLayer::new_fuzzy(2000));
-    system.push(island::AddIslandLayer::new(1));
-    system.push(zoom::ZoomLayer::new_smart(2001));
-    system.push(island::AddIslandLayer::new(2));
-    system.push(snow::AddSnowLayer::new(2));
-    system.push(zoom::ZoomLayer::new_smart(2002));
-    system.push(island::AddIslandLayer::new(3));
-    system.push(zoom::ZoomLayer::new_smart(2003));
-    system.push(island::AddIslandLayer::new(4));*/
-
-    let start = Instant::now();
-    let layer = gen.layer_system.borrow_root().unwrap()
-        .generate_size(512, 512, 16, 16);
-    println!("Sequential (time: {}us):", start.elapsed().as_micros());
-    debug_layer_data(&layer);
-
     let (
         it_river,
         it_biome
@@ -88,10 +70,44 @@ fn main() {
 
     it_mix.seed(0);
 
-    let start = Instant::now();
-    let biomes = it_mix.next_grid(512, 512, 16, 16);
-    println!("Iterative (time: {}us):", start.elapsed().as_micros());
-    debug_biomes_grid(&biomes[..], 16);
+    let mut total_grid_dur = 0;
+    let mut total_it_dur = 0;
+    let mut total_count = 0;
+    let mut invalid_count = 0;
+
+    for x in -32..32 {
+        for z in -32..32 {
+
+            let start = Instant::now();
+            let layer = gen.layer_system.borrow_root().unwrap()
+                .generate_size(x * 16, z * 16, 16, 16);
+            let grid_dur = start.elapsed().as_micros();
+            total_grid_dur += grid_dur;
+
+            let start = Instant::now();
+            let biomes = it_mix.next_grid(x * 16, z * 16, 16, 16);
+            let it_dur = start.elapsed().as_micros();
+            total_it_dur += it_dur;
+
+            let valid = layer.data.iter()
+                .zip(biomes.iter())
+                .all(|(a, &b)| a.expect_biome() == b);
+
+            total_count += 1;
+            if !valid {
+                invalid_count += 1;
+            }
+
+            println!("{}/{} valid: {}, durations: {}us vs {}us", x, z, valid, grid_dur, it_dur);
+
+        }
+    }
+
+    println!("Average grid generator duration: {}us", total_grid_dur / total_count);
+    println!("Average it generator duration: {}us", total_it_dur / total_count);
+
+    println!("Average speed factor: {}%", total_grid_dur as f32 / total_it_dur as f32 * 100.0);
+    println!("Invalid count: {}", invalid_count);
 
 }
 
