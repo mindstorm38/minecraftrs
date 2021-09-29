@@ -1,59 +1,98 @@
-use super::{LayerData, LayerInternal, State};
-use crate::biome::def::OCEAN;
+use super::{Layer, LayerCache, LayerRand};
 
-fn river_init(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
+use mc_vanilla::biome::OCEAN;
+use mc_core::biome::Biome;
 
-    internal.expect_parent().inner_generate(x, z, output);
 
-    for dz in 0..output.z_size {
-        for dx in 0..output.x_size {
-            internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
-            let state = output.get_mut(dx, dz);
-            *state = if state.expect_biome() == OCEAN::ID {
-                State::NoRiver
-            } else {
-                State::PotentialRiver(internal.rand.next_int(2) as u8 + 2)
-            };
+/// A biome layer that will replace all biomes by 0 if the biome is an `OCEAN`
+/// or by a random value in range `[2;4[` that is the probability.
+/// This layer is commonly used in parallel with actual biomes generation in is combined
+/// with this other layer by a custom layer that take the biome layer and this river layer.
+pub struct InitRiverLayer<P> {
+    pub parent: P,
+    rand: LayerRand
+}
+
+impl<P> InitRiverLayer<P> {
+    pub fn new(parent: P, base_seed: i64) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed)
+        }
+    }
+}
+
+impl<P> Layer for InitRiverLayer<P>
+where
+    P: Layer<Item = &'static Biome>
+{
+
+    type Item = u8;
+
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.rand.init_world_seed(seed);
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+        if self.parent.next(x, z) == &OCEAN {
+            0
+        } else {
+            self.rand.init_chunk_seed(x, z);
+            self.rand.next_int(2) as u8 + 2
         }
     }
 
-    output.debug("river_init");
-
 }
 
-impl State {
-    fn is_no_river(&self) -> bool {
-        matches!(*self, State::NoRiver)
+/// A layer that tries to connect rivers.
+pub struct AddRiverLayer<P> {
+    pub parent: P,
+    cache: LayerCache<bool>
+}
+
+impl<P> AddRiverLayer<P> {
+    pub fn new(parent: P) -> Self {
+        Self {
+            parent,
+            cache: LayerCache::new()
+        }
     }
 }
 
-fn river(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
+impl<P> Layer for AddRiverLayer<P>
+where
+    P: Layer<Item = u8>
+{
 
-    let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+    type Item = bool;
 
-    for dz in 0..output.z_size {
-        for dx in 0..output.x_size {
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+    }
 
-            let south = input.get(dx + 0, dz + 1);
-            let north = input.get(dx + 2, dz + 1);
-            let west = input.get(dx + 1, dz + 0);
-            let east = input.get(dx + 1, dz + 2);
-            let center = input.get(dx + 1, dz + 1);
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
 
-            if center.is_no_river() || south.is_no_river() || north.is_no_river() || west.is_no_river() || east.is_no_river() {
-                output.set(dx, dz, State::River);
+        let parent = &mut self.parent;
+
+        *self.cache.get_or_insert(x, z, move || {
+
+            let south = parent.next(x - 1, z);
+            let north = parent.next(x + 1, z);
+            let west = parent.next(x, z - 1);
+            let east = parent.next(x, z + 1);
+            let center = parent.next(x, z);
+
+            if center == 0 || south == 0 || north == 0 || west == 0 || east == 0 {
+                true
             } else if center != south || center != west || center != north || center != east {
-                output.set(dx, dz, State::River);
+                true
             } else {
-                output.set(dx, dz, State::NoRiver);
+                false
             }
 
-        }
+        })
+
     }
 
-    output.debug("river");
-
 }
-
-impl_layer!(river_init, new_river_init);
-impl_layer!(river, new_river);

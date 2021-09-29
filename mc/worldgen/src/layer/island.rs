@@ -1,134 +1,202 @@
-use super::{LayerData, LayerInternal, State};
-use crate::biome::def::{OCEAN, PLAINS, FROZEN_OCEAN, ICE_PLAINS, MUSHROOM_ISLAND};
+use super::{Layer, LayerCache, LayerRand};
+
+use mc_vanilla::biome::{PLAINS, OCEAN, SNOWY_TUNDRA, FROZEN_OCEAN, MUSHROOM_FIELDS};
+use mc_core::biome::Biome;
 
 
-/// This layer initiate the output with State::Land or State::Ocean,
-/// real biomes are only decided on "biome layer".
-fn island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
+pub struct IslandLayer {
+    rand: LayerRand
+}
 
-    for dz in 0..output.x_size {
-        for dx in 0..output.z_size {
-            internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
-            output.set(dx, dz, match internal.rand.next_int(10) {
-                0 => State::Biome(PLAINS::ID),
-                _ => State::Biome(OCEAN::ID)
-            })
+impl IslandLayer {
+    pub fn new(base_seed: i64) -> Self {
+        Self {
+            rand: LayerRand::new(base_seed)
+        }
+    }
+}
+
+impl Layer for IslandLayer {
+
+    type Item = &'static Biome;
+
+    fn seed(&mut self, seed: i64) {
+        self.rand.init_world_seed(seed);
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+        if x == 0 && z == 0 {
+            &PLAINS
+        } else {
+            self.rand.init_chunk_seed(x, z);
+            match self.rand.next_int(10) {
+                0 => &PLAINS,
+                _ => &OCEAN
+            }
         }
     }
 
-    if x <= 0 && z <= 0 && x > -(output.x_size as i32) && z > -(output.z_size as i32) {
-        output.set((-x) as usize, (-z) as usize, State::Biome(PLAINS::ID));
+}
+
+
+pub struct AddIslandLayer<P> {
+    pub parent: P,
+    rand: LayerRand,
+    cache: LayerCache<&'static Biome>
+}
+
+impl<P> AddIslandLayer<P> {
+    pub fn new(parent: P, base_seed: i64) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed),
+            cache: LayerCache::new()
+        }
+    }
+}
+
+impl<P> Layer for AddIslandLayer<P>
+where
+    P: Layer<Item = &'static Biome>
+{
+
+    type Item = &'static Biome;
+
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.rand.init_world_seed(seed);
+        self.cache.clear();
     }
 
-    output.debug("island");
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+
+        macro_rules! post_inc {
+            ($v:ident) => (($v, $v += 1).0);
+        }
+
+        let parent = &mut self.parent;
+        let rand = &mut self.rand;
+
+        *self.cache.get_or_insert(x, z, move || {
+
+            let center = parent.next(x, z);
+            let sw = parent.next(x - 1, z - 1);
+            let nw = parent.next(x + 1, z - 1);
+            let se = parent.next(x - 1, z + 1);
+            let ne = parent.next(x + 1, z + 1);
+
+            rand.init_chunk_seed(x, z);
+
+            if is_ocean(center) && (!is_ocean(sw) || !is_ocean(nw) || !is_ocean(se) || !is_ocean(ne)) {
+
+                let mut bound = 1;
+                let mut to_set = &PLAINS;
+
+                if !is_ocean(sw) && rand.next_int(post_inc!(bound)) == 0 {
+                    to_set = sw;
+                }
+
+                if !is_ocean(nw) && rand.next_int(post_inc!(bound)) == 0 {
+                    to_set = nw;
+                }
+
+                if !is_ocean(se) && rand.next_int(post_inc!(bound)) == 0 {
+                    to_set = se;
+                }
+
+                if !is_ocean(ne) && rand.next_int(bound) == 0 {
+                    to_set = ne;
+                }
+
+                if rand.next_int(3) == 0 {
+                    to_set
+                } else if to_set == &SNOWY_TUNDRA {
+                    // Snowy Tundra is the modern name of Ice plains
+                    &FROZEN_OCEAN
+                } else {
+                    &OCEAN
+                }
+
+            } else if !is_ocean(center) && (is_ocean(sw) || is_ocean(nw) || is_ocean(se) || is_ocean(ne)) {
+                if rand.next_int(5) == 0 {
+                    if center == &SNOWY_TUNDRA {
+                        &FROZEN_OCEAN
+                    } else {
+                        &OCEAN
+                    }
+                } else {
+                    center
+                }
+            } else {
+                center
+            }
+
+        })
+
+    }
+
+}
+
+
+pub struct AddMushroomIslandLayer<P> {
+    pub parent: P,
+    rand: LayerRand,
+    cache: LayerCache<&'static Biome>
+}
+
+impl<P> AddMushroomIslandLayer<P> {
+    pub fn new(parent: P, base_seed: i64) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed),
+            cache: LayerCache::new()
+        }
+    }
+}
+
+impl<P> Layer for AddMushroomIslandLayer<P>
+where
+    P: Layer<Item = &'static Biome>
+{
+
+    type Item = &'static Biome;
+
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.rand.init_world_seed(seed);
+        self.cache.clear();
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+
+        let parent = &mut self.parent;
+        let rand = &mut self.rand;
+
+        *self.cache.get_or_insert(x, z, move || {
+
+            let mut center = parent.next(x, z);
+            let sw = parent.next(x - 1, z - 1);
+            let nw = parent.next(x + 1, z - 1);
+            let se = parent.next(x - 1, z + 1);
+            let ne = parent.next(x + 1, z + 1);
+
+            if is_ocean(center) && is_ocean(sw) && is_ocean(nw) && is_ocean(se) && is_ocean(ne) {
+                rand.init_chunk_seed(x, z);
+                if rand.next_int(100) == 0 {
+                    center = &MUSHROOM_FIELDS;
+                }
+            }
+
+            center
+
+        })
+
+    }
 
 }
 
 
 #[inline]
-const fn is_ocean(biome: u8) -> bool {
-    biome == OCEAN::ID
+fn is_ocean(biome: &'static Biome) -> bool {
+    biome == &OCEAN
 }
-
-
-macro_rules! post_inc {
-    ($v:ident) => (($v, $v += 1).0);
-}
-
-
-/// This layer adds islands or ocean.
-fn add_island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
-
-    let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
-
-    for dz in 0..output.z_size {
-        for dx in 0..output.x_size {
-
-            let sw = input.get(dx + 0, dz + 0).expect_biome();
-            let nw = input.get(dx + 2, dz + 0).expect_biome();
-            let se = input.get(dx + 0, dz + 2).expect_biome();
-            let ne = input.get(dx + 2, dz + 2).expect_biome();
-            let mut center = input.get(dx + 1, dz + 1).expect_biome();
-
-            internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
-
-            if is_ocean(center) && (!is_ocean(sw) || !is_ocean(nw) || !is_ocean(se) || !is_ocean(ne)) {
-
-                let mut bound = 1;
-                let mut to_set = PLAINS::ID;
-
-                if !is_ocean(sw) && internal.rand.next_int(post_inc!(bound)) == 0 {
-                    to_set = sw;
-                }
-
-                if !is_ocean(nw) && internal.rand.next_int(post_inc!(bound)) == 0 {
-                    to_set = nw;
-                }
-
-                if !is_ocean(se) && internal.rand.next_int(post_inc!(bound)) == 0 {
-                    to_set = se;
-                }
-
-                if !is_ocean(ne) && internal.rand.next_int(bound/*post_inc!(bound)*/) == 0 {
-                    to_set = ne;
-                }
-
-                center = if internal.rand.next_int(3) == 0 {
-                    to_set
-                } else if to_set == ICE_PLAINS::ID {
-                    FROZEN_OCEAN::ID
-                } else {
-                    OCEAN::ID
-                };
-
-            } else if !is_ocean(center) && (is_ocean(sw) || is_ocean(nw) || is_ocean(se) || is_ocean(ne)) {
-
-                if internal.rand.next_int(5) == 0 {
-                    center = match center {
-                        ICE_PLAINS::ID => FROZEN_OCEAN::ID,
-                        _ => OCEAN::ID
-                    };
-                }
-
-            }
-
-            output.set(dx, dz, State::Biome(center));
-
-        }
-    }
-
-    output.debug("add_island");
-
-}
-
-fn add_mushroom_island(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
-
-    let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
-
-    for dz in 0..output.z_size {
-        for dx in 0..output.x_size {
-
-            let sw = input.get(dx + 0, dz + 0).expect_biome();
-            let nw = input.get(dx + 2, dz + 0).expect_biome();
-            let se = input.get(dx + 0, dz + 2).expect_biome();
-            let ne = input.get(dx + 2, dz + 2).expect_biome();
-            let center = input.get(dx + 1, dz + 1).expect_biome();
-
-            internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
-
-            if is_ocean(center) && is_ocean(sw) && is_ocean(nw) && is_ocean(se) && is_ocean(ne) && internal.rand.next_int(100) == 0 {
-                output.set(dx, dz, State::Biome(MUSHROOM_ISLAND::ID));
-            } else {
-                output.set(dx, dz, State::Biome(center));
-            }
-
-        }
-    }
-
-    output.debug("add_mushroom_island");
-
-}
-
-impl_layer!(orphan island, new_island);
-impl_layer!(add_island, new_add_island);
-impl_layer!(add_mushroom_island, new_add_mushroom_island);

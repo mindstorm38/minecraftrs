@@ -5,7 +5,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use hecs::Entity;
 
-use crate::util::{PackedArray, Palette, cast_vec_ref_to_ptr};
+use crate::util::{PackedArray, Palette, Rect, cast_vec_ref_to_ptr};
 use crate::block::{BlockState};
 use crate::biome::Biome;
 use super::level::LevelEnv;
@@ -346,16 +346,16 @@ impl Chunk {
         Ok(())
     }
 
-    pub fn set_biomes_2d(&mut self, biomes: &[&'static Biome]) -> ChunkResult<()> {
+    pub fn set_biomes_2d(&mut self, biomes: &Rect<&'static Biome>) -> ChunkResult<()> {
 
-        assert_eq!(biomes.len(), 256, "Given biomes array must be 256 biomes long.");
+        assert_eq!(biomes.data.len(), 256, "Given biomes array must be 256 biomes long.");
 
         let mut layer_biomes = [0; 16];
 
-        for y in 0..4 {
+        for z in 0..4 {
             for x in 0..4 {
-                let idx = x + y * 4;
-                let biome = biomes[idx * 4];
+                let idx = x + z * 4;
+                let biome = biomes.data[idx * 4];
                 layer_biomes[idx] = self.env.biomes.get_sid_from(biome).ok_or(ChunkError::IllegalBiome)?;
             }
         }

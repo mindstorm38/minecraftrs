@@ -1,38 +1,66 @@
-use super::{LayerData, LayerInternal};
+use super::{Layer, LayerCache, LayerRand};
 
-fn smooth(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
+/// This layer smooth the input layer by removed micro biomes and filling
+/// gaps between cells of the same biome.
+pub struct SmoothLayer<P: Layer> {
+    pub parent: P,
+    rand: LayerRand,
+    cache: LayerCache<P::Item>
+}
 
-    let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+impl<P: Layer> SmoothLayer<P> {
+    pub fn new(parent: P, base_seed: i64) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed),
+            cache: LayerCache::new()
+        }
+    }
+}
 
-    for dz in 0..output.z_size {
-        for dx in 0..output.x_size {
+impl<P: Layer> Layer for SmoothLayer<P>
+where
+    P::Item: Copy + Eq
+{
 
-            let south = input.get(dx + 0, dz + 1);
-            let north = input.get(dx + 2, dz + 1);
-            let west = input.get(dx + 1, dz + 0);
-            let east = input.get(dx + 1, dz + 2);
-            let mut center = input.get(dx + 1, dz + 1);
+    type Item = P::Item;
+
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.rand.init_world_seed(seed);
+        self.cache.clear();
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+
+        let parent = &mut self.parent;
+        let rand = &mut self.rand;
+
+        *self.cache.get_or_insert(x, z, move || {
+
+            let south = parent.next(x - 1, z);
+            let north = parent.next(x + 1, z);
+            let west = parent.next(x, z - 1);
+            let east = parent.next(x, z + 1);
+            let center = parent.next(x, z);
 
             if south == north && west == east {
-                internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
-                center = if internal.rand.next_int(2) == 0 {
+                rand.init_chunk_seed(x, z);
+                if rand.next_int(2) == 0 {
                     south
                 } else {
                     west
-                };
+                }
             } else if west == east {
-                center = west;
+                west
             } else if south == north {
-                center = south;
+                south
+            } else {
+                center
             }
 
-            output.set(dx, dz, center);
+        })
 
-        }
     }
 
-    output.debug("smooth");
-
 }
-
-impl_layer!(smooth, new_smooth);

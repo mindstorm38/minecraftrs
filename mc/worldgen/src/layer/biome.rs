@@ -1,193 +1,310 @@
-use super::{Layer, LayerData, LayerInternal, State};
-use crate::biome::def::*;
+use super::{Layer, LayerCache, LayerRand};
 
-fn biome(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal, allowed_biomes: &[u8]) {
+use mc_core::biome::Biome;
+use mc_vanilla::biome::{
+    PLAINS, DESERT, FOREST, MOUNTAINS, SWAMP, TAIGA, JUNGLE, DESERT_HILLS, WOODED_HILLS,
+    TAIGA_HILLS, SNOWY_TUNDRA, SNOWY_MOUNTAINS, JUNGLE_HILLS, MUSHROOM_FIELDS, OCEAN,
+    MUSHROOM_FIELD_SHORE, RIVER, BEACH, MOUNTAIN_EDGE, FROZEN_RIVER
+};
 
-    internal.expect_parent().inner_generate(x, z, output);
 
-    for dz in 0..output.z_size {
-        for dx in 0..output.x_size {
+/// This layer replace all incoming 'plains' biome by a random biome chosen
+/// from the internal biomes slice give when constructing the layer.
+pub struct BiomeLayer<P> {
+    pub parent: P,
+    rand: LayerRand,
+    biomes: &'static [&'static Biome]
+}
 
-            internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
+impl<P> BiomeLayer<P> {
 
-            let to_set = match output.get(dx, dz).expect_biome() {
-                OCEAN::ID => OCEAN::ID,
-                MUSHROOM_ISLAND::ID => MUSHROOM_ISLAND::ID,
-                PLAINS::ID => internal.rand.choose(allowed_biomes),
-                _ => ICE_PLAINS::ID
-            };
+    pub fn new(parent: P, base_seed: i64, biomes: &'static [&'static Biome]) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed),
+            biomes
+        }
+    }
 
-            output.set(dx, dz, State::Biome(to_set));
+    pub fn with_version(parent: P, base_seed: i64, version: (u8, u8)) -> Option<Self> {
+        match version {
+            (1, 2) => Some(Self::with_version_1_2(parent, base_seed)),
+            _ => None
+        }
+    }
 
+    pub fn with_version_1_2(parent: P, base_seed: i64) -> Self {
+        static BIOMES: [&'static Biome; 7] = [
+            &DESERT,
+            &FOREST,
+            &MOUNTAINS,  // Extreme hills before 1.13
+            &SWAMP,
+            &PLAINS,
+            &TAIGA,
+            &JUNGLE
+        ];
+        Self::new(parent, base_seed, &BIOMES)
+    }
+
+}
+
+impl<P> Layer for BiomeLayer<P>
+where
+    P: Layer<Item = &'static Biome>
+{
+
+    type Item = &'static Biome;
+
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.rand.init_world_seed(seed);
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+        let biome = self.parent.next(x, z);
+        if biome == &PLAINS {
+            self.rand.init_chunk_seed(x, z);
+            self.rand.choose(self.biomes)
+        } else {
+            biome
         }
     }
 
 }
 
-fn biome_1_2(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
-    biome(x, z, output, internal, &[
-        DESERT::ID,
-        FOREST::ID,
-        EXTREME_HILLS::ID,
-        SWAMPLAND::ID,
-        PLAINS::ID,
-        TAIGA::ID,
-        JUNGLE::ID
-    ]);
-    output.debug("biome_1_2");
+
+/// This layer convert 1/3 of the non-hills biomes to their hills variant if the
+/// hill is in between normal variant on the 4 sides.
+pub struct HillsLayer<P> {
+    pub parent: P,
+    rand: LayerRand,
+    repl_cache: LayerCache<&'static Biome>
 }
 
-fn hills(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
+impl<P> HillsLayer<P> {
+    pub fn new(parent: P, base_seed: i64) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed),
+            repl_cache: LayerCache::new()
+        }
+    }
+}
 
-    let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
+impl<P> Layer for HillsLayer<P>
+where
+    P: Layer<Item = &'static Biome>
+{
 
-    for dz in 0..output.z_size {
-        for dx in 0..output.x_size {
+    type Item = &'static Biome;
 
-            internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.rand.init_world_seed(seed);
+        self.repl_cache.clear();
+    }
 
-            let mut current = input.get(dx + 1, dz + 1).expect_biome();
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
 
-            if internal.rand.next_int(3) == 0 {
+        let mut biome = self.parent.next(x, z);
 
-                let repl = match current {
-                    DESERT::ID => Some(DESERT_HILLS::ID),
-                    FOREST::ID => Some(FOREST_HILLS::ID),
-                    TAIGA::ID => Some(TAIGA_HILLS::ID),
-                    PLAINS::ID => Some(FOREST::ID),
-                    ICE_PLAINS::ID => Some(ICE_MOUNTAINS::ID),
-                    JUNGLE::ID => Some(JUNGLE_HILLS::ID),
-                    _ => None
-                };
+        self.rand.init_chunk_seed(x, z);
+        if self.rand.next_int(3) == 0 {
 
-                if let Some(repl) = repl {
+            let repl = match biome {
+                _ if biome == &DESERT => Some(&DESERT_HILLS),
+                _ if biome == &FOREST => Some(&WOODED_HILLS),  // Forest hills before 1.13
+                _ if biome == &TAIGA => Some(&TAIGA_HILLS),
+                _ if biome == &PLAINS => Some(&FOREST),
+                _ if biome == &SNOWY_TUNDRA => Some(&SNOWY_MOUNTAINS),
+                _ if biome == &JUNGLE => Some(&JUNGLE_HILLS),
+                _ => None
+            };
 
-                    let south = input.get(dx + 0, dz + 1).expect_biome();
-                    let north = input.get(dx + 2, dz + 1).expect_biome();
-                    let west = input.get(dx + 1, dz + 0).expect_biome();
-                    let east = input.get(dx + 1, dz + 2).expect_biome();
+            if let Some(repl) = repl {
 
-                    if south == current && north == current && west == current && east == current {
-                        current = repl;
+                let parent = &mut self.parent;
+
+                biome = *self.repl_cache.get_or_insert(x, z, move || {
+
+                    let south = parent.next(x - 1, z);
+                    let north = parent.next(x + 1, z);
+                    let west = parent.next(x, z - 1);
+                    let east = parent.next(x, z + 1);
+
+                    if south == biome && north == biome && west == biome && east == biome {
+                        repl
+                    } else {
+                        biome
                     }
 
-                }
+                })
 
             }
 
-            output.set(dx, dz, State::Biome(current));
-
         }
-    }
 
-    output.debug("hills");
+        biome
+
+    }
 
 }
 
-fn shore(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
-    let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
-    // println!("shore at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
+/// A layer that add some shore and edge biomes depending on island and hills placements.
+pub struct ShoreLayer<P> {
+    pub parent: P,
+    cache: LayerCache<&'static Biome>
+}
 
-    for dz in 0..output.z_size {
-        for dx in 0..output.x_size {
+impl<P> ShoreLayer<P> {
+    pub fn new(parent: P) -> Self {
+        Self {
+            parent,
+            cache: LayerCache::new()
+        }
+    }
+}
 
-            internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
 
-            let south = input.get(dx + 0, dz + 1).expect_biome();
-            let north = input.get(dx + 2, dz + 1).expect_biome();
-            let west = input.get(dx + 1, dz + 0).expect_biome();
-            let east = input.get(dx + 1, dz + 2).expect_biome();
-            let mut center = input.get(dx + 1, dz + 1).expect_biome();
+impl<P> Layer for ShoreLayer<P>
+where
+    P: Layer<Item = &'static Biome>
+{
 
-            if center == MUSHROOM_ISLAND::ID {
-                if let (OCEAN::ID, OCEAN::ID, OCEAN::ID, OCEAN::ID) = (south, north, west, east) {
-                    center = MUSHROOM_ISLAND_SHORE::ID;
+    type Item = &'static Biome;
+
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.cache.clear();
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+
+        let parent = &mut self.parent;
+
+        *self.cache.get_or_insert(x, z, move || {
+
+            macro_rules! south {() => { parent.next(x - 1, z) }}
+            macro_rules! north {() => { parent.next(x + 1, z) }}
+            macro_rules! west {() => { parent.next(x, z - 1) }}
+            macro_rules! east {() => { parent.next(x, z + 1) }}
+
+            let mut center = parent.next(x, z);
+
+            if center == &MUSHROOM_FIELDS {
+                if south!() == &OCEAN && north!() == &OCEAN && west!() == &OCEAN && east!() == &OCEAN {
+                    center = &MUSHROOM_FIELD_SHORE;
                 }
-            } else if center != OCEAN::ID && center != RIVER::ID && center != SWAMPLAND::ID && center != EXTREME_HILLS::ID {
-                if south == OCEAN::ID || north == OCEAN::ID || west == OCEAN::ID || east == OCEAN::ID {
-                    center = BEACH::ID;
+            } else if center != &OCEAN && center != &RIVER && center != &SWAMP && center != &MOUNTAINS {
+                if south!() == &OCEAN || north!() == &OCEAN || west!() == &OCEAN || east!() == &OCEAN {
+                    center = &BEACH;
                 }
-            } else if center == EXTREME_HILLS::ID {
-                if south != EXTREME_HILLS::ID || north != EXTREME_HILLS::ID || west != EXTREME_HILLS::ID || east != EXTREME_HILLS::ID {
-                    center = EXTREME_HILLS_EDGE::ID;
+            } else if center == &MOUNTAINS {
+                if south!() != &MOUNTAINS || north!() != &MOUNTAINS || west!() != &MOUNTAINS || east!() != &MOUNTAINS {
+                    center = &MOUNTAIN_EDGE;
                 }
             }
 
-            output.set(dx, dz, State::Biome(center));
+            center
 
-        }
+        })
+
     }
-
-    output.debug("shore");
 
 }
 
-fn biome_rivers(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
-    let input = internal.expect_parent().generate(x - 1, z - 1, output.x_size + 2, output.z_size + 2);
-    // println!("biome_rivers at {}/{} size: {}x{}", x, z, output.x_size, output.z_size);
+/// A layer that adds rivers in swamps and jungles.
+pub struct BiomeRiverLayer<P> {
+    pub parent: P,
+    rand: LayerRand
+}
 
-    for dz in 0..output.z_size {
-        for dx in 0..output.x_size {
-
-            internal.rand.init_chunk_seed(x + dx as i32, z + dz as i32);
-
-            let mut biome = input.get(dx + 1, dz + 1).expect_biome();
-
-            if biome == SWAMPLAND::ID && internal.rand.next_int(6) == 0 {
-                biome = RIVER::ID;
-            } else if (biome == JUNGLE::ID || biome == JUNGLE_HILLS::ID) && internal.rand.next_int(8) == 0 {
-                biome = RIVER::ID;
-            }
-
-            output.set(dx, dz, State::Biome(biome));
-
+impl<P> BiomeRiverLayer<P> {
+    pub fn new(parent: P, base_seed: i64) -> Self {
+        Self {
+            parent,
+            rand: LayerRand::new(base_seed)
         }
     }
+}
 
-    output.debug("biome_rivers");
+impl<P> Layer for BiomeRiverLayer<P>
+where
+    P: Layer<Item = &'static Biome>
+{
+
+    type Item = &'static Biome;
+
+    fn seed(&mut self, seed: i64) {
+        self.parent.seed(seed);
+        self.rand.init_world_seed(seed);
+    }
+
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+
+        let mut biome = self.parent.next(x, z);
+
+        self.rand.init_chunk_seed(x, z);
+
+        if biome == &SWAMP && self.rand.next_int(6) == 0 {
+            biome = &RIVER;
+        } else if (biome == &JUNGLE || biome == &JUNGLE_HILLS) && self.rand.next_int(8) == 0 {
+            biome = &RIVER;
+        }
+
+        biome
+
+    }
 
 }
 
-fn mix_biome_river(x: i32, z: i32, output: &mut LayerData, internal: &mut LayerInternal) {
 
-    //println!("\nBIOME LAYERS :");
-    internal.expect_parent().inner_generate(x, z, output);
+/// A layer that mix two parent layers, the parent #0 must be the biome layer and
+/// the #1 the river layer.
+pub struct MixBiomeAndRiverLayer<B, R> {
+    pub biome_parent: B,
+    pub river_parent: R
+}
 
-    //println!("\nRIVER LAYERS :");
-    let mut rivers_it = internal.expect_parent_aux().generate(x, z, output.x_size, output.z_size).data.into_iter();
+impl<B, R> MixBiomeAndRiverLayer<B, R> {
+    pub fn new(biome_parent: B, river_parent: R) -> Self {
+        Self {
+            biome_parent,
+            river_parent
+        }
+    }
+}
 
-    for current in &mut output.data {
+impl<B, R> Layer for MixBiomeAndRiverLayer<B, R>
+where
+    B: Layer<Item = &'static Biome>,
+    R: Layer<Item = bool>
+{
 
-        let biome = current.expect_biome();
-        let river = rivers_it.next().unwrap(); // Unwrap should never fail as the two LayerData are of the same size.
+    type Item = &'static Biome;
 
-        if biome != OCEAN::ID && matches!(river, State::River) {
+    fn seed(&mut self, seed: i64) {
+        self.biome_parent.seed(seed);
+        self.river_parent.seed(seed);
+    }
 
-            let new_biome = match biome {
-                ICE_PLAINS::ID => FROZEN_RIVER::ID,
-                MUSHROOM_ISLAND::ID | MUSHROOM_ISLAND_SHORE::ID => MUSHROOM_ISLAND_SHORE::ID,
-                _ => RIVER::ID
+    fn next(&mut self, x: i32, z: i32) -> Self::Item {
+
+        let mut biome = self.biome_parent.next(x, z);
+
+        if biome != &OCEAN && self.river_parent.next(x, z) {
+            biome = match () {
+                _ if biome == &SNOWY_TUNDRA => &FROZEN_RIVER,
+                _ if biome == &MUSHROOM_FIELDS => &MUSHROOM_FIELD_SHORE,
+                _ if biome == &MUSHROOM_FIELD_SHORE => &MUSHROOM_FIELD_SHORE,
+                _ => &RIVER
             };
-
-            *current = State::Biome(new_biome);
-
         }
 
+        biome
+
     }
 
-    output.debug("mix_biome_river");
-
-}
-
-impl_layer!(biome_1_2, new_biome_1_2);
-impl_layer!(hills, new_hills);
-impl_layer!(shore, new_shore);
-impl_layer!(biome_rivers, new_biome_rivers);
-
-impl Layer {
-    pub fn new_mix_biome_river(base_seed: i64, biome_parent: Layer, river_parent: Layer) -> Self {
-        Self::new(base_seed, mix_biome_river, Some(Box::new(biome_parent)), Some(Box::new(river_parent)))
-    }
 }

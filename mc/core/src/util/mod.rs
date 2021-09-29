@@ -6,6 +6,7 @@ mod palette;
 mod cache;
 mod sync;
 mod nbt_ext;
+mod geom;
 
 pub use cache::*;
 pub use packed::*;
@@ -13,6 +14,11 @@ pub use palette::*;
 pub use sync::*;
 pub use version::*;
 pub use nbt_ext::NbtExt;
+pub use geom::*;
+
+
+// pub type Rect<T, const X: usize, const Z: usize> = [[T; Z]; X];
+// pub type Cube<T, const X: usize, const Y: usize, const Z: usize> = [[[T; Z]; Y]; X];
 
 
 pub unsafe fn cast_vec<Src, Dst>(src: Vec<Src>) -> Vec<Dst> {

@@ -1,4 +1,3 @@
-use std::mem::MaybeUninit;
 use std::sync::Arc;
 use std::io::Read;
 
@@ -11,10 +10,8 @@ use crate::world::chunk::{ChunkStatus, SubChunk};
 use crate::world::level::{LevelEnv, BaseEntity};
 use crate::world::source::ProtoChunk;
 use crate::entity::GlobalEntities;
-use crate::util::PackedIterator;
 use crate::block::BlockState;
-use crate::biome::Biome;
-use crate::util::NbtExt;
+use crate::util::{Rect, NbtExt, PackedIterator};
 
 
 #[derive(Error, Debug)]
@@ -85,23 +82,16 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
 
         if raw_biomes.len() == 256 {
 
-            let mut biomes: [MaybeUninit<&'static Biome>; 256] = unsafe {
-                MaybeUninit::uninit().assume_init()
-            };
+            let mut biomes = Vec::with_capacity(256);
 
-            let mut raw_biomes_it = raw_biomes.iter();
-
-            for uninit_biome in &mut biomes {
-                // SAFETY: Unwrap should be safe because len of 'raw_biomes' and 'biomes' are equal.
-                let raw_biome_id = raw_biomes_it.next().unwrap();
+            for raw_biome_id in raw_biomes {
                 match env.biomes.get_biome_from_id(*raw_biome_id) {
-                    Some(biome) => *uninit_biome = MaybeUninit::new(biome),
+                    Some(biome) => biomes.push(biome),
                     None => return Err(DecodeError::UnknownBiome(*raw_biome_id))
                 }
             }
 
-            let biomes: [&'static Biome; 256] = unsafe { std::mem::transmute(biomes) };
-            chunk.set_biomes_2d(&biomes);
+            chunk.set_biomes_2d(&Rect::from_raw(biomes, 16, 16)).unwrap();
 
         } else if raw_biomes.len() == height.len() * 64 {
 
@@ -114,7 +104,7 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
                 }
             }
 
-            chunk.set_biomes_3d(&vec[..]);
+            chunk.set_biomes_3d(&vec[..]).unwrap();
 
         } else {
             return Err(DecodeError::Malformed(format!("Malformed biomes array of length {}.", raw_biomes.len())));
