@@ -12,6 +12,7 @@ use mc_core::world::source::{LevelGenerator, ProtoChunk, ChunkInfo, LevelSourceE
 use mc_core::world::chunk::Chunk;
 use mc_core::biome::{Biome, BiomeKey};
 use mc_core::util::{Rect, OpaquePtr};
+use mc_core::block::BlockState;
 use mc_core::rand::JavaRandom;
 
 use mc_vanilla::biome::*;
@@ -29,11 +30,12 @@ pub struct LevelGenRelease102 {
     shared: Arc<Shared>,
     rand: JavaRandom,
 
-    noise_cache1: NoiseCube,
-    noise_cache2: NoiseCube,
-    noise_cache3: NoiseCube,
-    noise_cache4: NoiseRect,
-    noise_cache5: NoiseRect,
+    noise1_cache: NoiseCube,
+    noise2_cache: NoiseCube,
+    noise3_cache: NoiseCube,
+    noise4_cache: NoiseRect,
+    noise5_cache: NoiseRect,
+    noise_surface_cache: NoiseCube,
 
     noise_field: NoiseCube,
     layer_voronoi: VoronoiLayer<BoxLayer<&'static Biome>>
@@ -72,11 +74,12 @@ impl LevelGenRelease102 {
 
         Self {
             shared,
-            noise_cache1: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
-            noise_cache2: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
-            noise_cache3: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
-            noise_cache4: NoiseRect::new_default(WIDTH, WIDTH),
-            noise_cache5: NoiseRect::new_default(WIDTH, WIDTH),
+            noise1_cache: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
+            noise2_cache: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
+            noise3_cache: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
+            noise4_cache: NoiseRect::new_default(WIDTH, WIDTH),
+            noise5_cache: NoiseRect::new_default(WIDTH, WIDTH),
+            noise_surface_cache: NoiseCube::new_default(16, 16, 1),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
             layer_voronoi: Self::new_layers(seed),
             // ravine_carver: Carver::new_ravine(),
@@ -144,10 +147,11 @@ impl LevelGenRelease102 {
 
     }
 
-    fn initialize_biomes(&mut self, chunk: &mut Chunk) {
+    fn initialize_biomes(&mut self, chunk: &mut Chunk) -> Rect<&'static Biome> {
         let (cx, cz) = chunk.get_position();
         let biomes = self.layer_voronoi.next_grid(cx * 16, cz * 16, 16, 16);
         chunk.set_biomes_2d(&biomes).expect("The biome layer returned invalid biomes.");
+        biomes
     }
 
     /// Generate base terrain and return the first stage chunk.
@@ -272,11 +276,11 @@ impl LevelGenRelease102 {
         const WIDTH_SCALE: f64 = 684.41200000000003;
         const HEIGHT_SCALE: f64 = 684.41200000000003;
 
-        self.shared.noise4.generate_2d(&mut self.noise_cache4, x, z, 1.121, 1.121);
-        self.shared.noise5.generate_2d(&mut self.noise_cache5, x, z, 200.0, 200.0);
-        self.shared.noise3.generate_3d(&mut self.noise_cache3, x, y, z, WIDTH_SCALE / 80.0, HEIGHT_SCALE / 160.0, WIDTH_SCALE / 80.0);
-        self.shared.noise1.generate_3d(&mut self.noise_cache1, x, y, z, WIDTH_SCALE, HEIGHT_SCALE, WIDTH_SCALE);
-        self.shared.noise2.generate_3d(&mut self.noise_cache2, x, y, z, WIDTH_SCALE, HEIGHT_SCALE, WIDTH_SCALE);
+        self.shared.noise4.generate_2d(&mut self.noise4_cache, x, z, 1.121, 1.121);
+        self.shared.noise5.generate_2d(&mut self.noise5_cache, x, z, 200.0, 200.0);
+        self.shared.noise3.generate_3d(&mut self.noise3_cache, x, y, z, WIDTH_SCALE / 80.0, HEIGHT_SCALE / 160.0, WIDTH_SCALE / 80.0);
+        self.shared.noise1.generate_3d(&mut self.noise1_cache, x, y, z, WIDTH_SCALE, HEIGHT_SCALE, WIDTH_SCALE);
+        self.shared.noise2.generate_3d(&mut self.noise2_cache, x, y, z, WIDTH_SCALE, HEIGHT_SCALE, WIDTH_SCALE);
 
         // dx/dz/dy are the position in the noise field
 
@@ -325,7 +329,7 @@ impl LevelGenRelease102 {
                 average_min_height = ((average_min_height / total_weight) * 4.0 - 1.0) / 8.0;
 
 
-                let mut val = *self.noise_cache5.get(dx, dz) / 8000.0;
+                let mut val = *self.noise5_cache.get(dx, dz) / 8000.0;
 
                 if val < 0.0 {
                     val = -val * 0.29999999999999999;
@@ -365,9 +369,9 @@ impl LevelGenRelease102 {
 
                     // println!("  y: {}, noise1: {}", dy, self.noise_main1.get_noise(dx, dy, dz));
 
-                    let val1 = *self.noise_cache1.get(dx, dy, dz) / 512.0;
-                    let val2 = *self.noise_cache2.get(dx, dy, dz) / 512.0;
-                    let val3 = (*self.noise_cache3.get(dx, dy, dz) / 10.0 + 1.0) / 2.0;
+                    let val1 = *self.noise1_cache.get(dx, dy, dz) / 512.0;
+                    let val2 = *self.noise2_cache.get(dx, dy, dz) / 512.0;
+                    let val3 = (*self.noise3_cache.get(dx, dy, dz) / 10.0 + 1.0) / 2.0;
 
                     if val3 < 0.0 {
                         c = val1;
@@ -394,6 +398,97 @@ impl LevelGenRelease102 {
 
     }
 
+    fn generate_surface(&mut self, chunk: &mut Chunk, biomes: &Rect<&'static Biome>) {
+
+        let (cx, cz) = chunk.get_position();
+
+        const SCALE: f64 = 0.03125 * 2.0;
+        self.shared.noise_surface.generate_3d(&mut self.noise_surface_cache, cx * 16, cz * 16, 0, SCALE, SCALE, SCALE);
+
+        for z in 0..16u8 {
+            for x in 0..16u8 {
+
+                let biome = *biomes.get(x as usize, z as usize);
+                let biome_prop = BIOMES_PROPERTIES.get(biome).unwrap();
+
+                // x/z are inverted
+                let noise_val = (*self.noise_surface_cache.get(x as usize, z as usize, 0) / 3.0 + 3.0 + self.rand.next_double() * 0.25) as i32;
+
+                let biome_top_block = biome_prop.top_block;
+                let biome_filler_block = biome_prop.filler_block;
+
+                let mut top_block = biome_top_block;
+                let mut filler_block = biome_filler_block;
+
+                let mut depth = -1;
+
+                for y in (0..128i32).rev() {
+
+                    if y <= self.rand.next_int_bounded(5) {
+                        chunk.set_block(x, y, z, BEDROCK.get_default_state());
+                    } else {
+
+                        let block = chunk.get_block(x, y, z).unwrap();
+
+                        if block == AIR.get_default_state() {
+                            depth = -1;
+                        } else if block == STONE.get_default_state() {
+
+                            if depth == -1 {
+
+                                if noise_val <= 0 {
+                                    // This block is used to generate places where there is no grass but
+                                    // stone at the layer behind de surface.
+                                    top_block = AIR.get_default_state();
+                                    filler_block = STONE.get_default_state();
+                                } else if y >= 59 && y <= 64 {
+                                    top_block = biome_top_block;
+                                    filler_block = biome_filler_block;
+                                }
+
+                                if y < 63 && top_block == AIR.get_default_state() {
+                                    if temp < 0.15 {
+                                        top_block = ICE.get_default_state();
+                                    } else {
+                                        top_block = WATER.get_default_state();
+                                    }
+                                }
+
+                                depth = noise_val;
+
+                                chunk.set_block_id(x, y, z, if y >= 62 {
+                                    top_block
+                                } else {
+                                    filler_block
+                                });
+
+                            }
+
+                            if depth > 0 {
+
+                                depth -= 1;
+                                chunk.set_block_id(x, y, z, filler_block);
+
+                                if depth == 0 && filler_block == SAND.get_default_state() {
+                                    // This block is used to generate the sandstone behind the sand in
+                                    // the desert.
+                                    depth = self.rand.next_int_bounded(4);
+                                    filler_block = SANDSTONE.get_default_state();
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            }
+        }
+
+    }
+
 }
 
 impl LevelGenerator for LevelGenRelease102 {
@@ -412,8 +507,9 @@ impl LevelGenerator for LevelGenRelease102 {
         self.rand.set_seed((Wrapping(info.cx as i64) * X_MUL + Wrapping(info.cz as i64) * Z_MUL).0);
 
         let mut chunk = info.build_proto_chunk();
-        self.initialize_biomes(&mut *chunk);
+        let biomes = self.initialize_biomes(&mut *chunk);
         self.generate_terrain(&mut *chunk);
+        self.generate_surface(&mut *chunk, &biomes);
 
         Ok(chunk)
 
@@ -423,7 +519,15 @@ impl LevelGenerator for LevelGenRelease102 {
 
 
 struct BiomePropertyMap {
-    data: HashMap<BiomeKey, (f32, f32)>
+    data: HashMap<BiomeKey, BiomeProperty>
+}
+
+struct BiomeProperty {
+    min_height: f32,
+    max_height: f32,
+    temperature: f32,
+    top_block: &'static BlockState,
+    filler_block: &'static BlockState
 }
 
 impl BiomePropertyMap {
@@ -434,40 +538,50 @@ impl BiomePropertyMap {
         }
     }
 
-    pub fn insert(mut self, biome: &'static Biome, min_height: f32, max_height: f32) -> Self {
-        self.data.insert(biome.get_key(), (min_height, max_height));
+    pub fn insert(mut self, biome: &'static Biome, min_height: f32, max_height: f32, temp: f32, top_block: &'static BlockState, filler_block: &'static BlockState) -> Self {
+        self.data.insert(biome.get_key(), BiomeProperty {
+            min_height,
+            max_height,
+            temperature: temp,
+            top_block,
+            filler_block
+        });
         self
     }
 
+    pub fn get(&self, biome: &'static Biome) -> Option<&BiomeProperty> {
+        self.data.get(&biome.get_key())
+    }
+
     pub fn get_height(&self, biome: &'static Biome) -> Option<(f32, f32)> {
-        self.data.get(&biome.get_key()).copied()
+        self.get(biome).map(|prop| (prop.min_height, prop.max_height))
     }
 
 }
 
 static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     BiomePropertyMap::new()
-        .insert(&OCEAN, -1.0, 0.4)
-        .insert(&PLAINS, 0.1, 0.3)
-        .insert(&DESERT, 0.1, 0.2)
-        .insert(&MOUNTAINS, 0.2, 0.3)
-        .insert(&FOREST, 0.1, 0.3)
-        .insert(&TAIGA, 0.1, 0.4)
-        .insert(&SWAMP, -0.2, 0.1)
-        .insert(&RIVER, -0.5, 0.0)
-        .insert(&FROZEN_OCEAN, -1.0, 0.5)
-        .insert(&FROZEN_RIVER, -0.5, 0.0)
-        .insert(&SNOWY_TUNDRA, 0.1, 0.3)
-        .insert(&SNOWY_MOUNTAINS, 0.2, 1.2)
-        .insert(&MUSHROOM_FIELDS, 0.2, 1.0)
-        .insert(&MUSHROOM_FIELD_SHORE, -1.0, 0.1)
-        .insert(&BEACH, 0.0, 0.1)
-        .insert(&DESERT_HILLS, 0.2, 0.7)
-        .insert(&WOODED_HILLS, 0.2, 0.6)
-        .insert(&TAIGA_HILLS, 0.2, 0.7)
-        .insert(&MOUNTAIN_EDGE, 0.2, 0.3)
-        .insert(&JUNGLE, 0.2, 0.4)
-        .insert(&JUNGLE_HILLS, 1.8, 0.2)
+        .insert(&OCEAN, -1.0, 0.4, 0.5)
+        .insert(&PLAINS, 0.1, 0.3, 0.8)
+        .insert(&DESERT, 0.1, 0.2, 2.0)
+        .insert(&MOUNTAINS, 0.2, 0.3, 0.2)
+        .insert(&FOREST, 0.1, 0.3, 0.7)
+        .insert(&TAIGA, 0.1, 0.4, 0.05)
+        .insert(&SWAMP, -0.2, 0.1, 0.8)
+        .insert(&RIVER, -0.5, 0.0, 0.5)
+        .insert(&FROZEN_OCEAN, -1.0, 0.5, 0.0)
+        .insert(&FROZEN_RIVER, -0.5, 0.0, 0.0)
+        .insert(&SNOWY_TUNDRA, 0.1, 0.3, 0.0)
+        .insert(&SNOWY_MOUNTAINS, 0.2, 1.2, 0.0)
+        .insert(&MUSHROOM_FIELDS, 0.2, 1.0, 0.9)
+        .insert(&MUSHROOM_FIELD_SHORE, -1.0, 0.1, 0.9)
+        .insert(&BEACH, 0.0, 0.1, 0.8)
+        .insert(&DESERT_HILLS, 0.2, 0.7, 2.0)
+        .insert(&WOODED_HILLS, 0.2, 0.6, 0.7)
+        .insert(&TAIGA_HILLS, 0.2, 0.7, 0.05)
+        .insert(&MOUNTAIN_EDGE, 0.2, 0.3, 0.2)
+        .insert(&JUNGLE, 0.2, 0.4, 1.2)
+        .insert(&JUNGLE_HILLS, 1.8, 0.2, 1.2)
 });
 
 
