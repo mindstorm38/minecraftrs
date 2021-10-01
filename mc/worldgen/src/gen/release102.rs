@@ -12,7 +12,7 @@ use mc_core::world::source::{LevelGenerator, ProtoChunk, ChunkInfo, LevelSourceE
 use mc_core::world::chunk::Chunk;
 use mc_core::biome::{Biome, BiomeKey};
 use mc_core::util::{Rect, OpaquePtr};
-use mc_core::block::BlockState;
+use mc_core::block::{BlockState, Block};
 use mc_core::rand::JavaRandom;
 
 use mc_vanilla::biome::*;
@@ -402,6 +402,12 @@ impl LevelGenRelease102 {
 
         let (cx, cz) = chunk.get_position();
 
+        let block_air = AIR.get_default_state();
+        let block_stone = STONE.get_default_state();
+        let block_bedrock = BEDROCK.get_default_state();
+        let block_sand = SAND.get_default_state();
+        let block_sandstone = SANDSTONE.get_default_state();
+
         const SCALE: f64 = 0.03125 * 2.0;
         self.shared.noise_surface.generate_3d(&mut self.noise_surface_cache, cx * 16, cz * 16, 0, SCALE, SCALE, SCALE);
 
@@ -425,29 +431,29 @@ impl LevelGenRelease102 {
                 for y in (0..128i32).rev() {
 
                     if y <= self.rand.next_int_bounded(5) {
-                        chunk.set_block(x, y, z, BEDROCK.get_default_state());
+                        chunk.set_block(x, y, z, block_bedrock);
                     } else {
 
                         let block = chunk.get_block(x, y, z).unwrap();
 
-                        if block == AIR.get_default_state() {
+                        if block == block_air {
                             depth = -1;
-                        } else if block == STONE.get_default_state() {
+                        } else if block == block_stone {
 
                             if depth == -1 {
 
                                 if noise_val <= 0 {
                                     // This block is used to generate places where there is no grass but
                                     // stone at the layer behind de surface.
-                                    top_block = AIR.get_default_state();
-                                    filler_block = STONE.get_default_state();
+                                    top_block = block_air;
+                                    filler_block = block_stone;
                                 } else if y >= 59 && y <= 64 {
                                     top_block = biome_top_block;
                                     filler_block = biome_filler_block;
                                 }
 
-                                if y < 63 && top_block == AIR.get_default_state() {
-                                    if temp < 0.15 {
+                                if y < 63 && top_block == block_air {
+                                    if biome_prop.temperature < 0.15 {
                                         top_block = ICE.get_default_state();
                                     } else {
                                         top_block = WATER.get_default_state();
@@ -456,7 +462,7 @@ impl LevelGenRelease102 {
 
                                 depth = noise_val;
 
-                                chunk.set_block_id(x, y, z, if y >= 62 {
+                                chunk.set_block(x, y, z, if y >= 62 {
                                     top_block
                                 } else {
                                     filler_block
@@ -467,13 +473,13 @@ impl LevelGenRelease102 {
                             if depth > 0 {
 
                                 depth -= 1;
-                                chunk.set_block_id(x, y, z, filler_block);
+                                chunk.set_block(x, y, z, filler_block);
 
-                                if depth == 0 && filler_block == SAND.get_default_state() {
+                                if depth == 0 && filler_block == block_sand {
                                     // This block is used to generate the sandstone behind the sand in
                                     // the desert.
                                     depth = self.rand.next_int_bounded(4);
-                                    filler_block = SANDSTONE.get_default_state();
+                                    filler_block = block_sandstone;
                                 }
 
                             }
@@ -530,6 +536,38 @@ struct BiomeProperty {
     filler_block: &'static BlockState
 }
 
+struct BiomePropertyBuilder {
+    biome: &'static Biome,
+    inner: BiomeProperty,
+    map: BiomePropertyMap,
+}
+
+impl BiomePropertyBuilder {
+
+    pub fn height(mut self, min: f32, max: f32) -> Self {
+        self.inner.min_height = min;
+        self.inner.max_height = max;
+        self
+    }
+
+    pub fn temp(mut self, temp: f32) -> Self {
+        self.inner.temperature = temp;
+        self
+    }
+
+    pub fn blocks(mut self, top: &'static Block, filler: &'static Block) -> Self {
+        self.inner.top_block = top.get_default_state();
+        self.inner.filler_block = filler.get_default_state();
+        self
+    }
+
+    pub fn build(mut self) -> BiomePropertyMap {
+        self.map.data.insert(self.biome.get_key(), self.inner);
+        self.map
+    }
+
+}
+
 impl BiomePropertyMap {
 
     pub fn new() -> Self {
@@ -538,15 +576,18 @@ impl BiomePropertyMap {
         }
     }
 
-    pub fn insert(mut self, biome: &'static Biome, min_height: f32, max_height: f32, temp: f32, top_block: &'static BlockState, filler_block: &'static BlockState) -> Self {
-        self.data.insert(biome.get_key(), BiomeProperty {
-            min_height,
-            max_height,
-            temperature: temp,
-            top_block,
-            filler_block
-        });
-        self
+    pub fn insert(self, biome: &'static Biome) -> BiomePropertyBuilder {
+        BiomePropertyBuilder {
+            biome,
+            inner: BiomeProperty {
+                min_height: 0.1,
+                max_height: 0.3,
+                temperature: 0.5,
+                top_block: GRASS.get_default_state(),
+                filler_block: DIRT.get_default_state()
+            },
+            map: self
+        }
     }
 
     pub fn get(&self, biome: &'static Biome) -> Option<&BiomeProperty> {
@@ -561,27 +602,27 @@ impl BiomePropertyMap {
 
 static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     BiomePropertyMap::new()
-        .insert(&OCEAN, -1.0, 0.4, 0.5)
-        .insert(&PLAINS, 0.1, 0.3, 0.8)
-        .insert(&DESERT, 0.1, 0.2, 2.0)
-        .insert(&MOUNTAINS, 0.2, 0.3, 0.2)
-        .insert(&FOREST, 0.1, 0.3, 0.7)
-        .insert(&TAIGA, 0.1, 0.4, 0.05)
-        .insert(&SWAMP, -0.2, 0.1, 0.8)
-        .insert(&RIVER, -0.5, 0.0, 0.5)
-        .insert(&FROZEN_OCEAN, -1.0, 0.5, 0.0)
-        .insert(&FROZEN_RIVER, -0.5, 0.0, 0.0)
-        .insert(&SNOWY_TUNDRA, 0.1, 0.3, 0.0)
-        .insert(&SNOWY_MOUNTAINS, 0.2, 1.2, 0.0)
-        .insert(&MUSHROOM_FIELDS, 0.2, 1.0, 0.9)
-        .insert(&MUSHROOM_FIELD_SHORE, -1.0, 0.1, 0.9)
-        .insert(&BEACH, 0.0, 0.1, 0.8)
-        .insert(&DESERT_HILLS, 0.2, 0.7, 2.0)
-        .insert(&WOODED_HILLS, 0.2, 0.6, 0.7)
-        .insert(&TAIGA_HILLS, 0.2, 0.7, 0.05)
-        .insert(&MOUNTAIN_EDGE, 0.2, 0.3, 0.2)
-        .insert(&JUNGLE, 0.2, 0.4, 1.2)
-        .insert(&JUNGLE_HILLS, 1.8, 0.2, 1.2)
+        .insert(&OCEAN).height(-1.0, 0.4).build()
+        .insert(&PLAINS).height(0.1, 0.3).temp(0.8).build()
+        .insert(&DESERT).height(0.1, 0.2).temp(2.0).blocks(&SAND, &SANDSTONE).build()
+        .insert(&MOUNTAINS).height(0.2, 1.3).temp(0.2).build()
+        .insert(&FOREST).temp(0.7).build()
+        .insert(&TAIGA).height(0.1, 0.4).temp(0.05).build()
+        .insert(&SWAMP).height(-0.2, 0.1).temp(0.8).build()
+        .insert(&RIVER).height(-0.5, 0.0).build()
+        .insert(&FROZEN_OCEAN).height(-1.0, 0.5).temp(0.0).build()
+        .insert(&FROZEN_RIVER).height(-0.5, 0.0).temp(0.0).build()
+        .insert(&SNOWY_TUNDRA).temp(0.0).build()
+        .insert(&SNOWY_MOUNTAINS).height(0.2, 1.2).temp(0.0).build()
+        .insert(&MUSHROOM_FIELDS).height(0.2, 1.0).temp(0.9).blocks(&MYCELIUM, &DIRT).build()
+        .insert(&MUSHROOM_FIELD_SHORE).height(-1.0, 0.1).temp(0.9).blocks(&MYCELIUM, &DIRT).build()
+        .insert(&BEACH).height(0.0, 0.1).temp(0.8).blocks(&SAND, &SAND).build()
+        .insert(&DESERT_HILLS).height(0.2, 0.7).temp(2.0).blocks(&SAND, &SANDSTONE).build()
+        .insert(&WOODED_HILLS).height(0.2, 0.6).temp(0.7).build()
+        .insert(&TAIGA_HILLS).height(0.2, 0.7).temp(0.05).build()
+        .insert(&MOUNTAIN_EDGE).height(0.2, 0.8).temp(0.2).build()
+        .insert(&JUNGLE).height(0.2, 0.4).temp(1.2).build()
+        .insert(&JUNGLE_HILLS).height(1.8, 0.2).temp(1.2).build()
 });
 
 
