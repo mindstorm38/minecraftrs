@@ -3,5 +3,6 @@ members = [
     "mc/core",
     "mc/runtime",
     "mc/vanilla",
-    "mc/worldgen"
+    "mc/worldgen",
+    "mc/server"
 ]
