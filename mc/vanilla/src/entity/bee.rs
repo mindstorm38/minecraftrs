@@ -1,9 +1,8 @@
-use mc_core::hecs::{EntityRef, EntityBuilder};
 use mc_core::entity::SingleEntityCodec;
-use mc_core::nbt::CompoundTag;
 use mc_core::pos::BlockPos;
 use mc_core::util::NbtExt;
 use mc_core::entity_component;
+use nbt::CompoundTag;
 
 
 #[derive(Debug, Default)]

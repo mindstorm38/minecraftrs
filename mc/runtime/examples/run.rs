@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use mc_runtime::world::{World, WorldSystemExecutor};
+use mc_runtime::world::{WorldContext, World, WorldSystemExecutor};
 use mc_runtime::util::{tick_loop};
 
 use mc_runtime::system::system_load_chunks;
@@ -8,9 +8,9 @@ use mc_runtime::system::system_load_chunks;
 
 fn main() {
 
-    let mut world = World::new();
-    world.with_executor(register_systems);
-    world.simple_run();
+    let mut ctx = WorldContext::new();
+    ctx.register(register_systems);
+    ctx.run_simple();
 
 }
 

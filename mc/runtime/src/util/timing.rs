@@ -7,6 +7,8 @@ pub struct TickLoopInfo {
 }
 
 
+/// Run the given function at a stable frequency. This function will block
+/// and loop while the given function return true.
 pub fn tick_loop<F>(mut func: F, frequency: f32)
 where
     F: FnMut(&mut TickLoopInfo) -> bool
@@ -22,7 +24,7 @@ where
 
         let start = Instant::now();
 
-        if func(&mut info) {
+        if !func(&mut info) {
             break;
         }
 

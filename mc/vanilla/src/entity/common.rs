@@ -3,10 +3,11 @@ use std::num::NonZeroU32;
 
 use mc_core::entity::SingleEntityCodec;
 use mc_core::pos::{EntityPos, BlockPos};
-use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
-use mc_core::uuid::Uuid;
 use mc_core::entity_component;
+
+use nbt::CompoundTag;
+use uuid::Uuid;
 
 // Common components //
 

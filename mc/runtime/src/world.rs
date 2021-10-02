@@ -10,12 +10,52 @@ use crate::util::{Components, ComponentError, SystemExecutor, EventTracker, tick
 /// Type alias for a `SystemExecutor` that take a `World` context.
 pub type WorldSystemExecutor = SystemExecutor<World>;
 
+/// The world executor, containing a world with its executor.
+pub struct WorldContext {
+    /// The executor of the internal world.
+    pub executor: WorldSystemExecutor,
+    /// The internal world run by the executor.
+    pub world: World
+}
 
+impl WorldContext {
+
+    pub fn new() -> Self {
+        Self {
+            executor: SystemExecutor::new(),
+            world: World::new()
+        }
+    }
+
+    /// Call the given function with a mutable reference to the world
+    /// and the executor as parameters.
+    pub fn register<F>(&mut self, func: F)
+    where
+        F: FnOnce(&mut World, &mut WorldSystemExecutor)
+    {
+        (func)(&mut self.world, &mut self.executor);
+    }
+
+    pub fn run_simple(&mut self) {
+        let executor = &mut self.executor;
+        let world = &mut self.world;
+        world.running = true;
+        tick_loop(move |_info| {
+            executor.tick(world);
+            world.event_tracker.clear_events();
+            world.running
+        }, 20.0);
+    }
+
+}
+
+/// A runtime Minecraft world, containing components, event tracker and levels.
 pub struct World {
+    /// A boolean set to true while running (likely from an system executor loop),
+    /// it can be set to false to stop the loop.
+    pub running: bool,
     /// Internal components registered before starting and used after by systems.
-    components: Components,
-    /// External executor.
-    pub executor: Rc<RefCell<WorldSystemExecutor>>,
+    pub components: Components,
     /// Internal event tracker for the world.
     pub event_tracker: EventTracker,
     /// World's levels.
@@ -26,26 +66,11 @@ impl World {
 
     pub fn new() -> Self {
         Self {
+            running: false,
             components: Components::new(),
-            executor: Rc::new(RefCell::new(SystemExecutor::new())),
             event_tracker: EventTracker::new(),
             levels: Vec::new()
         }
-    }
-
-    // Executor
-
-    #[inline]
-    pub fn clone_executor(&self) -> Rc<RefCell<WorldSystemExecutor>> {
-        Rc::clone(&self.executor)
-    }
-
-    pub fn with_executor<F>(&mut self, func: F)
-    where
-        F: FnOnce(&mut World, &mut WorldSystemExecutor)
-    {
-        let executor = self.clone_executor();
-        func(self, &mut executor.borrow_mut());
     }
 
     // Components
@@ -68,24 +93,6 @@ impl World {
     #[inline]
     pub fn get_component_mut<T: Any>(&self) -> Result<RefMut<T>, ComponentError> {
         self.components.get_mut::<T>()
-    }
-
-    // Running
-
-    /// Run the world, this is a "simple" run because you have not to customize the
-    /// tick loop. The implementation clone the executor in order to avoid borrowing
-    /// the world and then run the loop at 20 TPS. The loop than call the executor
-    /// tick method and then clear events of the event tracker.
-    ///
-    /// This method is not made for you if you need to run multiple worlds with the
-    /// same executor.
-    pub fn simple_run(&mut self) {
-        let executor = self.clone_executor();
-        tick_loop(move |_info| {
-            executor.borrow_mut().tick(self);
-            self.event_tracker.clear_events();
-            false
-        }, 20.0);
     }
 
 }
