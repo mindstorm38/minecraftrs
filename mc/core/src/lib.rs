@@ -35,7 +35,3 @@ pub mod util;
 pub mod math;
 pub mod pos;
 
-// Re-export 'hecs', 'uuid' & 'nbt' since it is widely used for entities.
-pub use hecs;
-pub use uuid;
-pub use nbt;

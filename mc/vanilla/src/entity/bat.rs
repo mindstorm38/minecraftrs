@@ -1,7 +1,7 @@
 use mc_core::entity::SingleEntityCodec;
-use mc_core::nbt::CompoundTag;
 use mc_core::util::NbtExt;
 use mc_core::entity_component;
+use nbt::CompoundTag;
 
 #[derive(Debug, Default)]
 pub struct BatEntity {

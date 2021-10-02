@@ -1,6 +1,6 @@
 use mc_core::entity::SingleEntityCodec;
-use mc_core::nbt::CompoundTag;
 use mc_core::entity_component;
+use nbt::CompoundTag;
 
 #[derive(Debug, Default)]
 pub struct SlimeEntity {

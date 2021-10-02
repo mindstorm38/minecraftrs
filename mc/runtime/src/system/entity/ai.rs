@@ -1,7 +1,7 @@
 use std::any::{Any, TypeId};
 
 use mc_core::world::level::Level;
-use mc_core::hecs::Entity;
+use hecs::Entity;
 
 use crate::world::World;
 

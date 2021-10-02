@@ -13,3 +13,6 @@ license = "Apache-2.0"
 [dependencies]
 mc-core = { path = "../core" }
 mc-runtime = { path = "../runtime" }
+
+named-binary-tag = "0.6"
+uuid = "0.8"
