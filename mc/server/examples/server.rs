@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
-use mc_server::packet::server::{PacketServer, Event, RawPacket};
+use mc_server::packet::{PacketServer, Event, RawPacket};
 use mc_server::packet::serial::*;
 
 use mc_server::protocol::{ClientState, Packet};
@@ -156,6 +156,43 @@ fn main() {
                                     });
                                     dimension_type
                                 });
+                                dimension_codec.insert_compound_tag("minecraft:worldgen/biome", {
+                                    let mut biome_reg = CompoundTag::new();
+                                    biome_reg.insert_str("type", "minecraft:worldgen/biome");
+                                    biome_reg.insert_compound_tag_vec("value", {
+                                        let mut biome_value = CompoundTag::new();
+                                        biome_value.insert_str("name", "minecraft:the_void");
+                                        biome_value.insert_i32("id", 127);
+                                        biome_value.insert_compound_tag("element", {
+                                            let mut biome_element = CompoundTag::new();
+                                            biome_element.insert_str("precipitation", "none");
+                                            biome_element.insert_compound_tag("effects", {
+                                                let mut biome_effects = CompoundTag::new();
+                                                biome_effects.insert_i32("sky_color", 8103167);
+                                                biome_effects.insert_i32("water_fog_color", 329011);
+                                                biome_effects.insert_i32("fog_color", 12638463);
+                                                biome_effects.insert_i32("water_color", 4159204);
+                                                biome_effects.insert_compound_tag("mood_sound", {
+                                                    let mut biome_mood_sound = CompoundTag::new();
+                                                    biome_mood_sound.insert_i32("tick_delay", 6000);
+                                                    biome_mood_sound.insert_f64("offset", 2.0);
+                                                    biome_mood_sound.insert_str("sound", "minecraft:ambient.cave");
+                                                    biome_mood_sound.insert_i32("block_search_extent", 8);
+                                                    biome_mood_sound
+                                                });
+                                                biome_effects
+                                            });
+                                            biome_element.insert_f32("depth", 0.1);
+                                            biome_element.insert_f32("temperature", 0.5);
+                                            biome_element.insert_f32("scale", 0.2);
+                                            biome_element.insert_f32("downfall", 0.5);
+                                            biome_element.insert_str("category", "none");
+                                            biome_element
+                                        });
+                                        [biome_value]
+                                    });
+                                    biome_reg
+                                });
 
                                 let mut join_packet = packet.response(0x24);
                                 join_packet.data.write_i32(eid);
@@ -183,6 +220,22 @@ fn main() {
                                 let mut spawn_packet = packet.response(0x42);
                                 spawn_packet.data.write_block_pos(&BlockPos::new(0, 0, 0));
                                 server.send_raw(spawn_packet);
+
+                                let mut abilities_packet = packet.response(0x30);
+                                abilities_packet.data.write_u8(1 | 2 | 4 | 8);
+                                abilities_packet.data.write_f32(0.05);
+                                abilities_packet.data.write_f32(0.1);
+                                server.send_raw(abilities_packet);
+
+                                let mut pos_packet = packet.response(0x34);
+                                pos_packet.data.write_f64(0.0);
+                                pos_packet.data.write_f64(0.0);
+                                pos_packet.data.write_f64(0.0);
+                                pos_packet.data.write_f32(0.0);
+                                pos_packet.data.write_f32(0.0);
+                                pos_packet.data.write_u8(0);
+                                pos_packet.data.write_var_int(1234);
+                                server.send_raw(pos_packet);
 
                             }
 

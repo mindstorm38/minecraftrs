@@ -21,5 +21,8 @@ impl Packet for RequestStatusPacket {
 
 
 pub struct StatusPacket {
-
+    game_version: &'static str,
+    protocol_version: u16,
+    max_players: u32,
+    online_players: u32,
 }

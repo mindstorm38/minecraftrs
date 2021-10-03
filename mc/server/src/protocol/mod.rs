@@ -1,7 +1,7 @@
 use std::io::{Write, Read, Result as IoResult, Cursor};
 use std::net::SocketAddr;
 
-use crate::packet::server::RawPacket;
+use crate::packet::RawPacket;
 
 pub mod handshake;
 pub mod status;
