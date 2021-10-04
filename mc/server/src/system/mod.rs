@@ -17,10 +17,11 @@ struct ProtocolClient {
 }
 
 
+/// Main system of the packet server. It receive and dispatch events to the world.
 fn system_packet_server(world: &mut World) {
 
     let packet_server = world.get_component_mut::<PacketServer>().unwrap();
-    let proto_server = world.get_component_mut::<ProtocolServer>().unwrap();
+    let mut proto_server = world.get_component_mut::<ProtocolServer>().unwrap();
 
     while let Some(event) = packet_server.try_recv_event() {
         match event {

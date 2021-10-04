@@ -60,6 +60,7 @@ enum Request {
 
 /// The server interface from which you send and receive packets. This is the main communication
 /// interface of the server.
+#[derive(Debug)]
 pub struct PacketServer {
     event_receiver: Receiver<Event>,
     request_sender: Sender<Request>,
