@@ -2,15 +2,13 @@
 //! API for packet sending and receiving. Check out `protocol` module for advanced
 //! use of this module.
 
-use std::collections::{HashMap, VecDeque};
-use std::io::{BufReader, BufWriter, Cursor, ErrorKind, Read, Result as IoResult, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Result as IoResult, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
-use std::time::Duration;
+use std::collections::HashMap;
 
 use crossbeam_channel::{bounded, Receiver, Sender, TryRecvError, unbounded};
 
 pub mod serial;
-
 use serial::*;
 
 
@@ -20,7 +18,7 @@ use serial::*;
 #[derive(Debug)]
 pub struct RawPacket {
     pub addr: SocketAddr,
-    pub id: usize,
+    pub id: u16,
     pub data: Cursor<Vec<u8>>
 }
 
@@ -28,7 +26,7 @@ impl RawPacket {
 
     /// Crate a new raw packet with the same destination address, a new ID and an empty
     /// vector cursor for writing data.
-    pub fn response(&self, id: usize) -> Self {
+    pub fn response(&self, id: u16) -> Self {
         Self {
             addr: self.addr,
             id,
@@ -147,7 +145,7 @@ impl ServerListener {
 
     }
 
-    fn run(mut self) {
+    fn run(self) {
         loop {
             match self.listener.accept() {
                 Ok((stream, addr)) => {
@@ -232,7 +230,7 @@ impl ClientDecoder {
         self.stream.read_exact(&mut data[..])?;
 
         let mut cursor = Cursor::new(data);
-        let packet_id = cursor.read_var_int()? as usize;
+        let packet_id = cursor.read_var_int()? as u16;
 
         Ok(RawPacket {
             addr: self.addr,
@@ -281,21 +279,21 @@ impl ClientEncoder {
             match request {
                 Request::Disconnect(addr) => {
                     if let Some(stream) = self.clients.get(&addr) {
-                        stream.shutdown(Shutdown::Both);
+                        let _ = stream.shutdown(Shutdown::Both);
                     }
                 }
                 Request::Packet(packet) => {
                     if let Some(stream) = self.clients.get_mut(&packet.addr) {
 
-                        buffer.set_position(0);
-                        buffer.write_var_int(packet.id as i32);
+                        let _ = buffer.set_position(0);
+                        let _ = buffer.write_var_int(packet.id as i32);
 
                         let id_len = buffer.position() as usize;
                         let data_len = packet.data.position() as usize;
 
-                        stream.write_var_int((id_len + data_len) as i32);
-                        stream.write_all(&buffer.get_ref()[..id_len]);
-                        stream.write_all(&packet.data.get_ref()[..data_len]);
+                        let _ = stream.write_var_int((id_len + data_len) as i32);
+                        let _ = stream.write_all(&buffer.get_ref()[..id_len]);
+                        let _ = stream.write_all(&packet.data.get_ref()[..data_len]);
 
                     }
                 }
