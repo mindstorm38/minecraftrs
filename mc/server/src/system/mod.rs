@@ -126,7 +126,7 @@ fn system_packet_core(world: &mut World) {
 
     while let Some(packet) = proto_server.poll_packet::<HandshakePacket>(ClientState::Handshake, 0x00) {
         println!("{:?}", packet.packet);
-        proto_server.get_client_mut(packet.addr).unwrap().state = packet.packet.next_state;
+        packet.server.get_client_mut(packet.addr).unwrap().state = packet.packet.next_state;
     }
 
 }
