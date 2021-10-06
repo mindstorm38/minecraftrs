@@ -93,14 +93,14 @@ fn main() {
 
                             let json_payload_encoded = serde_json::to_string(&json_payload).unwrap();
                             res_packet.data.write_string(json_payload_encoded.as_str());
-                            server.send_raw(res_packet);
+                            server.send(res_packet);
 
                         }
                         (Status, 0x01) => {
                             let token = packet.data.read_i64().unwrap();
                             let mut res_packet = packet.response(0x01);
                             res_packet.data.write_i64(token).unwrap();
-                            server.send_raw(res_packet);
+                            server.send(res_packet);
                         }
                         (Login, 0x00) => {
 
@@ -124,7 +124,7 @@ fn main() {
                                     eid
                                 });
                                 client.state = Play;
-                                server.send_raw(login_success_packet);
+                                server.send(login_success_packet);
 
                                 let mut dimension_codec = CompoundTag::new();
                                 dimension_codec.insert_compound_tag("minecraft:dimension_type", {
@@ -215,17 +215,17 @@ fn main() {
                                 join_packet.data.write_bool(true);
                                 join_packet.data.write_bool(false);
                                 join_packet.data.write_bool(false);
-                                server.send_raw(join_packet);
+                                server.send(join_packet);
 
                                 let mut spawn_packet = packet.response(0x42);
                                 spawn_packet.data.write_block_pos(&BlockPos::new(0, 0, 0));
-                                server.send_raw(spawn_packet);
+                                server.send(spawn_packet);
 
                                 let mut abilities_packet = packet.response(0x30);
                                 abilities_packet.data.write_u8(1 | 2 | 4 | 8);
                                 abilities_packet.data.write_f32(0.05);
                                 abilities_packet.data.write_f32(0.1);
-                                server.send_raw(abilities_packet);
+                                server.send(abilities_packet);
 
                                 let mut pos_packet = packet.response(0x34);
                                 pos_packet.data.write_f64(0.0);
@@ -235,7 +235,7 @@ fn main() {
                                 pos_packet.data.write_f32(0.0);
                                 pos_packet.data.write_u8(0);
                                 pos_packet.data.write_var_int(1234);
-                                server.send_raw(pos_packet);
+                                server.send(pos_packet);
 
                             }
 

@@ -14,7 +14,7 @@ use serial::*;
 
 /// A raw packet data with its ID and destination address, it's only used for interfacing
 /// with `PacketServer`, to avoid re-encoding packets manually you must use higher level
-/// structures and functions.
+/// structures and functions in the `protocol` module.
 #[derive(Debug)]
 pub struct RawPacket {
     pub addr: SocketAddr,
@@ -23,17 +23,13 @@ pub struct RawPacket {
 }
 
 impl RawPacket {
-
-    /// Crate a new raw packet with the same destination address, a new ID and an empty
-    /// vector cursor for writing data.
-    pub fn response(&self, id: u16) -> Self {
+    pub fn blank(addr: SocketAddr, id: u16) -> Self {
         Self {
-            addr: self.addr,
+            addr,
             id,
             data: Cursor::new(Vec::new())
         }
     }
-
 }
 
 #[derive(Debug)]
@@ -100,24 +96,16 @@ impl PacketServer {
         self.event_receiver.recv().unwrap()
     }
 
-    pub fn send_raw(&self, packet: RawPacket) {
+    pub fn send(&self, packet: RawPacket) {
         // SAFETY: Unwrap should be safe because the ClientEncoder thread should not drop
         //  until this structure is dropped.
         self.request_sender.send(Request::Packet(packet)).unwrap();
     }
 
-    /*pub fn send<P: Packet>(&self, addr: SocketAddr, packet: &mut P) {
-
-        let mut raw = RawPacket {
-            addr,
-            id: P::ID,
-            data: Cursor::new(Vec::new())
-        };
-
-        packet.encode(&mut raw.data);
-        self.send_raw(raw);
-
-    }*/
+    pub fn kick(&self, addr: SocketAddr) {
+        // SAFETY: Same as `send_raw`.
+        self.request_sender.send(Request::Disconnect(addr)).unwrap();
+    }
 
 }
 
@@ -134,7 +122,7 @@ impl ServerListener {
     fn bind(ip: &str, port: u16) -> IoResult<(Self, Receiver<Event>, Receiver<InternalEvent>)> {
 
         let listener = TcpListener::bind((ip, port))?;
-        let (event_sender, event_receiver) = bounded(128);
+        let (event_sender, event_receiver) = bounded(256);
         let (internal_event_sender, internal_event_receiver) = unbounded();
 
         Ok((Self {
@@ -279,18 +267,22 @@ impl ClientEncoder {
             match request {
                 Request::Disconnect(addr) => {
                     if let Some(stream) = self.clients.get(&addr) {
+                        // Let's ignore the error when we shut down.
                         let _ = stream.shutdown(Shutdown::Both);
                     }
                 }
                 Request::Packet(packet) => {
                     if let Some(stream) = self.clients.get_mut(&packet.addr) {
 
-                        let _ = buffer.set_position(0);
-                        let _ = buffer.write_var_int(packet.id as i32);
+                        // SAFETY: We can unwrap because the internal buffer is backed by a
+                        // vec that *should* not panic, it can but for now let's ignore it.
+                        buffer.set_position(0);
+                        buffer.write_var_int(packet.id as i32);
 
                         let id_len = buffer.position() as usize;
                         let data_len = packet.data.position() as usize;
 
+                        // TODO: Do not ignore these results in the future.
                         let _ = stream.write_var_int((id_len + data_len) as i32);
                         let _ = stream.write_all(&buffer.get_ref()[..id_len]);
                         let _ = stream.write_all(&packet.data.get_ref()[..data_len]);
