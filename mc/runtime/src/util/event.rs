@@ -2,6 +2,8 @@ use std::any::{TypeId, Any};
 use std::ops::{Deref, DerefMut};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::marker::PhantomData;
+use std::fmt::Debug;
 
 
 struct Event {
@@ -49,15 +51,12 @@ impl EventTracker {
     }
 
     /// Simple iteration over all events of the same type.
-    pub fn poll_events<'a, T: Any>(&'a self) -> impl Iterator<Item = &'a T> + 'a {
-        match self.events.get(&TypeId::of::<T>()) {
-            Some(events) => events.iter(),
-            None => self.empty_events.iter()
-        }.filter(|event| !event.invalid)
-            .map(|event| {
-                // SAFETY: We can unwrap because the TypeId is checked in the filter.
-                event.event.downcast_ref().unwrap()
-            })
+    pub fn poll_events<T: Any>(&self) -> EventIterator<T> {
+        EventIterator {
+            events: self.events.get(&TypeId::of::<T>()),
+            index: 0,
+            phantom: PhantomData
+        }
     }
 
     /// Simple iteration over all events handles of the same type, this allows
@@ -80,6 +79,39 @@ impl EventTracker {
             vec.clear();
             vec
         }));
+    }
+
+}
+
+
+/// Iterator returned from `EventTracker::poll_events`.
+pub struct EventIterator<'a, T> {
+    events: Option<&'a Vec<Event>>,
+    index: usize,
+    phantom: PhantomData<&'a T>
+}
+
+impl<'a, T: Any> Iterator for EventIterator<'a, T> {
+
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.events {
+            None => None,
+            Some(events) => {
+                loop {
+                    match events.get(self.index) {
+                        Some(event) if !event.invalid => {
+                            self.index += 1;
+                            // SAFETY: We can unwrap because TypeId is already checked.
+                            break Some(event.event.downcast_ref::<T>().unwrap());
+                        },
+                        Some(_) => self.index += 1,
+                        None => break None
+                    }
+                }
+            }
+        }
     }
 
 }

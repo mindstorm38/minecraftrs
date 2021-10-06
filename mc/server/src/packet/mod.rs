@@ -277,7 +277,7 @@ impl ClientEncoder {
                         // SAFETY: We can unwrap because the internal buffer is backed by a
                         // vec that *should* not panic, it can but for now let's ignore it.
                         buffer.set_position(0);
-                        buffer.write_var_int(packet.id as i32);
+                        buffer.write_var_int(packet.id as i32).unwrap();
 
                         let id_len = buffer.position() as usize;
                         let data_len = packet.data.position() as usize;
