@@ -5,6 +5,8 @@ use std::collections::hash_map::Entry;
 use std::marker::PhantomData;
 use std::fmt::Debug;
 
+use std::slice::{Iter, IterMut};
+
 
 struct Event {
     event: Box<dyn Any>,
@@ -47,19 +49,26 @@ impl EventTracker {
     /// Return true if the tracker has any pending event of the given type `T`.
     pub fn has_event<T: Any>(&self) -> bool {
         return self.events.contains_key(&TypeId::of::<T>())
-        // self.events.iter().any(|event| !event.invalid && event.tid == TypeId::of::<T>())
     }
 
     /// Simple iteration over all events of the same type.
     pub fn poll_events<T: Any>(&self) -> EventIterator<T> {
         EventIterator {
-            events: self.events.get(&TypeId::of::<T>()),
-            index: 0,
+            events_it: self.events.get(&TypeId::of::<T>()).map(|v| v.iter()),
             phantom: PhantomData
         }
     }
 
     /// Simple iteration over all events handles of the same type, this allows
+    /// mutating events and cancelling them.
+    pub fn poll_events_handles<'a, T: Any>(&mut self) -> EventHandleIterator<T> {
+        EventHandleIterator {
+            events_it: self.events.get_mut(&TypeId::of::<T>()).map(|v| v.iter_mut()),
+            phantom: PhantomData
+        }
+    }
+
+    /*/// Simple iteration over all events handles of the same type, this allows
     /// mutating events and cancelling them.
     pub fn poll_events_handles<'a, T: Any>(&'a mut self) -> impl Iterator<Item = EventHandle<'a, T>> + 'a {
         match self.events.get_mut(&TypeId::of::<T>()) {
@@ -72,7 +81,7 @@ impl EventTracker {
                 invalid: &mut event.invalid
             }
         })
-    }
+    }*/
 
     pub fn clear_events(&mut self) {
         self.empty_vec_pool.extend(self.events.drain().map(|(_, mut vec)| {
@@ -86,8 +95,7 @@ impl EventTracker {
 
 /// Iterator returned from `EventTracker::poll_events`.
 pub struct EventIterator<'a, T> {
-    events: Option<&'a Vec<Event>>,
-    index: usize,
+    events_it: Option<Iter<'a, Event>>,
     phantom: PhantomData<&'a T>
 }
 
@@ -96,17 +104,15 @@ impl<'a, T: Any> Iterator for EventIterator<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.events {
+        match self.events_it {
             None => None,
-            Some(events) => {
+            Some(ref mut it) => {
                 loop {
-                    match events.get(self.index) {
-                        Some(event) if !event.invalid => {
-                            self.index += 1;
+                    match it.next() {
+                        Some(event) => if !event.invalid {
                             // SAFETY: We can unwrap because TypeId is already checked.
-                            break Some(event.event.downcast_ref::<T>().unwrap());
+                            break Some(event.event.downcast_ref::<T>().unwrap())
                         },
-                        Some(_) => self.index += 1,
                         None => break None
                     }
                 }
@@ -117,6 +123,41 @@ impl<'a, T: Any> Iterator for EventIterator<'a, T> {
 }
 
 
+/// Iterator returned from `EventTracker::poll_events_handles`.
+pub struct EventHandleIterator<'a, T> {
+    events_it: Option<IterMut<'a, Event>>,
+    phantom: PhantomData<EventHandle<'a, T>>
+}
+
+impl<'a, T: Any> Iterator for EventHandleIterator<'a, T> {
+
+    type Item = EventHandle<'a, T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.events_it {
+            None => None,
+            Some(ref mut it) => {
+                loop {
+                    match it.next() {
+                        Some(event) => if !event.invalid {
+                            // SAFETY: We can unwrap because TypeId is already checked.
+                            break Some(EventHandle {
+                                event: event.event.downcast_mut::<T>().unwrap(),
+                                invalid: &mut event.invalid
+                            })
+                        },
+                        None => break None
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+
+/// An event handle is a wrapper for an event (with deref impl) that allows you to mutate it
+/// and also to cancel it for further poll calls.
 pub struct EventHandle<'a, T> {
     event: &'a mut T,
     invalid: &'a mut bool

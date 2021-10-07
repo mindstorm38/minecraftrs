@@ -1,22 +1,46 @@
-use std::io::{Write, Read, Result as IoResult, Cursor};
 use std::net::SocketAddr;
+use std::io::Cursor;
 
 use crate::packet::RawPacket;
+use thiserror::Error;
 
 pub mod handshake;
 pub mod status;
 
 
-pub type RawWriter = Cursor<Vec<u8>>;
-pub type RawReader = Cursor<Vec<u8>>;
-
-
-pub trait WritablePacket {
-    fn write_packet(&mut self, dst: &mut RawWriter) -> IoResult<()>;
+#[derive(Debug, Error)]
+pub enum PacketError {
+    #[error("Missing field: {0}")]
+    MissingField(&'static str),
+    #[error("{0}")]
+    IoError(#[from] std::io::Error)
 }
 
+pub type PacketResult<T> = Result<T, PacketError>;
+
+
+/// To implement for packets that could be written.
+pub trait WritablePacket {
+    fn write_packet(&mut self, dst: Cursor<&mut Vec<u8>>) -> PacketResult<()>;
+}
+
+/// To implement for packets that could be read.
 pub trait ReadablePacket: Sized {
-    fn read_packet(src: &mut RawReader) -> IoResult<Self>;
+    fn read_packet(src: Cursor<&Vec<u8>>) -> PacketResult<Self>;
+}
+
+// Implementations for empty packets //
+
+impl WritablePacket for () {
+    fn write_packet(&mut self, _dst: Cursor<&mut Vec<u8>>) -> PacketResult<()> {
+        Ok(())
+    }
+}
+
+impl ReadablePacket for () {
+    fn read_packet(_src: Cursor<&Vec<u8>>) -> PacketResult<Self> {
+        Ok(())
+    }
 }
 
 

@@ -1,14 +1,12 @@
-use std::io::{Result as IoResult};
-
-use crate::protocol::{ReadablePacket, RawReader, WritablePacket, RawWriter};
-use crate::packet::serial::*;
+use super::{ReadablePacket, WritablePacket, PacketResult};
+use std::io::Cursor;
 
 
 #[derive(Debug)]
 pub struct RequestStatusPacket;
 
 impl ReadablePacket for RequestStatusPacket {
-    fn read_packet(_src: &mut RawReader) -> IoResult<Self> {
+    fn read_packet(_src: Cursor<&Vec<u8>>) -> PacketResult<Self> {
         Ok(Self)
     }
 }
@@ -23,7 +21,7 @@ pub struct StatusPacket {
 }
 
 impl WritablePacket for StatusPacket {
-    fn write_packet(&mut self, _dst: &mut RawWriter) -> IoResult<()> {
+    fn write_packet(&mut self, dst: Cursor<&mut Vec<u8>>) -> PacketResult<()> {
         todo!()
     }
 }

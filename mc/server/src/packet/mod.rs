@@ -6,6 +6,8 @@ use std::io::{Cursor, Read, Result as IoResult, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::collections::HashMap;
 
+use crate::util::ReadCounter;
+
 use crossbeam_channel::{bounded, Receiver, Sender, TryRecvError, unbounded};
 
 pub mod serial;
@@ -19,17 +21,30 @@ use serial::*;
 pub struct RawPacket {
     pub addr: SocketAddr,
     pub id: u16,
-    pub data: Cursor<Vec<u8>>
+    pub data: Vec<u8>
 }
 
 impl RawPacket {
+
+    /// Create a new raw packet with the given address and ID with empty data.
     pub fn blank(addr: SocketAddr, id: u16) -> Self {
         Self {
             addr,
             id,
-            data: Cursor::new(Vec::new())
+            data: Vec::new()
         }
     }
+
+    /// Create a new read-only cursor for this raw packet's data.
+    pub fn get_cursor(&self) -> Cursor<&Vec<u8>> {
+        Cursor::new(&self.data)
+    }
+
+
+    pub fn get_cursor_mut(&mut self) -> Cursor<&mut Vec<u8>> {
+        Cursor::new(&mut self.data)
+    }
+
 }
 
 #[derive(Debug)]
@@ -212,18 +227,26 @@ impl ClientDecoder {
 
     fn fetch(&mut self) -> IoResult<RawPacket> {
 
-        let packet_len = self.stream.read_var_int()? as usize;
+        let mut stream = ReadCounter::new(&self.stream);
 
-        let mut data = vec![0; packet_len];
-        self.stream.read_exact(&mut data[..])?;
+        let packet_len = stream.read_var_int()? as usize;
 
-        let mut cursor = Cursor::new(data);
-        let packet_id = cursor.read_var_int()? as u16;
+        let (
+            packet_id_len,
+            packet_id
+        ) = stream.count_with(|stream| {
+            stream.read_var_int().map(|i| i as u16)
+        })?;
+
+        // We must subtract length of the packet id var int because
+        // it is counted in the packet length.
+        let mut data = vec![0; packet_len - packet_id_len];
+        stream.read_exact(&mut data[..])?;
 
         Ok(RawPacket {
             addr: self.addr,
             id: packet_id,
-            data: cursor
+            data
         })
 
     }
@@ -275,17 +298,18 @@ impl ClientEncoder {
                     if let Some(stream) = self.clients.get_mut(&packet.addr) {
 
                         // SAFETY: We can unwrap because the internal buffer is backed by a
-                        // vec that *should* not panic, it can but for now let's ignore it.
+                        // vec that should not panic (we don't care, for now, of allocation
+                        // issue), it can but for now let's ignore it.
                         buffer.set_position(0);
                         buffer.write_var_int(packet.id as i32).unwrap();
 
                         let id_len = buffer.position() as usize;
-                        let data_len = packet.data.position() as usize;
+                        let data_len = packet.data.len();
 
                         // TODO: Do not ignore these results in the future.
                         let _ = stream.write_var_int((id_len + data_len) as i32);
                         let _ = stream.write_all(&buffer.get_ref()[..id_len]);
-                        let _ = stream.write_all(&packet.data.get_ref()[..data_len]);
+                        let _ = stream.write_all(&packet.data[..data_len]);
 
                     }
                 }

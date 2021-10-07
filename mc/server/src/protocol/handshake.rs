@@ -1,7 +1,6 @@
-use std::io::{Write, Read, Result as IoResult};
-use super::{ReadablePacket, ClientState};
-use crate::protocol::RawReader;
+use super::{ReadablePacket, ClientState, PacketResult};
 use crate::packet::serial::*;
+use std::io::Cursor;
 
 
 #[derive(Debug)]
@@ -13,7 +12,7 @@ pub struct HandshakePacket {
 }
 
 impl ReadablePacket for HandshakePacket {
-    fn read_packet(src: &mut RawReader) -> IoResult<Self> {
+    fn read_packet(mut src: Cursor<&Vec<u8>>) -> PacketResult<Self> {
         Ok(Self {
             protocol_version: src.read_var_int()? as u16,
             server_addr: src.read_string()?,
