@@ -37,7 +37,7 @@ impl Components {
         })
     }
 
-    pub fn get<T: Any>(&self) -> Result<Ref<T>, ComponentError> {
+    pub fn get<T: Any>(&self) -> Result<Ref<'_, T>, ComponentError> {
         match self.get_cell::<T>()?.try_borrow() {
             Ok(rf) => {
                 Ok(Ref::map(rf, |rf| rf.downcast_ref::<T>().unwrap()))
@@ -46,7 +46,7 @@ impl Components {
         }
     }
 
-    pub fn get_mut<T: Any>(&self) -> Result<RefMut<T>, ComponentError> {
+    pub fn get_mut<T: Any>(&self) -> Result<RefMut<'_, T>, ComponentError> {
         match self.get_cell::<T>()?.try_borrow_mut() {
             Ok(rf) => {
                 Ok(RefMut::map(rf, |rf| rf.downcast_mut::<T>().unwrap()))

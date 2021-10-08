@@ -86,12 +86,12 @@ impl World {
     }
 
     #[inline]
-    pub fn get_component<T: Any>(&self) -> Result<Ref<T>, ComponentError> {
+    pub fn get_component<T: Any>(&self) -> Result<Ref<'_, T>, ComponentError> {
         self.components.get::<T>()
     }
 
     #[inline]
-    pub fn get_component_mut<T: Any>(&self) -> Result<RefMut<T>, ComponentError> {
+    pub fn get_component_mut<T: Any>(&self) -> Result<RefMut<'_, T>, ComponentError> {
         self.components.get_mut::<T>()
     }
 

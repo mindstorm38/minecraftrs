@@ -17,10 +17,7 @@ use crate::protocol::status::RequestStatusPacket;
 pub struct ProtocolClient {
     /// The client protocol state, this is an really important information with the packet ID,
     /// but the state is not sent with it, so we must track it.
-    state: ClientState,
-    /// Pointing to `ProtocolServer.packets`, this is used mostly when state is changed in order
-    /// to relocate packets to the right vector.
-    packets: Vec<(u16, usize)>
+    state: ClientState
 }
 
 /// The main server component that is registered in the `World` using `register_systems`.
@@ -30,63 +27,10 @@ pub struct ProtocolServer {
     server: PacketServer,
     /// Mapping all client's addresses to a structure storing their state.
     clients: HashMap<SocketAddr, ProtocolClient>,
-    packets: HashMap<(ClientState, u16), Vec<Option<RawPacket>>>,
-    // packets_readers: HashMap<(ClientState, u16), Box<dyn ReadableToEventPacket>>,
+    packet_listeners: HashMap<(ClientState, u16), Vec<Box<dyn PacketListener>>>
 }
 
 impl ProtocolServer {
-
-    /*pub fn register_packet_reader<P>(&mut self, state: ClientState, id: u16)
-    where
-        P: ReadablePacket + 'static
-    {
-        self.packets_readers.insert((state, id), Box::new(ReadableToEventPacketWrapper::<P> {
-            phantom: PhantomData
-        }));
-    }*/
-
-    pub fn send_packet<P>(&self, addr: SocketAddr, id: u16, packet: &mut P)
-    where
-        P: WritablePacket
-    {
-        let mut raw_packet = RawPacket::blank(addr, id);
-        packet.write_packet(raw_packet.get_cursor_mut());
-        self.server.send(raw_packet);
-    }
-
-    pub fn pop_packet<P>(&mut self, state: ClientState, id: u16) -> Option<(SocketAddr, P)>
-    where
-        P: ReadablePacket
-    {
-        match self.packets.get_mut(&(state, id)) {
-            None => None,
-            Some(packets) => {
-                loop {
-                    match packets.pop() {
-                        Some(Some(packet)) => {
-                            // TODO: Should not unwrap in the future.
-                            break Some((
-                                packet.addr,
-                                P::read_packet(packet.get_cursor()).unwrap()
-                            ))
-                        }
-                        Some(None) => (), // Just loop
-                        None => break None
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn iter_packets<P>(&self, state: ClientState, id: u16) -> PacketIterator<P>
-    where
-        P: ReadablePacket
-    {
-        PacketIterator {
-            packets_it: self.packets.get(&(state, id)).map(|v| v.iter()),
-            phantom: PhantomData
-        }
-    }
 
     pub fn get_client(&self, addr: SocketAddr) -> Option<&ProtocolClient> {
         self.clients.get(&addr)
@@ -96,140 +40,43 @@ impl ProtocolServer {
         self.clients.get_mut(&addr)
     }
 
-    // Internal //
-
-    fn insert_raw_packet_internal(
-        state: ClientState,
-        packets: &mut HashMap<(ClientState, u16), Vec<Option<RawPacket>>>,
-        packet: RawPacket
-    ) -> usize {
-        let packets = match packets.entry((state, packet.id)) {
+    pub fn add_listener<F, P>(&mut self, state: ClientState, id: u16, func: F)
+    where
+        F: FnMut(&World, &mut ProtocolClient, P) + 'static,
+        P: ReadablePacket + 'static
+    {
+        match self.packet_listeners.entry((state, id)) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => v.insert(Vec::new())
-        };
-        let idx = packets.len();
-        packets.push(Some(packet));
-        idx
-    }
-
-    fn insert_raw_packet(&mut self, packet: RawPacket) {
-        // SAFETY: We unwrap because the caller must ensure that the client is connected.
-        // If it's not the case we want to panic.
-        let client = self.clients.get_mut(&packet.addr).unwrap();
-        let packet_id = packet.id;
-        let idx = Self::insert_raw_packet_internal(client.state, &mut self.packets, packet);
-        client.packets.push((packet_id, idx));
-    }
-
-    fn change_client_state(&mut self, addr: SocketAddr, state: ClientState) {
-        // SAFETY: Check insert_raw_packet
-        let client = self.clients.get_mut(&addr).unwrap();
-        if client.state != state {
-            let old_state = client.state;
-            client.state = state;
-            for (id, idx) in &mut client.packets {
-                // SAFETY: We unwrap because we want to panic if wrong indices are being stored.
-                // Note that the .take() should also return `Some`, we check it in debug.
-                let raw_packet = self.packets.get_mut(&(old_state, *id))
-                    .unwrap()[*idx].take().unwrap();
-                *idx = Self::insert_raw_packet_internal(state, &mut self.packets, raw_packet);
-            }
-        }
+        }.push(Box::new(PacketListenerWrapper {
+            func,
+            phantom: PhantomData
+        }));
     }
 
 }
 
 
-/// A packet iterator returned from `ProtocolServer::poll_packets`.
-pub struct PacketIterator<'a, P> {
-    packets_it: Option<Iter<'a, Option<RawPacket>>>,
+struct PacketListenerWrapper<F, P> {
+    func: F,
     phantom: PhantomData<*const P>
 }
 
-impl<'a, P: ReadablePacket> Iterator for PacketIterator<'a, P> {
-
-    type Item = (SocketAddr, P);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.packets_it {
-            None => None,
-            Some(ref mut it) => {
-                loop {
-                    match it.next() {
-                        Some(Some(packet)) => {
-                            // TODO: For now I unwrap, but we should in the
-                            //       future return the result.
-                            break Some((
-                                packet.addr,
-                                P::read_packet(packet.get_cursor()).unwrap()
-                            ))
-                        }
-                        Some(None) => (), // Go to the next
-                        None => break None
-                    }
-                }
-            }
-        }
-    }
-
+trait PacketListener {
+    fn accept_packet(&mut self, world: &World, client: &mut ProtocolClient, raw_packet: &RawPacket);
 }
 
-
-/*/// A wrapper for a packet that also contains the sender's socket address. All packets are wrapped
-/// into this into the event tracker. You can use the `EventTrackerPacketExt` extension trait for
-/// `EventTracker` to avoid writing `PacketEvent<YourPacket>` every time.
-pub struct PacketEvent<P> {
-    pub packet: P,
-    pub addr: SocketAddr
-}
-
-impl<P: Debug> Debug for PacketEvent<P> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PacketEvent")
-            .field("addr", &self.addr)
-            .field("packet", &self.packet)
-            .finish()
+impl<F, P> PacketListener for PacketListenerWrapper<F, P>
+where
+    F: FnMut(&World, &mut ProtocolClient, P),
+    P: ReadablePacket
+{
+    fn accept_packet(&mut self, world: &World, client: &mut ProtocolClient, raw_packet: &RawPacket) {
+        // TODO: We should not unwrap un the future.
+        let packet = P::read_packet(raw_packet.get_cursor()).unwrap();
+        (self.func)(world, client, packet);
     }
 }
-
-// Extension to EventTracker for polling packets directly.
-
-/// An extension trait that is only implemented to `EventTracker` and is a shortcut
-/// for calling `poll_events` with the given generic parameter `P` wrapped into
-/// `PacketEvent<P>`. Read `PacketEvent`'s doc for more information.
-pub trait EventTrackerPacketExt {
-
-    fn poll_packets<P: 'static>(&self) -> EventIterator<PacketEvent<P>>;
-}
-
-impl EventTrackerPacketExt for EventTracker {
-    fn poll_packets<P: 'static>(&self) -> EventIterator<PacketEvent<P>> {
-        self.poll_events::<PacketEvent<P>>()
-    }
-}
-
-// Internal dynamic dispatch wrapper //
-
-/// Internal trait to allow dynamic dispatch over a generic reader.
-trait ReadableToEventPacket {
-    fn read_packet_to_event(&mut self, raw_packet: &mut RawPacket, event_tracker: &mut EventTracker);
-}
-
-/// Internal structure that is the only implementor of `ReadableToEventPacket`.
-struct ReadableToEventPacketWrapper<P> {
-    phantom: PhantomData<*const P>
-}
-
-impl<P: ReadablePacket + 'static> ReadableToEventPacket for ReadableToEventPacketWrapper<P> {
-    fn read_packet_to_event(&mut self, raw_packet: &mut RawPacket, event_tracker: &mut EventTracker) {
-        if let Ok(packet) = P::read_packet(&mut raw_packet.data) {
-            event_tracker.push_event(PacketEvent {
-                packet,
-                addr: raw_packet.addr
-            });
-        }
-    }
-}*/
 
 
 /// Main system of the packet server. It receive and dispatch events to the world.
@@ -239,44 +86,24 @@ fn system_packet_server(world: &mut World) {
     // borrow checker from allowing us to mutably reference event tracker at the same time.
     let mut proto_server = world.components.get_mut::<ProtocolServer>().unwrap();
 
-    for client in proto_server.clients.values_mut() {
-        client.packets.clear();
-    }
-
-    for raw_packets in proto_server.packets.values_mut() {
-        raw_packets.clear();
-    }
-
     while let Some(event) = proto_server.server.try_recv_event() {
         match event {
             Event::Connected(addr) => {
                 println!("[{}] Connected.", addr);
                 proto_server.clients.insert(addr, ProtocolClient {
-                    state: ClientState::Handshake,
-                    packets: Vec::new()
+                    state: ClientState::Handshake
                 });
             }
             Event::Packet(packet) => {
-                proto_server.insert_raw_packet(packet);
-                /*// We must temporarily get a real mutable reference because RefMut seems to
+                // We must temporarily get a real mutable reference because RefMut seems to
                 // prevent multiple mutable reference to multiple structure's fields.
                 let proto_server = &mut *proto_server;
-                if let Some(client) = proto_server.clients.get_mut(&packet.addr) {
-                    let packets = match proto_server.packets.entry((client.state, packet.id)) {
-                        Entry::Occupied(o) => o.into_mut(),
-                        Entry::Vacant(v) => v.insert(Vec::new())
-                    };
-                    client.packets.push((packet.id, packets.len()));
-                    packets.push(Some(packet));
-                }*/
-                /*
-                if let Some(client) = proto_server.clients.get(&packet.addr) {
-                    println!("[{}] [{:?}] packet id: {}", packet.addr, client.state, packet.id);
-                    let packet_id = (client.state, packet.id);
-                    if let Some(reader) = proto_server.packets_readers.get_mut(&packet_id) {
-                        reader.read_packet_to_event(&mut packet, event_tracker);
+                let client = proto_server.clients.get_mut(&packet.addr).unwrap();
+                if let Some(listeners) = proto_server.packet_listeners.get_mut(&(client.state, packet.id)) {
+                    for listener in listeners {
+                        listener.accept_packet(world, client, &packet);
                     }
-                }*/
+                }
             }
             Event::Disconnected(addr) => {
                 println!("[{}] Disconnected.", addr);
@@ -284,42 +111,6 @@ fn system_packet_server(world: &mut World) {
             }
         }
     }
-
-}
-
-
-fn system_packet_core(world: &mut World) {
-
-    let mut proto_server = world.components.get_mut::<ProtocolServer>().unwrap();
-
-    while let Some((
-        addr,
-        packet
-    )) = proto_server.pop_packet::<HandshakePacket>(ClientState::Handshake, 0x00) {
-        println!("[{}] New state: {:?}", addr, packet.next_state);
-        proto_server.change_client_state(addr, packet.next_state);
-    }
-
-    /*let mut states_changes = Vec::new();
-    for (addr, packet) in proto_server.iter_packets::<HandshakePacket>(ClientState::Handshake, 0x00) {
-        println!("[{}] New state: {:?}", addr, packet.next_state);
-        states_changes.push((addr, packet.next_state));
-    }
-    for (addr, state) in states_changes {
-        proto_server.change_client_state(addr, state);
-    }*/
-
-    /*for event in world.event_tracker.poll_packets::<HandshakePacket>() {
-        if let Some(client) = proto_server.get_client_mut(event.addr) {
-            println!("[{}] New state: {:?}", event.addr, event.packet.next_state);
-            // TODO: Check restrictions, no downgrade, no 'play' status.
-            client.state = event.packet.next_state;
-        }
-    }
-
-    for event in world.event_tracker.poll_packets::<RequestStatusPacket>() {
-        println!("status requested from {}", event.addr);
-    }*/
 
 }
 
@@ -340,16 +131,16 @@ pub fn register_systems(world: &mut World, executor: &mut WorldSystemExecutor) {
     let mut server = ProtocolServer {
         server,
         clients: HashMap::new(),
-        packets: HashMap::new(),
-        // packets_readers: HashMap::new(),
+        packet_listeners: HashMap::new()
     };
 
-    // server.register_packet_reader::<HandshakePacket>(ClientState::Handshake, 0x00);
-    // server.register_packet_reader::<RequestStatusPacket>(ClientState::Status, 0x00);
+    server.add_listener(ClientState::Handshake, 0x00, |_, client, packet: HandshakePacket| {
+        println!("Client new state: {:?}", packet.next_state);
+        client.state = packet.next_state;
+    });
 
     world.insert_component(server);
 
     executor.add_system(system_packet_server);
-    executor.add_system(system_packet_core);
 
 }
