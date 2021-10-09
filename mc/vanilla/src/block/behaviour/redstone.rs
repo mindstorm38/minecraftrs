@@ -1,6 +1,5 @@
 use mc_core::block::{BlockState, BlockBehaviourRegister};
 use mc_core::pos::Direction;
-use crate::block::REDSTONE_BLOCK;
 
 
 pub static REDSTONE_BEHAVIOURS: BlockBehaviourRegister<&'static dyn RedstoneBehaviour> = BlockBehaviourRegister::new();

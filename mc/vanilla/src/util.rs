@@ -75,10 +75,24 @@ pub enum GameMode {
     Spectator = 3
 }
 
+impl Default for GameMode {
+    fn default() -> Self {
+        Self::Survival
+    }
+}
+
 impl GameMode {
 
     pub fn get_id(self) -> u8 {
         self as u8
+    }
+
+    pub fn from_id(id: u8) -> Self {
+        if id <= 3 {
+            unsafe { std::mem::transmute(id) }
+        } else {
+            Self::default()
+        }
     }
 
 }

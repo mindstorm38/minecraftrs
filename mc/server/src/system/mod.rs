@@ -231,6 +231,8 @@ pub fn register_systems(world: &mut World, executor: &mut WorldSystemExecutor) {
 
         println!("[{}] Login: {}", e.client.addr, e.packet.username);
 
+        // e.world.levels[0].borrow().spawn_entity()
+
         let profile = LoginProfile {
             username: e.packet.username.clone(),
             uuid: Uuid::new_v4()

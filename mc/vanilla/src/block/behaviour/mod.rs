@@ -28,11 +28,11 @@ pub fn register_behaviours() {
 pub struct BinaryPressurePlate;
 impl RedstoneBehaviour for BinaryPressurePlate {
 
-    fn is_signal_source(&self, state: &BlockState) -> bool {
+    fn is_signal_source(&self, _state: &BlockState) -> bool {
         true
     }
 
-    fn get_signal(&self, state: &BlockState, direction: Direction) -> u8 {
+    fn get_signal(&self, state: &BlockState, _direction: Direction) -> u8 {
         if let Some(true) = state.get(&PROP_POWERED) {
             15
         } else {
@@ -52,11 +52,11 @@ impl RedstoneBehaviour for BinaryPressurePlate {
 pub struct AnalogPressurePlate;
 impl RedstoneBehaviour for AnalogPressurePlate {
 
-    fn is_signal_source(&self, state: &BlockState) -> bool {
+    fn is_signal_source(&self, _state: &BlockState) -> bool {
         true
     }
 
-    fn get_signal(&self, state: &BlockState, direction: Direction) -> u8 {
+    fn get_signal(&self, state: &BlockState, _direction: Direction) -> u8 {
         state.get(&PROP_REDSTONE_POWER).unwrap_or(0)
     }
 

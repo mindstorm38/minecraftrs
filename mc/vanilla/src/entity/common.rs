@@ -27,9 +27,6 @@ pub struct VanillaEntity {
     air: i16,
     /// Distance the entity has fallen.
     fall_distance: f32,
-    /// The optional custom name JSON text component of this entity with a boolean
-    /// for the visibility of the custom name.
-    custom_name: Option<(String, bool)>, // TODO: Replace with a struct like "TextComponent".
     /// List of scoreboard tags of this entity.
     tags: Option<Vec<String>>,
     /// True if the entity should not take damage.
@@ -75,13 +72,6 @@ impl SingleEntityCodec for VanillaEntityCodec {
         dst.insert_i16("Air", src.air);
         dst.insert_f32("FallDistance", src.fall_distance);
 
-        if let Some((custom_name, custom_name_visible)) = &src.custom_name {
-            dst.insert_str("custom_name", custom_name);
-            if *custom_name_visible {
-                dst.insert_bool("CustomNameVisible", true);
-            }
-        }
-
         if let Some(tags) = &src.tags {
             if !tags.is_empty() {
                 dst.insert_str_vec("Tags", tags);
@@ -118,13 +108,6 @@ impl SingleEntityCodec for VanillaEntityCodec {
             rotation_pitch,
             air: src.get_i16_or("Air", 0),
             fall_distance: src.get_f32_or("FallDistance", 0.0),
-            custom_name: {
-                if let Ok(cn) = src.get_str("CustomName") {
-                    Some((cn.to_string(), src.get_bool_or("CustomNameVisible", false)))
-                } else {
-                    None
-                }
-            },
             tags: src.get_string_vec("Tags").ok(),
             invulnerable: src.get_bool_or("Invulnerable", false),
             glowing: src.get_bool_or("Glowing", false),
@@ -139,6 +122,45 @@ impl SingleEntityCodec for VanillaEntityCodec {
                 .map_or(0, |raw| u32::try_from(raw).unwrap_or_default())
         }
 
+    }
+
+}
+
+
+// This field is separated from VanillaEntity because Player entities doesn't include it.
+#[derive(Debug, Default)]
+pub struct NamedEntity {
+    /// The optional custom name JSON text component of this entity with a boolean
+    /// for the visibility of the custom name.
+    custom_name: Option<(String, bool)>, // TODO: Replace with a struct like "TextComponent".
+}
+
+entity_component!(NamedEntity: NamedEntityCodec);
+
+pub struct NamedEntityCodec;
+impl SingleEntityCodec for NamedEntityCodec {
+
+    type Comp = NamedEntity;
+
+    fn encode(&self, src: &Self::Comp, dst: &mut CompoundTag) {
+        if let Some((custom_name, custom_name_visible)) = &src.custom_name {
+            dst.insert_str("custom_name", custom_name);
+            if *custom_name_visible {
+                dst.insert_bool("CustomNameVisible", true);
+            }
+        }
+    }
+
+    fn decode(&self, src: &CompoundTag) -> Self::Comp {
+        NamedEntity {
+            custom_name: {
+                if let Ok(cn) = src.get_str("CustomName") {
+                    Some((cn.to_string(), src.get_bool_or("CustomNameVisible", false)))
+                } else {
+                    None
+                }
+            }
+        }
     }
 
 }
@@ -465,10 +487,10 @@ impl Age {
     pub fn tick(&mut self) {
         match self {
             Age::Baby { ticks_remaining, .. } => {
-                ticks_remaining.saturating_sub(1);
+                *ticks_remaining = ticks_remaining.saturating_sub(1);
             }
             Age::Adult { breed_cooldown, .. } => {
-                breed_cooldown.saturating_sub(1);
+                *breed_cooldown = breed_cooldown.saturating_sub(1);
             }
         }
     }

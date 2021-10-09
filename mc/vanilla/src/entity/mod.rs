@@ -2,8 +2,6 @@
 //! The ECS components are basically NBT structures that can be found on the wiki:
 //! - https://minecraft.fandom.com/wiki/Entity_format
 
-use mc_core::entities;
-
 pub mod ai;
 
 mod common;
@@ -42,6 +40,9 @@ pub use fish::*;
 pub use bat::*;
 pub use bee::*;
 
+mod player;
+pub use player::*;
+
 
 macro_rules! vanilla_entities {
     (
@@ -49,7 +50,8 @@ macro_rules! vanilla_entities {
         $(,)?
     ) => {
         mc_core::entities!(pub VANILLA_ENTITIES "minecraft" [
-            $($entity_id $entity_name [VanillaEntity $(,$comp_id)*]),*
+            PLAYER "player" [VanillaEntity, LivingEntity, PlayerEntity],
+            $($entity_id $entity_name [VanillaEntity, NamedEntity $(,$comp_id)*]),*
         ]);
     }
 }
