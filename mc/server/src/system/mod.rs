@@ -2,22 +2,35 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
-use std::slice::Iter;
-use std::fmt::Debug;
 
 use mc_runtime::world::{World, WorldSystemExecutor};
+use mc_vanilla::util::GameMode;
 
 use crate::packet::{PacketServer, Event, RawPacket};
-use crate::protocol::{ClientState, ReadablePacket, WritablePacket};
+use crate::protocol::{ClientState, ReadablePacket, WritablePacket, PacketResult};
+
 use crate::protocol::handshake::HandshakePacket;
-use crate::protocol::status::RequestStatusPacket;
+use crate::protocol::status::{RequestStatusPacket, StatusPacket, PingPacket};
+use crate::protocol::login::{LoginStartPacket, LoginSuccessPacket};
+use crate::protocol::play::{JoinGamePacket, SpawnPositionPacket, PlayerAbilitiesPacket, PlayerPosAndLook, PluginMessage};
+
+use uuid::Uuid;
 
 
 /// This structure keeps track of a specific client.
 pub struct ProtocolClient {
+    /// The socket address of the client.
+    addr: SocketAddr,
     /// The client protocol state, this is an really important information with the packet ID,
     /// but the state is not sent with it, so we must track it.
-    state: ClientState
+    state: ClientState,
+    /// Optional profile when logged-in.
+    profile: Option<LoginProfile>
+}
+
+pub struct LoginProfile {
+    username: String,
+    uuid: Uuid
 }
 
 /// The main server component that is registered in the `World` using `register_systems`.
@@ -27,10 +40,19 @@ pub struct ProtocolServer {
     server: PacketServer,
     /// Mapping all client's addresses to a structure storing their state.
     clients: HashMap<SocketAddr, ProtocolClient>,
+    /// Packet listeners.
     packet_listeners: HashMap<(ClientState, u16), Vec<Box<dyn PacketListener>>>
 }
 
 impl ProtocolServer {
+
+    #[inline]
+    pub fn send_packet<P>(&self, addr: SocketAddr, id: u16, packet: &mut P)
+    where
+        P: WritablePacket
+    {
+        self.server.send(write_packet(addr, id, packet).unwrap());
+    }
 
     pub fn get_client(&self, addr: SocketAddr) -> Option<&ProtocolClient> {
         self.clients.get(&addr)
@@ -42,7 +64,7 @@ impl ProtocolServer {
 
     pub fn add_listener<F, P>(&mut self, state: ClientState, id: u16, func: F)
     where
-        F: FnMut(&World, &mut ProtocolClient, P) + 'static,
+        F: FnMut(PacketEvent<P>) + 'static,
         P: ReadablePacket + 'static
     {
         match self.packet_listeners.entry((state, id)) {
@@ -57,24 +79,73 @@ impl ProtocolServer {
 }
 
 
+/// The wrapper used when calling back a packet listener, this wrapper allows you to
+/// access the decoded packet, read or mutate the client and to send response packet
+/// to anyone (there is a shortcut method to send a response to the sender).
+pub struct PacketEvent<'a, 'b, P> {
+    pub world: &'a World,
+    pub client: &'b mut ProtocolClient,
+    server: &'b PacketServer,
+    pub packet: P,
+}
+
+impl<'a, 'b, P> PacketEvent<'a, 'b, P> {
+
+    #[inline]
+    pub fn send_packet<R>(&self, addr: SocketAddr, id: u16, packet: &mut R)
+    where
+        R: WritablePacket
+    {
+        self.server.send(write_packet(addr, id, packet).unwrap());
+    }
+
+    #[inline]
+    pub fn answer_packet<R>(&self, id: u16, packet: &mut R)
+    where
+        R: WritablePacket
+    {
+        self.send_packet(self.client.addr, id, packet);
+    }
+
+}
+
+
+/// Internal function to write a packet to a raw packet.
+fn write_packet<P>(addr: SocketAddr, id: u16, packet: &mut P) -> PacketResult<RawPacket>
+where
+    P: WritablePacket
+{
+    let mut raw_packet = RawPacket::blank(addr, id);
+    packet.write_packet(raw_packet.get_cursor_mut())?;
+    Ok(raw_packet)
+}
+
+
+/// Internal generic wrapper structure for packet listener.
 struct PacketListenerWrapper<F, P> {
     func: F,
     phantom: PhantomData<*const P>
 }
 
+/// Internal trait used for dynamic dispatching to generic `PacketListenerWrapper`.
 trait PacketListener {
-    fn accept_packet(&mut self, world: &World, client: &mut ProtocolClient, raw_packet: &RawPacket);
+    fn accept_packet<'a, 'b>(&mut self, world: &'a World, server: &'b PacketServer, client: &'b mut ProtocolClient, raw_packet: &RawPacket);
 }
 
 impl<F, P> PacketListener for PacketListenerWrapper<F, P>
 where
-    F: FnMut(&World, &mut ProtocolClient, P),
+    F: FnMut(PacketEvent<P>),
     P: ReadablePacket
 {
-    fn accept_packet(&mut self, world: &World, client: &mut ProtocolClient, raw_packet: &RawPacket) {
+    fn accept_packet<'a, 'b>(&mut self, world: &'a World, server: &'b PacketServer, client: &'b mut ProtocolClient, raw_packet: &RawPacket) {
         // TODO: We should not unwrap un the future.
         let packet = P::read_packet(raw_packet.get_cursor()).unwrap();
-        (self.func)(world, client, packet);
+        (self.func)(PacketEvent {
+            world,
+            client,
+            server,
+            packet
+        });
     }
 }
 
@@ -91,7 +162,9 @@ fn system_packet_server(world: &mut World) {
             Event::Connected(addr) => {
                 println!("[{}] Connected.", addr);
                 proto_server.clients.insert(addr, ProtocolClient {
-                    state: ClientState::Handshake
+                    addr,
+                    state: ClientState::Handshake,
+                    profile: None
                 });
             }
             Event::Packet(packet) => {
@@ -101,7 +174,7 @@ fn system_packet_server(world: &mut World) {
                 let client = proto_server.clients.get_mut(&packet.addr).unwrap();
                 if let Some(listeners) = proto_server.packet_listeners.get_mut(&(client.state, packet.id)) {
                     for listener in listeners {
-                        listener.accept_packet(world, client, &packet);
+                        listener.accept_packet(world, &proto_server.server, client, &packet);
                     }
                 }
             }
@@ -134,9 +207,83 @@ pub fn register_systems(world: &mut World, executor: &mut WorldSystemExecutor) {
         packet_listeners: HashMap::new()
     };
 
-    server.add_listener(ClientState::Handshake, 0x00, |_, client, packet: HandshakePacket| {
-        println!("Client new state: {:?}", packet.next_state);
-        client.state = packet.next_state;
+    server.add_listener::<_, HandshakePacket>(ClientState::Handshake, 0x00, |e| {
+        if let ClientState::Status | ClientState::Login = e.packet.next_state {
+            e.client.state = e.packet.next_state;
+        }
+    });
+
+    server.add_listener::<_, RequestStatusPacket>(ClientState::Status, 0x00, |e| {
+        e.answer_packet(0x00, &mut StatusPacket {
+            game_version: "1.16.5",
+            protocol_version: 754,
+            max_players: 10,
+            online_players: 0,
+            description: "Minecraft Rust server".to_string()
+        });
+    });
+
+    server.add_listener::<_, PingPacket>(ClientState::Status, 0x01, |e| {
+        e.answer_packet(0x01, &mut e.packet.get_pong());
+    });
+
+    server.add_listener::<_, LoginStartPacket>(ClientState::Login, 0x00, |e| {
+
+        println!("[{}] Login: {}", e.client.addr, e.packet.username);
+
+        let profile = LoginProfile {
+            username: e.packet.username.clone(),
+            uuid: Uuid::new_v4()
+        };
+
+        e.answer_packet(0x02, &mut LoginSuccessPacket {
+            username: profile.username.clone(),
+            uuid: profile.uuid
+        });
+
+        e.client.state = ClientState::Play;
+        e.client.profile = Some(profile);
+
+        e.answer_packet(0x24, &mut JoinGamePacket {
+            eid: 1234,
+            hardcore: false,
+            game_mode: GameMode::Survival,
+            last_game_mode: None,
+            world: e.world,
+            level_index: 0,
+            hashed_seed: 0,
+            view_distance: 8
+        });
+
+        e.answer_packet(0x17, &mut PluginMessage::Brand("MinecraftRS".to_string()));
+        
+        e.answer_packet(0x42, &mut SpawnPositionPacket {
+            pos: Default::default()
+        });
+
+        e.answer_packet(0x30, &mut PlayerAbilitiesPacket {
+            invulnerable: true,
+            flying: true,
+            allow_flying: true,
+            instant_break: true,
+            flying_speed: 0.05,
+            fov_modifier: 0.1
+        });
+
+        e.answer_packet(0x34, &mut PlayerPosAndLook {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            yaw: 0.0,
+            pitch: 0.0,
+            rel_x: false,
+            rel_y: false,
+            rel_z: false,
+            rel_yaw: false,
+            rel_pitch: false,
+            tp_id: 0
+        });
+
     });
 
     world.insert_component(server);

@@ -1,17 +1,23 @@
-use std::net::SocketAddr;
+//! Protocol implementation in Rust for Minecraft 1.16.5
+//!
+//! Source: https://wiki.vg/index.php?title=Protocol&oldid=16681
+
 use std::io::Cursor;
 
-use crate::packet::RawPacket;
 use thiserror::Error;
 
 pub mod handshake;
 pub mod status;
+pub mod login;
+pub mod play;
 
 
 #[derive(Debug, Error)]
 pub enum PacketError {
     #[error("Missing field: {0}")]
     MissingField(&'static str),
+    #[error("Invalid field: {0}")]
+    InvalidField(&'static str),
     #[error("{0}")]
     IoError(#[from] std::io::Error)
 }
@@ -44,6 +50,8 @@ impl ReadablePacket for () {
 }
 
 
+/// Client state is a state that is kept cached for each client connection and is
+/// used to change the meaning of received packet IDs.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum ClientState {
@@ -56,7 +64,7 @@ pub enum ClientState {
 impl ClientState {
 
     pub fn get_id(self) -> u8 {
-        unsafe { std::mem::transmute(self) }
+        self as u8
     }
 
     pub fn from_id(id: u8) -> Option<Self> {

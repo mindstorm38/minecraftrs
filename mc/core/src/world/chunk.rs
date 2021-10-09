@@ -666,6 +666,10 @@ pub struct ChunkHeight {
 
 impl ChunkHeight {
 
+    pub fn new(min: i8, max: i8) -> Self {
+        Self { min, max }
+    }
+
     /// Return `true` if the given chunk Y coordinate is valid for the specified height.
     #[inline]
     pub fn contains(self, cy: i8) -> bool {

@@ -30,7 +30,7 @@ where
 
         let elapsed = start.elapsed();
         if elapsed > info.tick_duration {
-            println!("Tick took too long: {:?}", elapsed);
+            println!("Tick took too long: {:?} (expected < {:?})", elapsed, info.tick_duration);
         } else {
             sleeper.sleep(info.tick_duration - elapsed);
         }

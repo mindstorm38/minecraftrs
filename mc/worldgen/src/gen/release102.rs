@@ -11,9 +11,9 @@ use once_cell::sync::Lazy;
 use mc_core::world::source::{LevelGenerator, ProtoChunk, ChunkInfo, LevelSourceError};
 use mc_core::world::chunk::Chunk;
 use mc_core::biome::{Biome, BiomeKey};
-use mc_core::util::{Rect, OpaquePtr};
 use mc_core::block::{BlockState, Block};
 use mc_core::rand::JavaRandom;
+use mc_core::util::Rect;
 
 use mc_vanilla::biome::*;
 use mc_vanilla::block::*;
@@ -237,7 +237,7 @@ impl LevelGenRelease102 {
                                 };
 
                                 if let Some(block) = block_to_set {
-                                    sub_chunk.set_block(block_x as u8, block_y as u8, block_z as u8, block);
+                                    sub_chunk.set_block(block_x as u8, block_y as u8, block_z as u8, block).unwrap();
                                 }
 
                                 // println!("[{:02}/{:02}/{:02}] noise: {}, block: {:?}", block_x, block_real_y, block_z, n_xyz, block_to_set);
@@ -431,7 +431,7 @@ impl LevelGenRelease102 {
                 for y in (0..128i32).rev() {
 
                     if y <= self.rand.next_int_bounded(5) {
-                        chunk.set_block(x, y, z, block_bedrock);
+                        chunk.set_block(x, y, z, block_bedrock).unwrap();
                     } else {
 
                         let block = chunk.get_block(x, y, z).unwrap();
@@ -466,14 +466,14 @@ impl LevelGenRelease102 {
                                     top_block
                                 } else {
                                     filler_block
-                                });
+                                }).unwrap();
 
                             }
 
                             if depth > 0 {
 
                                 depth -= 1;
-                                chunk.set_block(x, y, z, filler_block);
+                                chunk.set_block(x, y, z, filler_block).unwrap();
 
                                 if depth == 0 && filler_block == block_sand {
                                     // This block is used to generate the sandstone behind the sand in

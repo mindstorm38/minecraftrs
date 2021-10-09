@@ -73,6 +73,12 @@ impl World {
         }
     }
 
+    // Levels
+
+    pub fn add_level(&mut self, level: Level) {
+        self.levels.push(Rc::new(RefCell::new(level)));
+    }
+
     // Components
 
     #[inline]

@@ -64,3 +64,21 @@ impl DyeColor {
     }
 
 }
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
+pub enum GameMode {
+    Survival = 0,
+    Creative = 1,
+    Adventure = 2,
+    Spectator = 3
+}
+
+impl GameMode {
+
+    pub fn get_id(self) -> u8 {
+        self as u8
+    }
+
+}

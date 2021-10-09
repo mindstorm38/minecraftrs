@@ -1,6 +1,21 @@
 use std::io::{Read, IoSliceMut};
 
 
+#[macro_export]
+macro_rules! build_flags {
+    ($($flag:expr),+) => {{
+        let mut flag = 0;
+        let mut shift = 0; // Should be opt-out
+        $(
+        if $flag { flag |= 1 << shift; }
+        shift += 1;
+        )+
+        let _ = shift; // To avoid unused warning
+        flag
+    }};
+}
+
+
 /// A wrapper for a `Read` implementation that can be used to count how many bytes are
 /// being read from the inner reader.
 pub struct ReadCounter<R> {

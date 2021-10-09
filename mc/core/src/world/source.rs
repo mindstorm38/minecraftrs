@@ -276,6 +276,7 @@ impl LevelSource for LevelGeneratorSource {
 
 }
 
+/// Internal thread structure used by `LevelGeneratorSource`.
 struct LevelGeneratorSourceWorker<G> {
     generator: G,
     request_receiver: Receiver<ChunkInfo>,
@@ -306,6 +307,7 @@ where
 
 /// A primitive super-flat generator that only generate the terrain from given layers,
 /// no structure is generated.
+#[derive(Debug, Clone)]
 pub struct SuperFlatGenerator {
     layers: Vec<(&'static BlockState, i32, u32)>
 }
