@@ -16,7 +16,7 @@ pub struct EntityType {
 }
 
 /// A trait to implement to component structures that support a codec, this is used by `entities!`
-/// macro.
+/// macro in order to reduce boilerplate.
 pub trait EntityComponent {
     const CODEC: &'static dyn EntityCodec;
 }
