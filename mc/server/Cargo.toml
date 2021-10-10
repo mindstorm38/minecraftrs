@@ -21,6 +21,7 @@ crossbeam-channel = "0.5"
 byteorder = "1.4"
 thiserror = "1.0"
 uuid = { version = "0.8", features = ["v4"] }
+hecs = "0.6"
 
 serde = "1.0"
 serde_json = "1.0"

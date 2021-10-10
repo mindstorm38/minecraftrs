@@ -1,14 +1,15 @@
+use std::io::{Cursor, Write, Read};
+
 use super::{ReadablePacket, WritablePacket, PacketResult, PacketError};
 use crate::packet::serial::*;
 
+use mc_core::world::chunk::Chunk;
+use mc_core::pos::BlockPos;
+use mc_runtime::world::World;
 use mc_vanilla::biome::VANILLA_BIOMES;
 use mc_vanilla::util::GameMode;
-use mc_runtime::world::World;
-use mc_core::pos::BlockPos;
 
 use nbt::CompoundTag;
-
-use std::io::{Cursor, Write, Read};
 
 
 /// Client bound
@@ -257,7 +258,60 @@ impl WritablePacket for PlayerPosAndLook {
 }
 
 
-pub struct ChunkDataPacket {
-    cx: i32,
-    cz: i32,
+pub struct UpdateViewPositionPacket {
+    pub cx: i32,
+    pub cz: i32
+}
+
+impl WritablePacket for UpdateViewPositionPacket {
+    fn write_packet(&mut self, mut dst: Cursor<&mut Vec<u8>>) -> PacketResult<()> {
+        dst.write_var_int(self.cx).unwrap();
+        dst.write_var_int(self.cz).unwrap();
+        Ok(())
+    }
+}
+
+
+pub struct ChunkDataPacket<'a> {
+    chunk: &'a Chunk,
+    parts: Option<u64>
+}
+
+impl<'a> ChunkDataPacket<'a> {
+
+    pub fn new(chunk: &'a Chunk) -> Self {
+        Self {
+            chunk,
+            parts: None
+        }
+    }
+
+}
+
+impl<'a> WritablePacket for ChunkDataPacket<'a> {
+    fn write_packet(&mut self, mut dst: Cursor<&mut Vec<u8>>) -> PacketResult<()> {
+
+        let (cx, cz) = self.chunk.get_position();
+        dst.write_var_int(cx).unwrap();
+        dst.write_var_int(cz).unwrap();
+
+        // dst.write_var_int(1).unwrap();
+        // dst.write_i64(self.sub_chunk_mask as i64).unwrap();
+
+        // TODO: bit mast and heightmaps
+
+        if self.parts.is_none() {
+
+            dst.write_bool(true).unwrap(); // Full chunk
+
+            dst.write_var_int(self.chunk.get_biomes_count() as i32).unwrap();
+            for biome in self.chunk.get_biomes() {
+                dst.write_var_int(biome.get_id()).unwrap();
+            }
+
+        }
+
+        Ok(())
+
+    }
 }

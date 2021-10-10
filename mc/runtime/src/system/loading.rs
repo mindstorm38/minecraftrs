@@ -1,7 +1,8 @@
+use std::sync::Arc;
+use std::rc::Rc;
+
 use crate::event::ChunkLoadedEvent;
 use crate::world::World;
-use std::rc::Rc;
-use std::sync::Arc;
 
 
 pub fn system_load_chunks(world: &mut World) {
@@ -21,7 +22,7 @@ pub fn system_load_chunks(world: &mut World) {
                 },
                 Err(_err) => {}
             }
-        })
+        });
     }
 
 }

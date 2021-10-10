@@ -1,6 +1,6 @@
 use std::sync::{RwLock, Arc, RwLockReadGuard, RwLockWriteGuard};
+use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 
 use hecs::{World as EcsWorld, EntityBuilder, Entity, EntityRef};
 use uuid::Uuid;
@@ -55,12 +55,14 @@ pub struct Level {
     /// The level loader used to load uncached chunks either from a generator or from an anvil file
     /// system loader.
     source: Box<dyn LevelSource>,
+    /// A set of chunk positions that has been requested to the level source.
+    loading_chunks: HashSet<(i32, i32)>,
     /// The configured height of this level.
     height: ChunkHeight,
     /// Chunk storage.
-    chunks: ChunkStorage,
+    pub chunks: ChunkStorage,
     /// Entities storage.
-    entities: EntityStorage
+    pub entities: EntityStorage
 }
 
 impl Level {
@@ -77,6 +79,7 @@ impl Level {
             id,
             height,
             source: Box::new(source),
+            loading_chunks: HashSet::new(),
             chunks: ChunkStorage {
                 chunks: HashMap::new()
             },
@@ -109,13 +112,23 @@ impl Level {
 
     /// Request internal level source to load the given chunk.
     pub fn request_chunk(&mut self, cx: i32, cz: i32) -> bool {
-        debug!("Request chunk load at {}/{}", cx, cz);
-        matches!(self.source.request_chunk_load(ChunkInfo {
-            env: self.get_env(),
-            height: self.height,
-            cx,
-            cz
-        }), Ok(_))
+        if !self.loading_chunks.contains(&(cx, cz)) {
+            debug!("Request chunk load at {}/{}", cx, cz);
+            match self.source.request_chunk_load(ChunkInfo {
+                env: self.get_env(),
+                height: self.height,
+                cx,
+                cz
+            }) {
+                Ok(_) => {
+                    self.loading_chunks.insert((cx, cz));
+                    true
+                }
+                Err(_) => false
+            }
+        } else {
+            false
+        }
     }
 
     /// Poll loaded chunks from internal level source, all successfully loaded chunks
@@ -134,6 +147,8 @@ impl Level {
 
                     let (cx, cz) = chunk.get_position();
                     debug!("Loaded chunk at {}/{}", cx, cz);
+
+                    self.loading_chunks.remove(&(cx, cz));
 
                     // This list retains all entity handles with the same order as proto chunk
                     // entities data.
@@ -175,6 +190,7 @@ impl Level {
                     // IDE shows an error for 'Display' not being implemented, but we use the
                     // crate 'thiserror' to implement it through a custom derive.
                     debug!("Failed to load chunk at {}/{}: {}", chunk_info.cx, chunk_info.cz, err);
+                    self.loading_chunks.remove(&(chunk_info.cx, chunk_info.cz));
                     callback((chunk_info.cx, chunk_info.cz, Err(err)));
                 }
             }
@@ -189,16 +205,6 @@ impl Level {
     }
 
     // ENTITIES //
-
-    #[inline]
-    pub fn get_entities(&self) -> &EntityStorage {
-        &self.entities
-    }
-
-    #[inline]
-    pub fn get_entities_mut(&mut self) -> &mut EntityStorage {
-        &mut self.entities
-    }
 
     pub fn spawn_entity(&mut self, entity_type: &'static EntityType, pos: EntityPos) -> Option<Entity> {
 
@@ -224,12 +230,16 @@ impl Level {
 
 pub struct ChunkStorage {
     /// Storing all cached chunks that were loaded from source.
-    pub chunks: HashMap<(i32, i32), Arc<RwLock<Chunk>>>,
+    chunks: HashMap<(i32, i32), Arc<RwLock<Chunk>>>,
 }
 
 impl ChunkStorage {
 
     // CHUNKS //
+
+    pub fn get_chunks_count(&self) -> usize {
+        self.chunks.len()
+    }
 
     /// Insert a chunk at a specific position.
     pub fn insert_chunk(&mut self, chunk: Chunk) -> &Arc<RwLock<Chunk>> {

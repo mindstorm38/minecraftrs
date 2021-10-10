@@ -21,7 +21,13 @@ fn main() {
     let super_flat_source = LevelGeneratorSource::new(super_flat, 1);
 
     let env = Arc::new(LevelEnv::with_vanilla());
-    let level = Level::new("minecraft:overworld".to_string(), env, ChunkHeight::new(0, 15), super_flat_source);
+    let mut level = Level::new("minecraft:overworld".to_string(), env, ChunkHeight::new(0, 15), super_flat_source);
+
+    for cx in -2..2 {
+        for cz in -2..2 {
+            level.request_chunk(cx, cz);
+        }
+    }
 
     let mut ctx = WorldContext::new();
     ctx.world.add_level(level);

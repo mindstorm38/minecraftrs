@@ -298,10 +298,6 @@ impl Chunk {
         let offset = self.calc_biome_offset(x, y, z);
         let sid = self.biomes.get(offset).ok_or(ChunkError::SubChunkOutOfRange)? as u16;
         Ok(self.env.biomes.get_biome_from(sid).unwrap())
-        /*match self.get_sub_chunk((y >> 4) as i8) {
-            None => Err(ChunkError::SubChunkUnloaded),
-            Some(sub_chunk) => Ok(sub_chunk.get_biome(x, (y & 15) as u8, z))
-        }*/
     }
 
     #[inline]
@@ -328,8 +324,6 @@ impl Chunk {
         } else {
             Err(ChunkError::SubChunkOutOfRange)
         }
-        /*self.ensure_sub_chunk((y >> 4) as i8, None)?
-            .set_biome(x, (y & 15) as u8, z, biome)*/
     }
 
     #[inline]
@@ -363,6 +357,16 @@ impl Chunk {
         self.biomes.replace(move |i, _| layer_biomes[i % 16] as u64);
         Ok(())
 
+    }
+
+    pub fn get_biomes_count(&self) -> usize {
+        self.biomes.len()
+    }
+
+    /// Return an iterator with each biomes in this chunk, ordered by X, Z than Y.
+    pub fn get_biomes(&self) -> impl Iterator<Item = &'static Biome> {
+        let biomes = &self.env.biomes;
+        self.biomes.iter().map(move |v| biomes.get_biome_from(v as u16).unwrap())
     }
 
     // ENTITIES //
@@ -414,10 +418,6 @@ pub struct SubChunk {
     blocks_palette: Option<Palette<*const BlockState>>,
     /// Cube blocks array.
     blocks: PackedArray,
-    /*/// Modern cube biomes array, this array does not use any palette since the global palette
-    /// should be small enough to only take 7 to 8 bits per point. Since there 64 biomes in
-    /// a sub chunk, this make only 64 octets to store.
-    biomes: PackedArray,*/
 }
 
 // We must unsafely implement Send + Sync because of the `Palette<*const BlockState>`, this field
@@ -451,15 +451,6 @@ impl SubChunk {
             }
         };
 
-        /*let default_biome = match options {
-            Some(SubChunkOptions { default_biome: Some(default_biome), .. }) => {
-                env.biomes.get_sid_from(*default_biome).ok_or_else(|| ChunkError::IllegalBiome)?
-            },
-            _ => 0
-        };
-
-        let biomes_byte_size = Self::get_biomes_byte_size(&env);*/
-
         // The palettes are initialized with an initial state and biome (usually air and void, if
         // vanilla environment), this is required because the packed array has default values of 0,
         // and they must have a corresponding valid value in palettes, at least at the beginning.
@@ -467,7 +458,6 @@ impl SubChunk {
             env,
             blocks_palette: Some(Palette::new(Some(default_state), BLOCKS_PALETTE_CAPACITY)),
             blocks: PackedArray::new(BLOCKS_DATA_SIZE, 4, None),
-            // biomes: PackedArray::new(BIOMES_DATA_SIZE, biomes_byte_size, Some(default_biome as u64))
         })
 
     }
@@ -616,42 +606,6 @@ impl SubChunk {
         }
 
     }
-
-    /*// BIOMES //
-
-    pub fn get_biome(&self, x: u8, y: u8, z: u8) -> &'static Biome {
-        let sid = self.biomes.get(calc_biome_index(x >> 2, y >> 2, z >> 2)).unwrap() as u16;
-        self.env.biomes.get_biome_from(sid).unwrap()
-    }
-
-    pub fn set_biome(&mut self, x: u8, y: u8, z: u8, biome: &'static Biome) -> ChunkResult<()> {
-        let idx = calc_biome_index(x >> 2, y >> 2, z >> 2);
-        match self.env.biomes.get_sid_from(biome) {
-            Some(sid) => {
-                self.biomes.set(idx, sid as u64);
-                Ok(())
-            },
-            None => Err(ChunkError::IllegalBiome)
-        }
-    }
-
-    pub fn set_biomes<I>(&mut self, mut biomes: I)
-    where
-        I: Iterator<Item = &'static Biome>,
-        I: ExactSizeIterator
-    {
-
-        assert_eq!(biomes.len(), BIOMES_DATA_SIZE);
-        let global_biomes = &self.env.biomes;
-
-        self.biomes.replace(|v| {
-            // SAFETY: Unwrap should be safe to use because we have checked length.
-            let biome: &'static Biome = biomes.next().unwrap();
-            // If the biome is invalid, we keep the old biome.
-            global_biomes.get_sid_from(biome).map(|sid| sid as u64).unwrap_or(v)
-        });
-
-    }*/
 
 }
 
