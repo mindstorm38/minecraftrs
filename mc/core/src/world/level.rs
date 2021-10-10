@@ -8,6 +8,7 @@ use uuid::Uuid;
 use crate::entity::{GlobalEntities, EntityType};
 use crate::block::{GlobalBlocks, BlockState};
 use crate::biome::GlobalBiomes;
+use crate::heightmap::GlobalHeightmaps;
 use crate::pos::{EntityPos, BlockPos};
 use crate::debug;
 
@@ -23,7 +24,9 @@ pub struct LevelEnv {
     /// Global biomes palette.
     pub biomes: GlobalBiomes,
     /// Global entity types palette.
-    pub entities: GlobalEntities
+    pub entities: GlobalEntities,
+    /// Global heightmap types palette.
+    pub heightmaps: GlobalHeightmaps
 }
 
 impl LevelEnv {
@@ -31,12 +34,14 @@ impl LevelEnv {
     pub fn new(
         blocks: GlobalBlocks,
         biomes: GlobalBiomes,
-        entities: GlobalEntities
+        entities: GlobalEntities,
+        heightmaps: GlobalHeightmaps
     ) -> Self {
         LevelEnv {
             blocks,
             biomes,
-            entities
+            entities,
+            heightmaps
         }
     }
 

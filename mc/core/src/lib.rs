@@ -25,8 +25,10 @@
 
 pub mod biome;
 pub mod block;
-// pub mod item;
+pub mod heightmap;
 pub mod entity;
+// pub mod item;
+
 pub mod world;
 
 pub mod rand;

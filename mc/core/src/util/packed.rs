@@ -13,6 +13,8 @@ pub struct PackedArray {
 
 impl PackedArray {
 
+    /// Create a new packed array with specific length and byte size (the bit size of each value,
+    /// smallest addressable unit), the default value is 0 if `None` is given.
     pub fn new(length: usize, byte_size: u8, default: Option<u64>) -> Self {
 
         Self::check_byte_size(byte_size);

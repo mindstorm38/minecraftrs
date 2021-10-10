@@ -8,6 +8,8 @@ use hecs::Entity;
 use crate::util::{PackedArray, Palette, Rect, cast_vec_ref_to_ptr};
 use crate::block::{BlockState};
 use crate::biome::Biome;
+
+use crate::heightmap::HeightmapType;
 use super::level::LevelEnv;
 
 
@@ -269,8 +271,14 @@ impl Chunk {
     /// # Panics (debug-only)
     /// This method panics if either X or Z is higher than 15.
     pub fn set_block(&mut self, x: u8, y: i32, z: u8, state: &'static BlockState) -> ChunkResult<()> {
-        self.ensure_sub_chunk((y >> 4) as i8, None)?
-            .set_block(x, (y & 15) as u8, z, state)
+        let sub_chunk = self.ensure_sub_chunk((y >> 4) as i8, None)?;
+        match sub_chunk.set_block(x, (y & 15) as u8, z, state) {
+            Ok(()) => {
+                // Update heightmap
+                Ok(())
+            },
+            e => e
+        }
     }
 
     #[inline]
@@ -610,6 +618,35 @@ impl SubChunk {
 }
 
 
+pub struct Heightmap {
+    typ: &'static HeightmapType,
+    offset: i32,
+    data: PackedArray
+}
+
+impl Heightmap {
+
+    pub fn new(typ: &'static HeightmapType, height: ChunkHeight) -> Self {
+        let len = height.len();
+        let byte_size = PackedArray::calc_min_byte_size((len * 16) as u64);
+        Self {
+            typ,
+            offset: (height.min as i32) * 16,
+            data: PackedArray::new(256, byte_size, None)
+        }
+    }
+
+    pub fn set_height(&mut self, x: u8, z: u8, height: i32) {
+        self.data.set(calc_heightmap_index(x, z), (height - self.offset) as u64);
+    }
+
+    pub fn get_height(&self, x: u8, z: u8) -> i32 {
+        self.data.get(calc_heightmap_index(x, z)).unwrap() as i32 + self.offset
+    }
+
+}
+
+
 #[derive(Debug, Clone, Copy)]
 pub struct ChunkHeight {
     /// Inclusive lower bound.
@@ -649,4 +686,11 @@ fn calc_block_index(x: u8, y: u8, z: u8) -> usize {
 fn calc_biome_index(x: u8, y: usize, z: u8) -> usize {
     debug_assert!(x < 4 && z < 4, "x: {}, z: {}", x, z);
     x as usize | ((z as usize) << 2) | (y << 4)
+}
+
+
+#[inline]
+fn calc_heightmap_index(x: u8, z: u8) -> usize {
+    debug_assert!(x < 16 && z < 16, "x: {}, z: {}", x, z);
+    x as usize | ((z as usize) << 4)
 }

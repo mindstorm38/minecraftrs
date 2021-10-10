@@ -2,9 +2,11 @@ use mc_core::world::level::LevelEnv;
 use mc_core::entity::GlobalEntities;
 use mc_core::block::GlobalBlocks;
 use mc_core::biome::GlobalBiomes;
+use mc_core::heightmap::GlobalHeightmaps;
 use crate::entity::VANILLA_ENTITIES;
 use crate::block::VANILLA_BLOCKS;
 use crate::biome::VANILLA_BIOMES;
+use crate::heightmap::VANILLA_HEIGHTMAPS;
 
 
 /// A trait to implement on registers or group of registers to provide
@@ -38,12 +40,20 @@ impl WithVanilla for GlobalEntities {
 }
 
 
+impl WithVanilla for GlobalHeightmaps {
+    fn with_vanilla() -> Self {
+        Self::with_all(&VANILLA_HEIGHTMAPS)
+    }
+}
+
+
 impl WithVanilla for LevelEnv {
     fn with_vanilla() -> Self {
         Self::new(
             GlobalBlocks::with_vanilla(),
             GlobalBiomes::with_vanilla(),
-            GlobalEntities::with_vanilla()
+            GlobalEntities::with_vanilla(),
+            GlobalHeightmaps::with_vanilla()
         )
     }
 }
