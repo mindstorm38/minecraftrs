@@ -234,9 +234,16 @@ impl PackedArray {
         }
     }
 
+    /// Calculate the minimum size in bits to store de given value, the special case is for
+    /// value `0` which returns a bits size of 1, this special value is simpler to handle
+    /// by the structure's methods.
     #[inline]
     pub fn calc_min_byte_size(value: u64) -> u8 {
-        (u64::BITS - value.leading_zeros()) as u8
+        if value == 0 {
+            1
+        } else {
+            (u64::BITS - value.leading_zeros()) as u8
+        }
     }
 
     #[inline]
@@ -351,6 +358,10 @@ mod tests {
 
     #[test]
     fn min_byte_size() {
+        assert_eq!(PackedArray::calc_min_byte_size(0), 1);
+        assert_eq!(PackedArray::calc_min_byte_size(1), 1);
+        assert_eq!(PackedArray::calc_min_byte_size(2), 2);
+        assert_eq!(PackedArray::calc_min_byte_size(7), 3);
         assert_eq!(PackedArray::calc_min_byte_size(63), 6);
         assert_eq!(PackedArray::calc_min_byte_size(64), 7);
         assert_eq!(PackedArray::calc_min_byte_size(127), 7);

@@ -6,9 +6,9 @@ use thiserror::Error;
 use hecs::Entity;
 
 use crate::util::{PackedArray, Palette, Rect, cast_vec_ref_to_ptr};
-use crate::block::{BlockState};
-use crate::biome::Biome;
 use crate::heightmap::HeightmapType;
+use crate::block::BlockState;
+use crate::biome::Biome;
 
 use super::level::LevelEnv;
 
@@ -171,7 +171,7 @@ impl Chunk {
     }
 
     /// Ensure that a sub chunk is existing at a specific chunk-Y coordinate, if this coordinate
-    /// is out of the height of the level, `Err(ChunkError::IllegalVerticalPos)` is returned.
+    /// is out of the height of the level, `Err(ChunkError::SubChunkOutOfRange)` is returned.
     /// You can pass `Some(&SubChunkOptions)` in order to change the default block and biome used
     /// to fill the sub chunk if it need to be created.
     pub fn ensure_sub_chunk(&mut self, cy: i8, options: Option<&SubChunkOptions>) -> ChunkResult<&mut SubChunk> {
@@ -273,7 +273,7 @@ impl Chunk {
 
     /// Set the block at a specific position relative to this chunk.
     ///
-    /// Return `Ok(())` if the biome was successfully set, `Err(ChunkError::IllegalVerticalPos)` if
+    /// Return `Ok(())` if the biome was successfully set, `Err(ChunkError::SubChunkOutOfRange)` if
     /// the given Y coordinate is invalid for the level or `Err(ChunkError::IllegalBlock)` if the
     /// given block state is not registered in the current world.
     ///
@@ -427,7 +427,7 @@ impl Chunk {
                 // But if we have `y = 0`, then we do nothing because top block is unchanged.
                 if y + 1 == current_y {
                     let mut check_y = y - 1;
-                    let mut new_y = 0;
+                    let mut new_y = min_block_y;
                     while check_y >= min_block_y {
                         match self.get_block(x, check_y, z) {
                             Ok(state) => {
@@ -746,4 +746,83 @@ fn calc_biome_index(x: u8, y: usize, z: u8) -> usize {
 fn calc_heightmap_index(x: u8, z: u8) -> usize {
     debug_assert!(x < 16 && z < 16, "x: {}, z: {}", x, z);
     x as usize | ((z as usize) << 4)
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::block::GlobalBlocks;
+    use crate::biome::GlobalBiomes;
+    use crate::entity::GlobalEntities;
+    use crate::heightmap::GlobalHeightmaps;
+
+    crate::blocks!(TEST_BLOCKS "test" [
+        AIR "air",
+        STONE "stone"
+    ]);
+
+    crate::biomes!(TEST_BIOMES "test" [
+        VOID "void" 0,
+    ]);
+
+    fn heightmap_test(state: &'static BlockState) -> bool {
+        state == STONE.get_default_state()
+    }
+
+    crate::heightmaps!(TEST_HEIGHTMAPS [
+        TEST "TEST" heightmap_test
+    ]);
+
+    fn build_chunk() -> Chunk {
+        let env = Arc::new(LevelEnv::new(
+            GlobalBlocks::with_all(&TEST_BLOCKS).unwrap(),
+            GlobalBiomes::with_all(&TEST_BIOMES).unwrap(),
+            GlobalEntities::new(),
+            GlobalHeightmaps::with_all(&TEST_HEIGHTMAPS)
+        ));
+        Chunk::new(env, ChunkHeight::new(-1, 2), 0, 0)
+    }
+
+    #[test]
+    fn valid_height() {
+        let mut chunk = build_chunk();
+        assert!(matches!(chunk.ensure_sub_chunk(-2, None), Err(ChunkError::SubChunkOutOfRange)));
+        assert!(matches!(chunk.ensure_sub_chunk(-1, None), Ok(_)));
+        assert!(matches!(chunk.ensure_sub_chunk(0, None), Ok(_)));
+        assert!(matches!(chunk.ensure_sub_chunk(1, None), Ok(_)));
+        assert!(matches!(chunk.ensure_sub_chunk(2, None), Ok(_)));
+        assert!(matches!(chunk.ensure_sub_chunk(3, None), Err(ChunkError::SubChunkOutOfRange)));
+    }
+
+    #[test]
+    fn valid_set_get() {
+        let mut chunk = build_chunk();
+        chunk.ensure_sub_chunk(-1, None).unwrap();
+        assert_eq!(chunk.get_block(0, -16, 0).unwrap(), AIR.get_default_state());
+        assert!(matches!(chunk.get_block(0, 0, 0), Err(ChunkError::SubChunkUnloaded)));
+        assert!(matches!(chunk.set_block(0, 0, 0, STONE.get_default_state()), Ok(_)));
+        assert_eq!(chunk.get_block(0, 0, 0).unwrap(), STONE.get_default_state());
+    }
+
+    #[test]
+    fn valid_heightmap() {
+        let mut chunk = build_chunk();
+        assert!(matches!(chunk.get_heightmap_column(&TEST, 0, 0), Ok(-16)));
+        chunk.set_block(0, -16, 0, STONE.get_default_state()).unwrap();
+        assert!(matches!(chunk.get_heightmap_column(&TEST, 0, 0), Ok(-15)));
+        chunk.set_block(0, 0, 0, STONE.get_default_state()).unwrap();
+        chunk.set_block(0, -1, 0, STONE.get_default_state()).unwrap();
+        assert!(matches!(chunk.get_heightmap_column(&TEST, 0, 0), Ok(1)));
+        chunk.set_block(0, 0, 0, AIR.get_default_state()).unwrap();
+        assert!(matches!(chunk.get_heightmap_column(&TEST, 0, 0), Ok(0)));
+        chunk.set_block(0, -1, 0, AIR.get_default_state()).unwrap();
+        assert!(matches!(chunk.get_heightmap_column(&TEST, 0, 0), Ok(-15)));
+        chunk.set_block(0, -16, 0, AIR.get_default_state()).unwrap();
+        assert!(matches!(chunk.get_heightmap_column(&TEST, 0, 0), Ok(-16)));
+        chunk.set_block(0, 47, 0, STONE.get_default_state()).unwrap();
+        assert!(matches!(chunk.get_heightmap_column(&TEST, 0, 0), Ok(48)));
+    }
+
 }
