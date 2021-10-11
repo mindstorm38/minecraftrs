@@ -117,7 +117,7 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
 
         let cy = tag_section.get_i8("Y")?;
 
-        if let Some(_chunk_offset) = chunk.get_chunk_offset(cy) {
+        if let Some(_chunk_offset) = chunk.get_sub_chunk_offset(cy) {
 
             let mut sub_chunk = SubChunk::new_default(Arc::clone(&env));
 

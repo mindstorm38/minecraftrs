@@ -8,8 +8,8 @@ use hecs::Entity;
 use crate::util::{PackedArray, Palette, Rect, cast_vec_ref_to_ptr};
 use crate::block::{BlockState};
 use crate::biome::Biome;
-
 use crate::heightmap::HeightmapType;
+
 use super::level::LevelEnv;
 
 
@@ -33,6 +33,8 @@ pub enum ChunkError {
     IllegalBlock,
     #[error("You gave a biome reference that is not supported by this chunk's level's env.")]
     IllegalBiome,
+    #[error("You gave a heightmap type that is not supported by this chunk's level's env.")]
+    IllegalHeightmap,
     #[error("You are trying to access an unloaded chunk.")]
     ChunkUnloaded  // Made for LevelStorage
 }
@@ -80,10 +82,13 @@ pub struct Chunk {
     /// should be small enough to only take 7 to 8 bits per point. Since there 64 biomes in
     /// a sub chunk, this make only 64 octets to store a sub chunk.
     ///
-    /// **Biomes are stored separately from sub chunks because sub chunks are not necessarily
+    /// Biomes are stored separately from sub chunks because sub chunks are not necessarily
     /// existing for empty sub chunks even at valid Y positions. But biomes must always be
-    /// defined for all the height.**
+    /// defined for all the height.
     biomes: PackedArray,
+    /// Array containing data for all registered heightmaps in the level environment. For memory
+    /// efficiency we store all our heightmaps in the same packed array.
+    heightmaps: PackedArray,
     /// The current generation status of this chunk.
     status: ChunkStatus,
     /// Total number of ticks players has been in this chunk, this increase faster when
@@ -100,6 +105,8 @@ impl Chunk {
     pub(super) fn new(env: Arc<LevelEnv>, height: ChunkHeight, cx: i32, cz: i32) -> Self {
 
         let biomes_byte_size = SubChunk::get_biomes_byte_size(&env);
+        let heightmap_byte_size = PackedArray::calc_min_byte_size((height.len() * 16) as u64);
+        let heightmap_len = env.heightmaps.heightmaps_count() * 256;
 
         Chunk {
             cx,
@@ -109,6 +116,7 @@ impl Chunk {
             sub_chunks: (0..height.len()).map(|_| None).collect(),
             sub_chunks_offset: height.min,
             biomes: PackedArray::new(height.len() * 64, biomes_byte_size, None),
+            heightmaps: PackedArray::new(heightmap_len, heightmap_byte_size, None),
             inhabited_time: 0,
             entities: HashSet::new(),
             last_save: Instant::now()
@@ -168,7 +176,7 @@ impl Chunk {
     /// to fill the sub chunk if it need to be created.
     pub fn ensure_sub_chunk(&mut self, cy: i8, options: Option<&SubChunkOptions>) -> ChunkResult<&mut SubChunk> {
 
-        let offset = self.calc_chunk_offset(cy).ok_or(ChunkError::SubChunkOutOfRange)?;
+        let offset = self.calc_sub_chunk_offset(cy).ok_or(ChunkError::SubChunkOutOfRange)?;
 
         match self.sub_chunks.get_mut(offset) {
             Some(Some(sub_chunk)) => Ok(sub_chunk),
@@ -186,14 +194,14 @@ impl Chunk {
     /// The method panics if the given sub chunk has not the same sub chunk environment as self.
     pub fn replace_sub_chunk(&mut self, cy: i8, sub_chunk: SubChunk) -> ChunkResult<&mut SubChunk> {
         debug_assert!(Arc::ptr_eq(&self.env, &sub_chunk.env));
-        let offset = self.calc_chunk_offset(cy).ok_or(ChunkError::SubChunkOutOfRange)?;
+        let offset = self.calc_sub_chunk_offset(cy).ok_or(ChunkError::SubChunkOutOfRange)?;
         let container = self.sub_chunks.get_mut(offset).ok_or(ChunkError::SubChunkOutOfRange)?;
         Ok(container.insert(sub_chunk))
     }
 
     /// Get a sub chunk reference at a specified index.
     pub fn get_sub_chunk(&self, cy: i8) -> Option<&SubChunk> {
-        let offset = self.calc_chunk_offset(cy)?;
+        let offset = self.calc_sub_chunk_offset(cy)?;
         match self.sub_chunks.get(offset) {
             Some(Some(chunk)) => Some(chunk),
             _ => None
@@ -202,7 +210,7 @@ impl Chunk {
 
     /// Get a sub chunk mutable reference at a specified index.
     pub fn get_sub_chunk_mut(&mut self, cy: i8) -> Option<&mut SubChunk> {
-        let offset = self.calc_chunk_offset(cy)?;
+        let offset = self.calc_sub_chunk_offset(cy)?;
         match self.sub_chunks.get_mut(offset) {
             Some(Some(chunk)) => Some(chunk),
             _ => None
@@ -215,6 +223,7 @@ impl Chunk {
     }
 
     /// Return the configured height for the level owning this chunk.
+    #[inline]
     pub fn get_height(&self) -> ChunkHeight {
         ChunkHeight {
             min: self.sub_chunks_offset,
@@ -227,15 +236,15 @@ impl Chunk {
     ///
     /// As its name implies, this method only calculate the offset, the returned
     /// offset might be out of the chunk's height.
-    fn calc_chunk_offset(&self, cy: i8) -> Option<usize> {
+    fn calc_sub_chunk_offset(&self, cy: i8) -> Option<usize> {
         cy.checked_sub(self.sub_chunks_offset).map(|v| v as usize)
     }
 
     /// Return the linear non-negative offset of the chunk at the given position,
     /// the position can be negative. None is returned if the chunk position is
     /// not within the chunk's height.
-    pub fn get_chunk_offset(&self, cy: i8) -> Option<usize> {
-        match self.calc_chunk_offset(cy) {
+    pub fn get_sub_chunk_offset(&self, cy: i8) -> Option<usize> {
+        match self.calc_sub_chunk_offset(cy) {
             Some(off) if off < self.sub_chunks.len() => Some(off),
             _ => None
         }
@@ -274,7 +283,7 @@ impl Chunk {
         let sub_chunk = self.ensure_sub_chunk((y >> 4) as i8, None)?;
         match sub_chunk.set_block(x, (y & 15) as u8, z, state) {
             Ok(()) => {
-                // Update heightmap
+                self.update_heightmap_column(x, y, z, state);
                 Ok(())
             },
             e => e
@@ -339,15 +348,6 @@ impl Chunk {
         self.set_biome(((x >> 2) & 3) as u8, y >> 2, ((z >> 2) & 3) as u8, biome)
     }
 
-    pub fn set_biomes_3d(&mut self, biomes: &[&'static Biome]) -> ChunkResult<()> {
-        assert_eq!(biomes.len(), self.sub_chunks.len() * 64, "Given biomes array must be {} biomes long.", self.sub_chunks.len() * 64);
-        let env_biomes = &self.env.biomes;
-        self.biomes.replace(move |i, old| {
-            env_biomes.get_sid_from(biomes[i]).map(|v| v as u64).unwrap_or(old)
-        });
-        Ok(())
-    }
-
     pub fn set_biomes_2d(&mut self, biomes: &Rect<&'static Biome>) -> ChunkResult<()> {
 
         assert_eq!(biomes.data.len(), 256, "Given biomes array must be 256 biomes long.");
@@ -367,6 +367,15 @@ impl Chunk {
 
     }
 
+    pub fn set_biomes_3d(&mut self, biomes: &[&'static Biome]) -> ChunkResult<()> {
+        assert_eq!(biomes.len(), self.sub_chunks.len() * 64, "Given biomes array must be {} biomes long.", self.sub_chunks.len() * 64);
+        let env_biomes = &self.env.biomes;
+        self.biomes.replace(move |i, old| {
+            env_biomes.get_sid_from(biomes[i]).map(|v| v as u64).unwrap_or(old)
+        });
+        Ok(())
+    }
+
     pub fn get_biomes_count(&self) -> usize {
         self.biomes.len()
     }
@@ -375,6 +384,69 @@ impl Chunk {
     pub fn get_biomes(&self) -> impl Iterator<Item = &'static Biome> {
         let biomes = &self.env.biomes;
         self.biomes.iter().map(move |v| biomes.get_biome_from(v as u16).unwrap())
+    }
+
+    // HEIGHTMAPS //
+
+    fn get_heightmap_column_index(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8) -> ChunkResult<usize> {
+        self.env.heightmaps.get_heightmap_index(heightmap_type)
+            .map(move |offset| offset * 256 + calc_heightmap_index(x, z))
+            .ok_or(ChunkError::IllegalHeightmap)
+    }
+
+    /// Set the value of a specific heightmap at specific coordinates. This is very unsafe to do
+    /// that manually, you should ensure that the condition of the given heightmap type are kept.
+    pub fn set_heightmap_column(&mut self, heightmap_type: &'static HeightmapType, x: u8, z: u8, y: i32) -> ChunkResult<()> {
+        let column_index = self.get_heightmap_column_index(heightmap_type, x, z)?;
+        self.heightmaps.set(column_index, (y - self.get_height().get_min_block()) as u64);
+        Ok(())
+    }
+
+    /// Get the value of a specific heightmap at specific coordinates.
+    pub fn get_heightmap_column(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8) -> ChunkResult<i32> {
+        let column_index = self.get_heightmap_column_index(heightmap_type, x, z)?;
+        // SAFETY: We unwrap because the column index is checked into `get_heightmap_column_index`
+        //         and if x or z are wrong, this panics in debug mode.
+        Ok(self.heightmaps.get(column_index).unwrap() as i32 + self.get_height().get_min_block())
+    }
+
+    /// Efficiently update all heightmaps for a specific column according to a block update.
+    pub fn update_heightmap_column(&mut self, x: u8, y: i32, z: u8, state: &'static BlockState) {
+        let min_block_y = self.get_height().get_min_block();
+        let column_index = calc_heightmap_index(x, z);
+        for (idx, heightmap_type) in self.env.heightmaps.iter_heightmap_types().enumerate() {
+            let column_index = idx * 256 + column_index;
+            let current_y = self.heightmaps.get(column_index).unwrap() as i32 + min_block_y;
+            if heightmap_type.check_block(state) {
+                // For example, if we have `current_y = 0`, `y = 0`, then we set `1`.
+                if y >= current_y {
+                    self.heightmaps.set(column_index, (y + 1 - min_block_y) as u64);
+                }
+            } else {
+                // For example, if we have `current_y = 2`, `y = 1`, then we recompute.
+                // But if we have `y = 0`, then we do nothing because top block is unchanged.
+                if y + 1 == current_y {
+                    let mut check_y = y - 1;
+                    let mut new_y = 0;
+                    while check_y >= min_block_y {
+                        match self.get_block(x, check_y, z) {
+                            Ok(state) => {
+                                if heightmap_type.check_block(state) {
+                                    new_y = check_y + 1;
+                                    break;
+                                }
+                                check_y -= 1;
+                            },
+                            Err(_) => {
+                                // The sub chunk is empty, skip it.
+                                check_y -= 16;
+                            }
+                        }
+                    }
+                    self.heightmaps.set(column_index, (new_y - min_block_y) as u64);
+                }
+            }
+        }
     }
 
     // ENTITIES //
@@ -400,15 +472,13 @@ impl Chunk {
 /// Options used when constructing a new `SubChunk`.
 pub struct SubChunkOptions {
     /// The default block state used to fill
-    pub default_block: Option<&'static BlockState>,
-    pub default_biome: Option<&'static Biome>
+    pub default_block: Option<&'static BlockState>
 }
 
 impl Default for SubChunkOptions {
     fn default() -> Self {
         Self {
-            default_block: None,
-            default_biome: None
+            default_block: None
         }
     }
 }
@@ -497,7 +567,7 @@ impl SubChunk {
 
         // SAFETY: The unwraps should be safe in this case because the `set_block` ensure
         //         that the palette is updated according to the blocks contents. If the user
-        //         directly manipule the contents of palette or blocks array it MUST ensure
+        //         directly manipulate the contents of palette or blocks array it MUST ensure
         //         that is correct, if not this will panic here.
         match self.blocks_palette {
             Some(ref palette) => unsafe {
@@ -618,35 +688,6 @@ impl SubChunk {
 }
 
 
-pub struct Heightmap {
-    typ: &'static HeightmapType,
-    offset: i32,
-    data: PackedArray
-}
-
-impl Heightmap {
-
-    pub fn new(typ: &'static HeightmapType, height: ChunkHeight) -> Self {
-        let len = height.len();
-        let byte_size = PackedArray::calc_min_byte_size((len * 16) as u64);
-        Self {
-            typ,
-            offset: (height.min as i32) * 16,
-            data: PackedArray::new(256, byte_size, None)
-        }
-    }
-
-    pub fn set_height(&mut self, x: u8, z: u8, height: i32) {
-        self.data.set(calc_heightmap_index(x, z), (height - self.offset) as u64);
-    }
-
-    pub fn get_height(&self, x: u8, z: u8) -> i32 {
-        self.data.get(calc_heightmap_index(x, z)).unwrap() as i32 + self.offset
-    }
-
-}
-
-
 #[derive(Debug, Clone, Copy)]
 pub struct ChunkHeight {
     /// Inclusive lower bound.
@@ -661,6 +702,18 @@ impl ChunkHeight {
         Self { min, max }
     }
 
+    /// Returns the inclusive lower bound in blocks coordinates.
+    #[inline]
+    pub fn get_min_block(self) -> i32 {
+        (self.min as i32) * 16
+    }
+
+    /// Returns the inclusive upper bound in blocks coordinates.
+    #[inline]
+    pub fn get_max_block(self) -> i32 {
+        (self.max as i32) * 16 + 15
+    }
+
     /// Return `true` if the given chunk Y coordinate is valid for the specified height.
     #[inline]
     pub fn contains(self, cy: i8) -> bool {
@@ -668,7 +721,7 @@ impl ChunkHeight {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
+    pub fn len(self) -> usize {
         (self.max - self.min + 1) as usize
     }
 
