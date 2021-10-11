@@ -381,7 +381,7 @@ impl Chunk {
     }
 
     /// Return an iterator with each biomes in this chunk, ordered by X, Z than Y.
-    pub fn get_biomes(&self) -> impl Iterator<Item = &'static Biome> {
+    pub fn get_biomes(&self) -> impl Iterator<Item = &'static Biome> + '_ {
         let biomes = &self.env.biomes;
         self.biomes.iter().map(move |v| biomes.get_biome_from(v as u16).unwrap())
     }

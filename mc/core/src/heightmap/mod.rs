@@ -6,22 +6,18 @@ use std::collections::HashMap;
 
 /// A structure used to statically define an heightmap type.
 pub struct HeightmapType {
-    name: &'static str,
-    predicate: fn(&'static BlockState) -> bool
+    pub name: &'static str,
+    pub predicate: fn(&'static BlockState) -> bool
 }
 
 impl HeightmapType {
-
-    pub const fn new(name: &'static str, predicate: fn(&'static BlockState) -> bool) -> Self {
-        Self { name, predicate }
-    }
 
     pub fn get_name(&self) -> &'static str {
         self.name
     }
 
     pub fn get_key(&'static self) -> HeightmapTypeKey {
-        OpaquePtr(self)
+        OpaquePtr::new(self)
     }
 
     pub fn check_block(&self, state: &'static BlockState) -> bool {
@@ -88,7 +84,7 @@ impl GlobalHeightmaps {
         self.heightmap_types.iter().any(move |&t| t == heightmap_type)
     }
 
-    pub fn iter_heightmap_types(&self) -> impl Iterator<Item = &'static HeightmapType> {
+    pub fn iter_heightmap_types(&self) -> impl Iterator<Item = &'static HeightmapType> + '_ {
         self.heightmap_types.iter().copied()
     }
 
@@ -106,10 +102,10 @@ macro_rules! heightmaps {
         $(,)?
     ]) => {
 
-        $($global_vis static $heightmap_id: $crate::heightmap::HeightmapType = $crate::heightmap::HeightmapType::new(
-            $heightmap_name,
-            $heightmap_predicate
-        );)*
+        $($global_vis static $heightmap_id: $crate::heightmap::HeightmapType = $crate::heightmap::HeightmapType {
+            name: $heightmap_name,
+            predicate: $heightmap_predicate
+        };)*
 
         $global_vis static $static_id: [&'static $crate::heightmap::HeightmapType; $crate::count!($($heightmap_id)*)] = [
             $(&$heightmap_id),*
