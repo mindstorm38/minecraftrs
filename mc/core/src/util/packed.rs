@@ -266,18 +266,29 @@ impl PackedArray {
 // Custom iterators //
 
 /// An iterator extension trait for unpacking aligned values from an u64 iterator.
-pub trait PackedIterator: Iterator<Item = u64> + Sized {
+pub trait PackedIterator: Iterator<Item = u64> {
 
     #[inline]
-    fn unpack_aligned(self, byte_size: u8) -> UnpackAlignedIter<Self> {
+    fn unpack_aligned(self, byte_size: u8) -> UnpackAlignedIter<Self>
+    where
+        Self: Sized
+    {
         UnpackAlignedIter::new(self, byte_size)
+    }
+
+    #[inline]
+    fn pack_aligned(self, byte_size: u8) -> PackAlignedIter<Self>
+    where
+        Self: Sized
+    {
+        PackAlignedIter::new(self, byte_size)
     }
 
 }
 
 impl<I> PackedIterator for I
 where
-    I: Iterator<Item = u64> + Sized
+    I: Iterator<Item = u64>
 {
     // Defaults are not redefined //
 }
@@ -343,6 +354,62 @@ where
         self.value >>= self.byte_size;
         self.index += 1;
         Some(ret)
+
+    }
+
+}
+
+
+/// Reciprocal iterator to `UnpackAlignedIter`.
+pub struct PackAlignedIter<I> {
+    inner: I,
+    byte_size: u8,
+    mask: u64,
+}
+
+impl<I> PackAlignedIter<I>
+where
+    I: Iterator<Item = u64>
+{
+
+    pub fn new(inner: I, byte_size: u8) -> Self {
+        Self {
+            inner,
+            byte_size,
+            mask: PackedArray::calc_mask(byte_size)
+        }
+    }
+
+}
+
+impl<I> Iterator for PackAlignedIter<I>
+where
+    I: Iterator<Item = u64>
+{
+
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+
+        let mut value = match self.inner.next() {
+            None => return None,
+            Some(val) => val & self.mask
+        };
+
+        let mut shift = self.byte_size;
+        let shift_limit = 64 - self.byte_size;
+
+        while shift <= shift_limit {
+            match self.inner.next() {
+                None => break,
+                Some(cell) => {
+                    value |= (cell & self.mask) << shift;
+                    shift += self.byte_size;
+                }
+            }
+        }
+
+        Some(value)
 
     }
 
@@ -465,6 +532,21 @@ mod tests {
 
         assert!(raw.iter().copied().unpack_aligned(33).all(|v| v == 0x0001_FFFF_FFFF), "byte size = 33, wrong values");
         assert_eq!(raw.iter().copied().unpack_aligned(33).count(), 3, "byte size = 33, invalid values count");
+
+    }
+
+    #[test]
+    fn iter_pack_aligned() {
+
+        let raw = [0, u32::MAX as u64, u64::MAX];
+
+        let out: Vec<u64> = raw.iter()
+            .copied()
+            .unpack_aligned(4)
+            .pack_aligned(4)
+            .collect();
+
+        assert_eq!(&raw[..], &out[..]);
 
     }
 
