@@ -357,6 +357,10 @@ where
 
     }
 
+    /*fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        TODO: We should redefine this method in order to speedrun skips.
+    }*/
+
 }
 
 

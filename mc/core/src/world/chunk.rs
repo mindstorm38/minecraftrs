@@ -222,6 +222,26 @@ impl Chunk {
         self.sub_chunks.len()
     }
 
+    /// Iterator over all sub chunks with their Y coordinate, sub chunks may be not loaded (`None`).
+    pub fn iter_sub_chunks(&self) -> impl Iterator<Item = (i8, Option<&'_ SubChunk>)> + '_ {
+        let min_y = self.sub_chunks_offset;
+        self.sub_chunks.iter()
+            .enumerate()
+            .map(move |(idx, opt)| {
+                (idx as i8 + min_y, opt.as_ref())
+            })
+    }
+
+    /// Iterator only over loaded sub chunks.
+    pub fn iter_loaded_sub_chunks(&self) -> impl Iterator<Item = (i8, &'_ SubChunk)> + '_ {
+        let min_y = self.sub_chunks_offset;
+        self.sub_chunks.iter()
+            .enumerate()
+            .filter_map(move |(idx, opt)| {
+                opt.as_ref().map(move |sc| (idx as i8 + min_y, sc))
+            })
+    }
+
     /// Return the configured height for the level owning this chunk.
     #[inline]
     pub fn get_height(&self) -> ChunkHeight {
@@ -380,8 +400,9 @@ impl Chunk {
         self.biomes.len()
     }
 
-    /// Return an iterator with each biomes in this chunk, ordered by X, Z than Y.
-    pub fn get_biomes(&self) -> impl Iterator<Item = &'static Biome> + '_ {
+    /// Expose internal biomes storage, retuning an iterator with each biomes in this chunk,
+    /// ordered by X, Z than Y.
+    pub fn iter_biomes(&self) -> impl Iterator<Item = &'static Biome> + '_ {
         let biomes = &self.env.biomes;
         self.biomes.iter().map(move |v| biomes.get_biome_from(v as u16).unwrap())
     }
@@ -449,14 +470,12 @@ impl Chunk {
         }
     }
 
-    /*pub fn iter_heightmap_columns(&self, heightmap_type: &'static HeightmapType) -> Option<impl Iterator<Item = i32> + '_> {
-        let min_block_y = self.get_height().get_min_block();
+    /// Direct access method to internal packed array, returning each of the 256 values from the
+    /// given heightmap type if it exists.
+    pub fn iter_heightmap_raw_columns(&self, heightmap_type: &'static HeightmapType) -> Option<(u8, impl Iterator<Item = u64> + '_)> {
         let offset = self.env.heightmaps.get_heightmap_index(heightmap_type)? * 256;
-        Some(self.heightmaps.iter()
-            .skip(offset)
-            .take(256)
-            .map(move |val| val as i32 + min_block_y))
-    }*/
+        Some((self.heightmaps.byte_size(), self.heightmaps.iter().skip(offset).take(256)))
+    }
 
     // ENTITIES //
 

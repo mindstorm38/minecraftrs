@@ -3,10 +3,13 @@ use std::io::{Cursor, Write, Read};
 use super::{ReadablePacket, WritablePacket, PacketResult, PacketError};
 use crate::packet::serial::*;
 
+use mc_core::util::PackedIterator;
 use mc_core::world::chunk::Chunk;
 use mc_core::pos::BlockPos;
+
 use mc_runtime::world::World;
 use mc_vanilla::biome::VANILLA_BIOMES;
+use mc_vanilla::heightmap::MOTION_BLOCKING;
 use mc_vanilla::util::GameMode;
 
 use nbt::CompoundTag;
@@ -300,17 +303,34 @@ impl<'a> WritablePacket for ChunkDataPacket<'a> {
             dst.write_bool(true).unwrap(); // Full chunk
 
             let mut sub_chunk_mask = 0u64;
-            for (idx, cy) in self.chunk.get_height().iter().enumerate() {
-                if let Some(_) = self.chunk.get_sub_chunk(cy) {
-                    sub_chunk_mask |= 1 << idx
+            let mut mask = 1;
+            for (_, sub_chunk) in self.chunk.iter_sub_chunks() {
+                if sub_chunk.is_some() {
+                    sub_chunk_mask |= mask;
                 }
+                mask <<= 1;
             }
 
-            dst.write_var_int(sub_chunk_mask as i32);
+            dst.write_var_int(sub_chunk_mask as i32).unwrap();
+
+            let mut nbt = CompoundTag::new();
+            nbt.insert_i64_vec("MOTION_BLOCKING", {
+                let (
+                    byte_size,
+                    it
+                ) = self.chunk.iter_heightmap_raw_columns(&MOTION_BLOCKING).unwrap();
+                it.pack_aligned(byte_size).map(|val| val as i64).collect()
+            });
+
+            dst.write_nbt(&nbt).unwrap();
 
             dst.write_var_int(self.chunk.get_biomes_count() as i32).unwrap();
-            for biome in self.chunk.get_biomes() {
+            for biome in self.chunk.iter_biomes() {
                 dst.write_var_int(biome.get_id()).unwrap();
+            }
+
+            for (cy, sub_chunk) in self.chunk.iter_loaded_sub_chunks() {
+
             }
 
         }
