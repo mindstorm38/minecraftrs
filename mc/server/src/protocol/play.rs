@@ -295,14 +295,18 @@ impl<'a> WritablePacket for ChunkDataPacket<'a> {
         dst.write_var_int(cx).unwrap();
         dst.write_var_int(cz).unwrap();
 
-        // dst.write_var_int(1).unwrap();
-        // dst.write_i64(self.sub_chunk_mask as i64).unwrap();
-
-        // TODO: bit mast and heightmaps
-
         if self.parts.is_none() {
 
             dst.write_bool(true).unwrap(); // Full chunk
+
+            let mut sub_chunk_mask = 0u64;
+            for (idx, cy) in self.chunk.get_height().iter().enumerate() {
+                if let Some(_) = self.chunk.get_sub_chunk(cy) {
+                    sub_chunk_mask |= 1 << idx
+                }
+            }
+
+            dst.write_var_int(sub_chunk_mask as i32);
 
             dst.write_var_int(self.chunk.get_biomes_count() as i32).unwrap();
             for biome in self.chunk.get_biomes() {

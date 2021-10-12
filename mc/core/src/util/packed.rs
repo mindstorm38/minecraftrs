@@ -116,7 +116,10 @@ impl PackedArray {
         self.internal_resize_byte::<fn(usize, u64) -> u64>(new_byte_size, None);
     }
 
-    pub fn resize_byte_and_replace(&mut self, new_byte_size: u8, replacer: impl FnMut(usize, u64) -> u64) {
+    pub fn resize_byte_and_replace<F>(&mut self, new_byte_size: u8, replacer: F)
+    where
+        F: FnMut(usize, u64) -> u64
+    {
         self.internal_resize_byte(new_byte_size, Some(replacer));
     }
 
@@ -177,17 +180,6 @@ impl PackedArray {
 
     }
 
-    pub unsafe fn set_cell(&mut self, index: usize, cell: u64) {
-        self.cells[index] = cell;
-    }
-
-    pub unsafe fn resize_raw(&mut self, new_byte_size: u8) {
-        Self::check_byte_size(new_byte_size);
-        self.byte_size = new_byte_size;
-        let new_cells_cap = Self::calc_cells_capacity(self.length, new_byte_size);
-        self.cells.resize(new_cells_cap, 0u64);
-    }
-
     #[inline]
     pub fn len(&self) -> usize {
         self.length
@@ -210,6 +202,23 @@ impl PackedArray {
     #[inline]
     pub fn cells_len(&self) -> usize {
         self.cells.len()
+    }
+
+    // Unsafe and cell-related methods //
+
+    pub fn get_cell(&self, index: usize) -> u64 {
+        self.cells[index]
+    }
+
+    pub unsafe fn set_cell(&mut self, index: usize, cell: u64) {
+        self.cells[index] = cell;
+    }
+
+    pub unsafe fn resize_raw(&mut self, new_byte_size: u8) {
+        Self::check_byte_size(new_byte_size);
+        self.byte_size = new_byte_size;
+        let new_cells_cap = Self::calc_cells_capacity(self.length, new_byte_size);
+        self.cells.resize(new_cells_cap, 0u64);
     }
 
     // Utils //

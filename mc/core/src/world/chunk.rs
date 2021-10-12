@@ -449,6 +449,15 @@ impl Chunk {
         }
     }
 
+    /*pub fn iter_heightmap_columns(&self, heightmap_type: &'static HeightmapType) -> Option<impl Iterator<Item = i32> + '_> {
+        let min_block_y = self.get_height().get_min_block();
+        let offset = self.env.heightmaps.get_heightmap_index(heightmap_type)? * 256;
+        Some(self.heightmaps.iter()
+            .skip(offset)
+            .take(256)
+            .map(move |val| val as i32 + min_block_y))
+    }*/
+
     // ENTITIES //
 
     #[inline]
@@ -723,6 +732,10 @@ impl ChunkHeight {
     #[inline]
     pub fn len(self) -> usize {
         (self.max - self.min + 1) as usize
+    }
+
+    pub fn iter(self) -> impl Iterator<Item = i8> {
+        self.min..=self.max
     }
 
 }
