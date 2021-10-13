@@ -695,6 +695,8 @@ impl SubChunk {
         Ok(())
     }
 
+    // Raw manipulations //
+
     /// # Safety:
     /// You must ensure that the given palette contains only valid states for this
     /// chunk's level's environment.
@@ -748,6 +750,12 @@ impl SubChunk {
         }
 
         self.refresh_non_null_blocks_count();
+
+    }
+
+    pub fn get_blocks_raw(&self) -> impl Iterator<Item = &'static BlockState> {
+
+        todo!("Reciprocal of set_blocks_raw")
 
     }
 

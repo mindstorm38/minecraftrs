@@ -88,6 +88,10 @@ where
         self.items.get(index).copied()
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = T> + '_ {
+        self.items.iter().copied()
+    }
+
 }
 
 #[cfg(test)]

@@ -199,7 +199,7 @@ impl LevelGenRelease102 {
                     let ns_111 = (*self.noise_field.get(dx + 1, dy + 1, dz + 1) - n_1y1) * 0.125;
 
                     // Get the current sub-chunk.
-                    let sub_chunk = chunk.ensure_sub_chunk((dy >> 1) as i8, None).unwrap();
+                    let sub_chunk = chunk.ensure_sub_chunk((dy >> 1) as i8/*, None*/).unwrap();
 
                     // Iterating over the 8 blocks in the half sub-chunk.
                     for half_sub_chunk_dy in 0..8 {
