@@ -330,7 +330,7 @@ impl<'a> WritablePacket for ChunkDataPacket<'a> {
             }
 
             for (cy, sub_chunk) in self.chunk.iter_loaded_sub_chunks() {
-
+                dst.write_i16(10); // TODO: Replace with real blocks count.
             }
 
         }
