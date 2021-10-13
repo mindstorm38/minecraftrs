@@ -6,27 +6,37 @@ pub struct Palette<T> {
 }
 
 impl<T> Palette<T>
-    where
-        T: Clone + Copy + Eq
+where
+    T: Clone + Copy + Eq
 {
 
-    pub fn new_default(capacity: usize) -> Self
-        where
-            T: Default
-    {
-        Self::new(None, capacity)
+    /// Create a new empty palette with the specified capacity.
+    pub fn new(capacity: usize) -> Self {
+        assert_ne!(capacity, 0, "Given capacity is zero.");
+        Self {
+            items: Vec::with_capacity(capacity),
+            capacity
+        }
     }
 
-    pub fn new(default: Option<T>, capacity: usize) -> Self {
+    /// Create a new palette of the specified capacity and fill it with the given iterator.
+    /// At most `capacity` elements are took from the iterator.
+    pub fn with_defaults<I>(defaults: I, capacity: usize) -> Self
+    where
+        I: IntoIterator<Item = T>
+    {
         assert_ne!(capacity, 0, "Given capacity is zero.");
         let mut items = Vec::with_capacity(capacity);
-        if let Some(default) = default {
-            items.resize(1, default);
-        }
+        items.extend(defaults.into_iter().take(capacity));
         Self {
             items,
             capacity
         }
+    }
+
+    /// Create a new palette with a default element into it and with the specified capacity.
+    pub fn with_default(default: T, capacity: usize) -> Self {
+        Self::with_defaults(Some(default), capacity)
     }
 
     pub fn from_raw(items: Vec<T>, capacity: usize) -> Self {
@@ -88,13 +98,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn invalid_capacity() {
-        Palette::new(Some("default"), 0);
+        Palette::with_default("default", 0);
     }
 
     #[test]
     fn valid_usage() {
 
-        let mut palette = Palette::new(Some("default"), 5);
+        let mut palette = Palette::with_default("default", 5);
         assert_eq!(palette.get_item(0).unwrap(), "default");
         assert_eq!(palette.search_index("default").unwrap(), 0);
         assert_eq!(palette.ensure_index("default").unwrap(), 0);
