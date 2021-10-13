@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::io::Read;
 
 use nbt::decode::{read_compound_tag, TagDecodeError};
@@ -6,9 +5,9 @@ use nbt::{CompoundTag, Tag, CompoundTagError};
 use hecs::EntityBuilder;
 use thiserror::Error;
 
-use crate::world::chunk::{ChunkStatus, SubChunk};
 use crate::world::level::{LevelEnv, BaseEntity};
 use crate::world::source::ProtoChunk;
+use crate::world::chunk::ChunkStatus;
 use crate::entity::GlobalEntities;
 use crate::block::BlockState;
 use crate::util::{Rect, NbtExt, PackedIterator};
@@ -117,9 +116,9 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
 
         let cy = tag_section.get_i8("Y")?;
 
-        if let Some(_chunk_offset) = chunk.get_sub_chunk_offset(cy) {
+        if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy) {
 
-            let mut sub_chunk = SubChunk::new_default(Arc::clone(&env));
+            // let mut sub_chunk = SubChunk::new(Arc::clone(&env));
 
             if let Ok(tag_packed_blocks) = tag_section.get_i64_vec("BlockStates") {
                 if let Ok(tag_blocks_palette) = tag_section.get_compound_tag_vec("Palette") {
@@ -134,7 +133,8 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
                     let unpacked_blocks = tag_packed_blocks.iter()
                         .map(|&v| v as u64)
                         .unpack_aligned(bits)
-                        .take(4096);
+                        .take(4096)
+                        .map(|v| v as usize);
 
                     unsafe {
                         sub_chunk.set_blocks_raw(blocks_palette, unpacked_blocks);
@@ -144,7 +144,7 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
             }
 
             // SAFETY: We can unwrap because we have already checked the validity of 'cy'.
-            chunk.replace_sub_chunk(cy, sub_chunk).unwrap();
+            // chunk.replace_sub_chunk(cy, sub_chunk).unwrap();
 
         }
 
