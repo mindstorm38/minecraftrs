@@ -64,13 +64,15 @@ impl PackedArray {
         }
     }
 
-    pub fn set(&mut self, index: usize, value: u64) {
+    pub fn set(&mut self, index: usize, value: u64) -> u64 {
         if index < self.length {
             let mask = Self::calc_mask(self.byte_size);
             if value <= mask {
                 let (cell_index, bit_index) = self.get_indices(index);
                 let cell = &mut self.cells[cell_index];
+                let old_value = (*cell >> bit_index) & mask;
                 *cell = (*cell & !(mask << bit_index)) | (value << bit_index); // Clear and Set
+                old_value
             } else {
                 panic!("Given value {} does not fit in {} bits.", value, self.byte_size);
             }
@@ -219,6 +221,10 @@ impl PackedArray {
         self.byte_size = new_byte_size;
         let new_cells_cap = Self::calc_cells_capacity(self.length, new_byte_size);
         self.cells.resize(new_cells_cap, 0u64);
+    }
+
+    pub unsafe fn clear_cells(&mut self) {
+        self.cells.iter_mut().for_each(|c| *c = 0);
     }
 
     // Utils //
