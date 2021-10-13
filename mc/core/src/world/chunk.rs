@@ -104,7 +104,10 @@ impl Chunk {
 
     pub(super) fn new(env: Arc<LevelEnv>, height: ChunkHeight, cx: i32, cz: i32) -> Self {
 
-        let biomes_byte_size = SubChunk::get_biomes_byte_size(&env);
+        // This is 7 bits for current vanilla biomes, this only take 64 octets of storage.
+        // Subtracting 1 because the maximum biome save ID is the maximum value.
+        let biomes_byte_size = PackedArray::calc_min_byte_size(env.biomes.biomes_count() as u64 - 1);
+
         let heightmap_byte_size = PackedArray::calc_min_byte_size((height.len() * 16) as u64);
         let heightmap_len = env.heightmaps.heightmaps_count() * 256;
 
@@ -174,14 +177,14 @@ impl Chunk {
     /// is out of the height of the level, `Err(ChunkError::SubChunkOutOfRange)` is returned.
     /// You can pass `Some(&SubChunkOptions)` in order to change the default block and biome used
     /// to fill the sub chunk if it need to be created.
-    pub fn ensure_sub_chunk(&mut self, cy: i8, options: Option<&SubChunkOptions>) -> ChunkResult<&mut SubChunk> {
+    pub fn ensure_sub_chunk(&mut self, cy: i8/*, options: Option<&SubChunkOptions>*/) -> ChunkResult<&mut SubChunk> {
 
         let offset = self.calc_sub_chunk_offset(cy).ok_or(ChunkError::SubChunkOutOfRange)?;
 
         match self.sub_chunks.get_mut(offset) {
             Some(Some(sub_chunk)) => Ok(sub_chunk),
             Some(sub_chunk ) => {
-                Ok(sub_chunk.insert(SubChunk::new(Arc::clone(&self.env), options)?))
+                Ok(sub_chunk.insert(SubChunk::new(Arc::clone(&self.env)/*, options*/)))
             },
             None => Err(ChunkError::SubChunkOutOfRange)
         }
@@ -300,7 +303,7 @@ impl Chunk {
     /// # Panics (debug-only)
     /// This method panics if either X or Z is higher than 15.
     pub fn set_block(&mut self, x: u8, y: i32, z: u8, state: &'static BlockState) -> ChunkResult<()> {
-        let sub_chunk = self.ensure_sub_chunk((y >> 4) as i8, None)?;
+        let sub_chunk = self.ensure_sub_chunk((y >> 4) as i8/*, None*/)?;
         match sub_chunk.set_block(x, (y & 15) as u8, z, state) {
             Ok(()) => {
                 self.update_heightmap_column(x, y, z, state);
@@ -497,7 +500,7 @@ impl Chunk {
 }
 
 
-/// Options used when constructing a new `SubChunk`.
+/*/// Options used when constructing a new `SubChunk`.
 pub struct SubChunkOptions {
     /// The default block state used to fill
     pub default_block: Option<&'static BlockState>
@@ -509,11 +512,12 @@ impl Default for SubChunkOptions {
             default_block: None
         }
     }
-}
+}*/
 
 
 /// A sub chunk, 16x16x16 blocks.
 pub struct SubChunk {
+    /// A local shared pointer to the level environment.
     env: Arc<LevelEnv>,
     /// Blocks palette. It is limited to 128 blocks in order to support most blocks in a natural
     /// generation, which is the case of most of the sub chunks that are untouched by players.
@@ -524,6 +528,14 @@ pub struct SubChunk {
     blocks_palette: Option<Palette<*const BlockState>>,
     /// Cube blocks array.
     blocks: PackedArray,
+    /// Non-null blocks count. "Null block" is a shorthand for the block state at save ID 0 in the
+    /// global palette, likely to be an 'air' block state for example in vanilla. This number must
+    /// be between 0 (inclusive) and 4096 (exclusive), other values are unsafe.
+    non_null_blocks_count: u16,
+    /// The save ID of the "null block", used to update `non_null_blocks_count` field, `None`
+    /// if there we are using local palette and the null block is not in it. None also implies
+    /// that `non_null_blocks_count` must be equal to 4096 because there is no null block.
+    null_block_sid: Option<u32>,
 }
 
 // We must unsafely implement Send + Sync because of the `Palette<*const BlockState>`, this field
@@ -535,54 +547,37 @@ unsafe impl Sync for SubChunk {}
 // lookup is fast, but because the lookup is O(N) we have to find a balanced capacity.
 const BLOCKS_PALETTE_CAPACITY: usize = 128;
 
+// Minimum size (in bits) of bytes representing block indices to local or global palette.
+const BLOCKS_ARRAY_MIN_BYTE_SIZE: u8 = 4;
+
 
 impl SubChunk {
 
-    /// Build a new sub chunk, you can pass Some SubChunkOptions if you want to change the
-    /// default block state or biome.
-    ///
-    /// If no options is given or both `SubChunkOptions::default_block` and
-    /// `SubChunkOptions::default_biome` are None, then the method will never return an
-    /// `ChunkError`.
-    pub fn new(env: Arc<LevelEnv>, options: Option<&SubChunkOptions>) -> ChunkResult<Self> {
+    /// Construct a new sub chunk with the given level environment. The default block is
+    /// the "null-block" which is the block with save ID 0 in the global blocks palette
+    /// (which is air in vanilla global palette).
+    pub fn new(env: Arc<LevelEnv>) -> Self {
 
-        let default_state = match options {
-            Some(SubChunkOptions { default_block: Some(default_block), .. }) => {
-                env.blocks.check_state(*default_block, || ChunkError::IllegalBlock)?
-            },
-            _ => {
-                // SAFETY: Here we can unwrap because the level has already checked that the
-                //         global palettes contains at least one state.
-                env.blocks.get_state_from(0).unwrap()
-            }
-        };
+        let null_block = env.blocks.get_state_from(0)
+            .expect("An global blocks palette is not supported by SubChunk.");
 
         // The palettes are initialized with an initial state and biome (usually air and void, if
         // vanilla environment), this is required because the packed array has default values of 0,
         // and they must have a corresponding valid value in palettes, at least at the beginning.
-        Ok(SubChunk {
+        SubChunk {
             env,
-            blocks_palette: Some(Palette::new(Some(default_state), BLOCKS_PALETTE_CAPACITY)),
-            blocks: PackedArray::new(BLOCKS_DATA_SIZE, 4, None),
-        })
+            blocks_palette: Some(Palette::with_default(null_block, BLOCKS_PALETTE_CAPACITY)),
+            blocks: PackedArray::new(BLOCKS_DATA_SIZE, BLOCKS_ARRAY_MIN_BYTE_SIZE, None),
+            non_null_blocks_count: 0,
+            null_block_sid: Some(0)
+        }
 
-    }
-
-    /// Build a new sub chunk using the default block and default biome to fill it.
-    pub fn new_default(env: Arc<LevelEnv>) -> Self {
-        Self::new(env, None).unwrap()
     }
 
     #[inline]
     fn get_blocks_byte_size(env: &LevelEnv) -> u8 {
         PackedArray::calc_min_byte_size(env.blocks.states_count() as u64 - 1)
-    }
-
-    #[inline]
-    fn get_biomes_byte_size(env: &LevelEnv) -> u8 {
-        // This is 7 bits for current vanilla biomes, this only take 64 octets of storage.
-        // Subtracting 1 because the maximum biome save ID is the maximum value.
-        PackedArray::calc_min_byte_size(env.biomes.biomes_count() as u64 - 1)
+            .max(BLOCKS_ARRAY_MIN_BYTE_SIZE)
     }
 
     // BLOCKS //
@@ -607,11 +602,18 @@ impl SubChunk {
 
     }
 
+    /// # Caution
+    /// This method will not update heightmaps of the owner chunk.
     pub fn set_block(&mut self, x: u8, y: u8, z: u8, state: &'static BlockState) -> ChunkResult<()> {
         let idx = calc_block_index(x, y, z);
         match self.ensure_block_sid(state) {
             Some(sid) => {
-                self.blocks.set(idx, sid as u64);
+                let old_sid = self.blocks.set(idx, sid as u64) as u32;
+                if let Some(null_block_sid) = self.null_block_sid {
+                    let was_null = old_sid == null_block_sid;
+                    let is_null = sid == null_block_sid;
+                    self.non_null_blocks_count = (self.non_null_blocks_count as i16 + was_null as i16 - is_null as i16) as u16;
+                }
                 Ok(())
             },
             None => Err(ChunkError::IllegalBlock)
@@ -666,7 +668,31 @@ impl SubChunk {
                 global_palette.get_sid_from(unsafe { std::mem::transmute(state) }).unwrap() as u64
             });
             self.blocks_palette = None;
+            self.null_block_sid = Some(0);
         }
+    }
+
+    /// Force fill all the sub chunk with the given block state.
+    pub fn fill_block(&mut self, state: &'static BlockState) -> ChunkResult<()> {
+        match self.env.blocks.get_sid_from(state) {
+            None => return Err(ChunkError::IllegalBlock),
+            Some(0) => {
+                self.null_block_sid = Some(0);
+                self.non_null_blocks_count = 0;
+            }
+            Some(_) => {
+                self.null_block_sid = None;
+                self.non_null_blocks_count = 4096;
+            }
+        }
+        self.blocks_palette.insert(Palette::with_default(state, BLOCKS_PALETTE_CAPACITY));
+        unsafe {
+            // SAFETY: We don't care of the old content, and clearing all cells will set every
+            // value to 0, which points to the new state at save ID 0 in the palette.
+            self.blocks.resize_raw(BLOCKS_ARRAY_MIN_BYTE_SIZE);
+            self.blocks.clear_cells();
+        }
+        Ok(())
     }
 
     /// # Safety:
@@ -676,7 +702,7 @@ impl SubChunk {
     /// The blocks iterator must return only valid indices for the given palette.
     pub unsafe fn set_blocks_raw<I>(&mut self, palette: Vec<&'static BlockState>, mut blocks: I)
     where
-        I: Iterator<Item = u64>
+        I: Iterator<Item = usize>
     {
 
         assert_ne!(palette.len(), 0, "Palette length is zero.");
@@ -684,14 +710,22 @@ impl SubChunk {
         if palette.len() <= BLOCKS_PALETTE_CAPACITY {
 
             let palette = cast_vec_ref_to_ptr(palette);
-            let byte_size = PackedArray::calc_min_byte_size(palette.len() as u64 - 1).max(4);
+            let byte_size = PackedArray::calc_min_byte_size(palette.len() as u64 - 1)
+                .max(BLOCKS_ARRAY_MIN_BYTE_SIZE);
+
+            // Update the null block save ID, which is not necessarily present.
+            let null_block = self.env.blocks.get_state_from(0).unwrap();
+            self.null_block_sid = palette.iter()
+                .position(move |&v| v == null_block)
+                .map(|idx| idx as u32);
+
             self.blocks_palette.insert(Palette::from_raw(palette, BLOCKS_PALETTE_CAPACITY));
 
             // We resize raw because we don't care of the old content, and the new byte size might
             // be smaller than the old one.
             self.blocks.resize_raw(byte_size);
-            self.blocks.replace(|_, _| {
-                blocks.next().unwrap_or(0)
+            self.blocks.replace(move |_, _| {
+                blocks.next().unwrap_or(0) as u64
             });
 
         } else {
@@ -701,16 +735,40 @@ impl SubChunk {
             let byte_size = Self::get_blocks_byte_size(&self.env);
             let global_blocks = &self.env.blocks;
 
+            self.null_block_sid = Some(0); // Because of global palette
+
             self.blocks.resize_raw(byte_size);
-            self.blocks.replace(|_, _| {
+            self.blocks.replace(move |_, _| {
                 let palette_idx = blocks.next().unwrap_or(0);
-                let state = palette[palette_idx as usize];
+                let state = palette[palette_idx];
                 // SAFETY: We can unwrap because this is an safety condition of the method.
                 global_blocks.get_sid_from(state).unwrap() as u64
             });
 
         }
 
+        self.refresh_non_null_blocks_count();
+
+    }
+
+    fn refresh_non_null_blocks_count(&mut self) {
+        if let Some(null_block_sid) = self.null_block_sid {
+            self.non_null_blocks_count = self.blocks.iter()
+                .filter(move |&sid| sid != null_block_sid as u64)
+                .count() as u16;
+        } else {
+            self.non_null_blocks_count = 4096; // The is no null block.
+        }
+    }
+
+    // Meta info //
+
+    pub fn non_null_blocks_count(&self) -> u16 {
+        self.non_null_blocks_count
+    }
+
+    pub fn null_blocks_count(&self) -> u16 {
+        4096 - self.non_null_blocks_count
     }
 
 }
@@ -792,7 +850,8 @@ mod tests {
 
     crate::blocks!(TEST_BLOCKS "test" [
         AIR "air",
-        STONE "stone"
+        STONE "stone",
+        DIRT "dirt"
     ]);
 
     crate::biomes!(TEST_BIOMES "test" [
@@ -820,18 +879,18 @@ mod tests {
     #[test]
     fn valid_height() {
         let mut chunk = build_chunk();
-        assert!(matches!(chunk.ensure_sub_chunk(-2, None), Err(ChunkError::SubChunkOutOfRange)));
-        assert!(matches!(chunk.ensure_sub_chunk(-1, None), Ok(_)));
-        assert!(matches!(chunk.ensure_sub_chunk(0, None), Ok(_)));
-        assert!(matches!(chunk.ensure_sub_chunk(1, None), Ok(_)));
-        assert!(matches!(chunk.ensure_sub_chunk(2, None), Ok(_)));
-        assert!(matches!(chunk.ensure_sub_chunk(3, None), Err(ChunkError::SubChunkOutOfRange)));
+        assert!(matches!(chunk.ensure_sub_chunk(-2), Err(ChunkError::SubChunkOutOfRange)));
+        assert!(matches!(chunk.ensure_sub_chunk(-1), Ok(_)));
+        assert!(matches!(chunk.ensure_sub_chunk(0), Ok(_)));
+        assert!(matches!(chunk.ensure_sub_chunk(1), Ok(_)));
+        assert!(matches!(chunk.ensure_sub_chunk(2), Ok(_)));
+        assert!(matches!(chunk.ensure_sub_chunk(3), Err(ChunkError::SubChunkOutOfRange)));
     }
 
     #[test]
     fn valid_set_get() {
         let mut chunk = build_chunk();
-        chunk.ensure_sub_chunk(-1, None).unwrap();
+        chunk.ensure_sub_chunk(-1).unwrap();
         assert_eq!(chunk.get_block(0, -16, 0).unwrap(), AIR.get_default_state());
         assert!(matches!(chunk.get_block(0, 0, 0), Err(ChunkError::SubChunkUnloaded)));
         assert!(matches!(chunk.set_block(0, 0, 0, STONE.get_default_state()), Ok(_)));
@@ -855,6 +914,39 @@ mod tests {
         assert!(matches!(chunk.get_heightmap_column(&TEST, 0, 0), Ok(-16)));
         chunk.set_block(0, 47, 0, STONE.get_default_state()).unwrap();
         assert!(matches!(chunk.get_heightmap_column(&TEST, 0, 0), Ok(48)));
+    }
+
+    #[test]
+    fn valid_non_null_blocks_count() {
+
+        let mut chunk = build_chunk();
+        let sub_chunk = chunk.ensure_sub_chunk(0).unwrap();
+        assert_eq!(sub_chunk.null_blocks_count(), 4096);
+        assert_eq!(sub_chunk.non_null_blocks_count(), 0);
+        sub_chunk.set_block(0, 0, 0, STONE.get_default_state());
+        assert_eq!(sub_chunk.non_null_blocks_count(), 1);
+        sub_chunk.set_block(0, 1, 0, STONE.get_default_state());
+        assert_eq!(sub_chunk.non_null_blocks_count(), 2);
+        sub_chunk.set_block(0, 1, 0, DIRT.get_default_state());
+        assert_eq!(sub_chunk.non_null_blocks_count(), 2);
+        sub_chunk.set_block(0, 0, 0, AIR.get_default_state());
+        assert_eq!(sub_chunk.non_null_blocks_count(), 1);
+
+        sub_chunk.fill_block(AIR.get_default_state());
+        assert_eq!(sub_chunk.non_null_blocks_count(), 0);
+        sub_chunk.fill_block(DIRT.get_default_state());
+        assert_eq!(sub_chunk.null_blocks_count(), 0);
+
+        unsafe {
+
+            sub_chunk.set_blocks_raw(vec![STONE.get_default_state()], (0..4096).map(|_| 0));
+            assert_eq!(sub_chunk.null_blocks_count(), 0);
+
+            sub_chunk.set_blocks_raw(vec![AIR.get_default_state()], (0..4096).map(|_| 0));
+            assert_eq!(sub_chunk.non_null_blocks_count(), 0);
+
+        }
+
     }
 
 }
