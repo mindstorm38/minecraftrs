@@ -519,24 +519,49 @@ impl Default for SubChunkOptions {
 pub struct SubChunk {
     /// A local shared pointer to the level environment.
     env: Arc<LevelEnv>,
-    /// Blocks palette. It is limited to 128 blocks in order to support most blocks in a natural
+    /*/// Blocks palette. It is limited to 128 blocks in order to support most blocks in a natural
     /// generation, which is the case of most of the sub chunks that are untouched by players.
     /// In case of "artificial chunks" made by players, the block palette is likely to overflow
     /// the 128 block states limit, in this case it switch to the global palette (`GlobalBlocks`
     /// in the level environment).
     /// The palette uses a raw pointer in order to use the pointer equality instead of value eq.
-    blocks_palette: Option<Palette<*const BlockState>>,
+    blocks_palette: Option<Palette<*const BlockState>>,*/
+    blocks_palette: SubChunkBlocks,
     /// Cube blocks array.
     blocks: PackedArray,
     /// Non-null blocks count. "Null block" is a shorthand for the block state at save ID 0 in the
     /// global palette, likely to be an 'air' block state for example in vanilla. This number must
     /// be between 0 (inclusive) and 4096 (exclusive), other values are unsafe.
     non_null_blocks_count: u16,
-    /// The save ID of the "null block", used to update `non_null_blocks_count` field, `None`
+    /*/// The save ID of the "null block", used to update `non_null_blocks_count` field, `None`
     /// if there we are using local palette and the null block is not in it. None also implies
     /// that `non_null_blocks_count` must be equal to 4096 because there is no null block.
-    null_block_sid: Option<u32>,
+    null_block_sid: Option<u32>,*/
 }
+
+
+/// Internal sub chunks blocks palette.
+enum SubChunkBlocks {
+    Local {
+        palette: Palette<*const BlockState>,
+        null_block_sid: u32  // u32::MAX is used as a 'None'
+    },
+    Global
+}
+
+impl SubChunkBlocks {
+
+    /// Compute and return the effective null block save ID from the enum variant.
+    fn get_null_block_sid(&self) -> Option<u32> {
+        match self {
+            Self::Local { null_block_sid: u32::MAX, .. } => None,
+            Self::Local { null_block_sid, .. } => Some(*null_block_sid),
+            Self::Global => Some(0)
+        }
+    }
+
+}
+
 
 // We must unsafely implement Send + Sync because of the `Palette<*const BlockState>`, this field
 // is safe because it references a 'static reference to a lazy loaded `BlockState`.
@@ -566,10 +591,14 @@ impl SubChunk {
         // and they must have a corresponding valid value in palettes, at least at the beginning.
         SubChunk {
             env,
-            blocks_palette: Some(Palette::with_default(null_block, BLOCKS_PALETTE_CAPACITY)),
+            blocks_palette: SubChunkBlocks::Local {
+                palette: Palette::with_default(null_block, BLOCKS_PALETTE_CAPACITY),
+                null_block_sid: 0
+            },
+            // blocks_palette: Some(Palette::with_default(null_block, BLOCKS_PALETTE_CAPACITY)),
             blocks: PackedArray::new(BLOCKS_DATA_SIZE, BLOCKS_ARRAY_MIN_BYTE_SIZE, None),
             non_null_blocks_count: 0,
-            null_block_sid: Some(0)
+            // null_block_sid: Some(0)
         }
 
     }
@@ -592,12 +621,19 @@ impl SubChunk {
         //         that the palette is updated according to the blocks contents. If the user
         //         directly manipulate the contents of palette or blocks array it MUST ensure
         //         that is correct, if not this will panic here.
-        match self.blocks_palette {
+        /*match self.blocks_palette {
             Some(ref palette) => unsafe {
                 // Here we transmute a `*const BlockState` to `&'static BlockState`, this is safe.
                 std::mem::transmute(palette.get_item(sid as usize).unwrap())
             },
             None => self.env.blocks.get_state_from(sid).unwrap()
+        }*/
+        match self.blocks_palette {
+            SubChunkBlocks::Local { ref palette, .. } => unsafe {
+                // Here we transmute a `*const BlockState` to `&'static BlockState`, this is safe.
+                std::mem::transmute(palette.get_item(sid as usize).unwrap())
+            },
+            SubChunkBlocks::Global => self.env.blocks.get_state_from(sid).unwrap()
         }
 
     }
@@ -609,7 +645,7 @@ impl SubChunk {
         match self.ensure_block_sid(state) {
             Some(sid) => {
                 let old_sid = self.blocks.set(idx, sid as u64) as u32;
-                if let Some(null_block_sid) = self.null_block_sid {
+                if let Some(null_block_sid) = self.blocks_palette.get_null_block_sid() {
                     let was_null = old_sid == null_block_sid;
                     let is_null = sid == null_block_sid;
                     self.non_null_blocks_count = (self.non_null_blocks_count as i16 + was_null as i16 - is_null as i16) as u16;
@@ -622,7 +658,10 @@ impl SubChunk {
 
     fn ensure_block_sid(&mut self, state: &'static BlockState) -> Option<u32> {
 
-        if let Some(ref mut palette) = self.blocks_palette {
+        if let SubChunkBlocks::Local {
+            ref mut palette,
+            ..
+        } = self.blocks_palette {
 
             let state_ptr = state as *const BlockState;
 
@@ -657,10 +696,57 @@ impl SubChunk {
 
         self.env.blocks.get_sid_from(state)
 
+        /*if let Some(ref mut palette) = self.blocks_palette {
+
+            let state_ptr = state as *const BlockState;
+
+            // Here we intentionally dont use palette.ensure_index, because we want to check if
+            // the given state is supported by the underlying global palette before actually
+            // inserting it to the local palette.
+            match palette.search_index(state_ptr) {
+                Some(sid) => return Some(sid as u32),
+                None => {
+                    if self.env.blocks.has_state(state) {
+                        match palette.insert_index(state_ptr) {
+                            Some(sid) => {
+                                if sid as u64 > self.blocks.max_value() {
+                                    self.blocks.resize_byte(self.blocks.byte_size() + 1);
+                                }
+                                return Some(sid as u32);
+                            },
+                            None => {
+                                // In this case, the local palette is full, we have to switch to
+                                // the global one. So we don't return anything to skip the match.
+                            }
+                        }
+                    } else {
+                        return None;
+                    }
+                }
+            }
+
+            self.use_global_blocks();
+
+        }
+
+        self.env.blocks.get_sid_from(state)*/
+
     }
 
     fn use_global_blocks(&mut self) {
-        if let Some(ref local_palette) = self.blocks_palette {
+        if let SubChunkBlocks::Local {
+            ref palette,
+            ..
+        } = self.blocks_palette {
+            let new_byte_size = Self::get_blocks_byte_size(&self.env);
+            let global_palette = &self.env.blocks;
+            self.blocks.resize_byte_and_replace(new_byte_size, move |_, sid| {
+                let state = palette.get_item(sid as usize).unwrap();
+                global_palette.get_sid_from(unsafe { std::mem::transmute(state) }).unwrap() as u64
+            });
+            self.blocks_palette = SubChunkBlocks::Global;
+        }
+        /*if let Some(ref local_palette) = self.blocks_palette {
             let new_byte_size = Self::get_blocks_byte_size(&self.env);
             let global_palette = &self.env.blocks;
             self.blocks.resize_byte_and_replace(new_byte_size, move |_, sid| {
@@ -669,30 +755,41 @@ impl SubChunk {
             });
             self.blocks_palette = None;
             self.null_block_sid = Some(0);
-        }
+        }*/
     }
 
     /// Force fill all the sub chunk with the given block state.
     pub fn fill_block(&mut self, state: &'static BlockState) -> ChunkResult<()> {
-        match self.env.blocks.get_sid_from(state) {
+
+        let null_block_sid = match self.env.blocks.get_sid_from(state) {
             None => return Err(ChunkError::IllegalBlock),
             Some(0) => {
-                self.null_block_sid = Some(0);
+                // self.null_block_sid = Some(0);
                 self.non_null_blocks_count = 0;
+                0
             }
             Some(_) => {
-                self.null_block_sid = None;
+                // self.null_block_sid = None;
                 self.non_null_blocks_count = 4096;
+                u32::MAX
             }
-        }
-        self.blocks_palette.insert(Palette::with_default(state, BLOCKS_PALETTE_CAPACITY));
+        };
+
+        // self.blocks_palette.insert(Palette::with_default(state, BLOCKS_PALETTE_CAPACITY));*/
+        self.blocks_palette = SubChunkBlocks::Local {
+            palette: Palette::with_default(state, BLOCKS_PALETTE_CAPACITY),
+            null_block_sid
+        };
+
         unsafe {
             // SAFETY: We don't care of the old content, and clearing all cells will set every
             // value to 0, which points to the new state at save ID 0 in the palette.
             self.blocks.resize_raw(BLOCKS_ARRAY_MIN_BYTE_SIZE);
             self.blocks.clear_cells();
         }
+
         Ok(())
+
     }
 
     // Raw manipulations //
@@ -716,12 +813,23 @@ impl SubChunk {
                 .max(BLOCKS_ARRAY_MIN_BYTE_SIZE);
 
             // Update the null block save ID, which is not necessarily present.
-            let null_block = self.env.blocks.get_state_from(0).unwrap();
+            /*let null_block = self.env.blocks.get_state_from(0).unwrap();
             self.null_block_sid = palette.iter()
                 .position(move |&v| v == null_block)
-                .map(|idx| idx as u32);
+                .map(|idx| idx as u32);*/
 
-            self.blocks_palette.insert(Palette::from_raw(palette, BLOCKS_PALETTE_CAPACITY));
+            self.blocks_palette = SubChunkBlocks::Local {
+                null_block_sid: {
+                    let null_block = self.env.blocks.get_state_from(0).unwrap();
+                    palette.iter()
+                        .position(move |&v| v == null_block)
+                        .map(|idx| idx as u32)
+                        .unwrap_or(u32::MAX)
+                },
+                palette: Palette::from_raw(palette, BLOCKS_PALETTE_CAPACITY)
+            };
+
+            // self.blocks_palette.insert(Palette::from_raw(palette, BLOCKS_PALETTE_CAPACITY));
 
             // We resize raw because we don't care of the old content, and the new byte size might
             // be smaller than the old one.
@@ -732,12 +840,12 @@ impl SubChunk {
 
         } else {
 
-            self.blocks_palette = None;
+            self.blocks_palette = SubChunkBlocks::Global;
 
             let byte_size = Self::get_blocks_byte_size(&self.env);
             let global_blocks = &self.env.blocks;
 
-            self.null_block_sid = Some(0); // Because of global palette
+            // self.null_block_sid = Some(0); // Because of global palette
 
             self.blocks.resize_raw(byte_size);
             self.blocks.replace(move |_, _| {
@@ -753,14 +861,14 @@ impl SubChunk {
 
     }
 
-    pub fn get_blocks_raw(&self) -> impl Iterator<Item = &'static BlockState> {
+    /*pub fn get_blocks_raw(&self) -> impl Iterator<Item = &'static BlockState> {
 
         todo!("Reciprocal of set_blocks_raw")
 
-    }
+    }*/
 
     fn refresh_non_null_blocks_count(&mut self) {
-        if let Some(null_block_sid) = self.null_block_sid {
+        if let Some(null_block_sid) = self.blocks_palette.get_null_block_sid() {
             self.non_null_blocks_count = self.blocks.iter()
                 .filter(move |&sid| sid != null_block_sid as u64)
                 .count() as u16;
