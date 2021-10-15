@@ -404,7 +404,7 @@ impl Chunk {
     }
 
     /// Expose internal biomes storage, retuning an iterator with each biomes in this chunk,
-    /// ordered by X, Z than Y.
+    /// ordered by X, Z then Y.
     pub fn iter_biomes(&self) -> impl Iterator<Item = &'static Biome> + '_ {
         let biomes = &self.env.biomes;
         self.biomes.iter().map(move |v| biomes.get_biome_from(v as u16).unwrap())
@@ -474,7 +474,7 @@ impl Chunk {
     }
 
     /// Direct access method to internal packed array, returning each of the 256 values from the
-    /// given heightmap type if it exists.
+    /// given heightmap type if it exists, ordered by X then Z.
     pub fn iter_heightmap_raw_columns(&self, heightmap_type: &'static HeightmapType) -> Option<(u8, impl Iterator<Item = u64> + '_)> {
         let offset = self.env.heightmaps.get_heightmap_index(heightmap_type)? * 256;
         Some((self.heightmaps.byte_size(), self.heightmaps.iter().skip(offset).take(256)))
@@ -500,52 +500,23 @@ impl Chunk {
 }
 
 
-/*/// Options used when constructing a new `SubChunk`.
-pub struct SubChunkOptions {
-    /// The default block state used to fill
-    pub default_block: Option<&'static BlockState>
-}
-
-impl Default for SubChunkOptions {
-    fn default() -> Self {
-        Self {
-            default_block: None
-        }
-    }
-}*/
-
-
-/// A sub chunk, 16x16x16 blocks.
-pub struct SubChunk {
-    /// A local shared pointer to the level environment.
-    env: Arc<LevelEnv>,
-    /*/// Blocks palette. It is limited to 128 blocks in order to support most blocks in a natural
-    /// generation, which is the case of most of the sub chunks that are untouched by players.
-    /// In case of "artificial chunks" made by players, the block palette is likely to overflow
-    /// the 128 block states limit, in this case it switch to the global palette (`GlobalBlocks`
-    /// in the level environment).
-    /// The palette uses a raw pointer in order to use the pointer equality instead of value eq.
-    blocks_palette: Option<Palette<*const BlockState>>,*/
-    blocks_palette: SubChunkBlocks,
-    /// Cube blocks array.
-    blocks: PackedArray,
-    /// Non-null blocks count. "Null block" is a shorthand for the block state at save ID 0 in the
-    /// global palette, likely to be an 'air' block state for example in vanilla. This number must
-    /// be between 0 (inclusive) and 4096 (exclusive), other values are unsafe.
-    non_null_blocks_count: u16,
-    /*/// The save ID of the "null block", used to update `non_null_blocks_count` field, `None`
-    /// if there we are using local palette and the null block is not in it. None also implies
-    /// that `non_null_blocks_count` must be equal to 4096 because there is no null block.
-    null_block_sid: Option<u32>,*/
-}
-
-
 /// Internal sub chunks blocks palette.
 enum SubChunkBlocks {
+    /// Local blocks palette.
     Local {
+        /// Blocks palette. It is limited to 128 blocks in order to support most blocks in a natural
+        /// generation, which is the case of most of the sub chunks that are untouched by players.
+        /// In case of "artificial chunks" made by players, the block palette is likely to overflow
+        /// the 128 block states limit, in this case it switch to the global palette (`GlobalBlocks`
+        /// in the level environment).
+        /// The palette uses a raw pointer in order to use the pointer equality instead of value eq.
         palette: Palette<*const BlockState>,
-        null_block_sid: u32  // u32::MAX is used as a 'None'
+        /// Save ID of the null block in the palette. Set to `u32::MAX` if the null block is not
+        /// present in the local palette. This value is safe because the palette has a limited
+        /// capacity of `BLOCKS_PALETTE_CAPACITY` block states.
+        null_block_sid: u32
     },
+    /// Global blocks palette.
     Global
 }
 
@@ -562,11 +533,24 @@ impl SubChunkBlocks {
 
 }
 
+// Implemented because palette of '*const BlockState' prevent it by default.
+unsafe impl Send for SubChunkBlocks {}
+unsafe impl Sync for SubChunkBlocks {}
 
-// We must unsafely implement Send + Sync because of the `Palette<*const BlockState>`, this field
-// is safe because it references a 'static reference to a lazy loaded `BlockState`.
-unsafe impl Send for SubChunk {}
-unsafe impl Sync for SubChunk {}
+
+/// A sub chunk, 16x16x16 blocks.
+pub struct SubChunk {
+    /// A local shared pointer to the level environment.
+    env: Arc<LevelEnv>,
+    /// Local of global blocks palette.
+    blocks_palette: SubChunkBlocks,
+    /// Cube blocks array.
+    blocks: PackedArray,
+    /// Non-null blocks count. "Null block" is a shorthand for the block state at save ID 0 in the
+    /// global palette, likely to be an 'air' block state for example in vanilla. This number must
+    /// be between 0 (inclusive) and 4096 (exclusive), other values are unsafe.
+    non_null_blocks_count: u16,
+}
 
 // Palette capacity must ensure that most of the chunks will be supported AND that the palette
 // lookup is fast, but because the lookup is O(N) we have to find a balanced capacity.
@@ -610,23 +594,10 @@ impl SubChunk {
     // BLOCKS //
 
     pub fn get_block(&self, x: u8, y: u8, z: u8) -> &'static BlockState {
-
         // SAFETY: The unwrap should be safe because the block index is expected to be right,
         //         moreover it is checked in debug mode.
         let sid = self.blocks.get(calc_block_index(x, y, z)).unwrap() as u32;
-
-        // SAFETY: The unwraps should be safe in this case because the `set_block` ensure
-        //         that the palette is updated according to the blocks contents. If the user
-        //         directly manipulate the contents of palette or blocks array it MUST ensure
-        //         that is correct, if not this will panic here.
-        match self.blocks_palette {
-            SubChunkBlocks::Local { ref palette, .. } => unsafe {
-                // Here we transmute a `*const BlockState` to `&'static BlockState`, this is safe.
-                std::mem::transmute(palette.get_item(sid as usize).unwrap())
-            },
-            SubChunkBlocks::Global => self.env.blocks.get_state_from(sid).unwrap()
-        }
-
+        self.get_block_from_sid(sid)
     }
 
     /// # Caution
@@ -647,6 +618,27 @@ impl SubChunk {
         }
     }
 
+    /// Internal method to get the block state reference from its save ID. It is internal because
+    /// calling this method with invalid save ID for the sub chunk will panic.
+    #[inline]
+    fn get_block_from_sid(&self, sid: u32) -> &'static BlockState {
+        // SAFETY: The unwraps should be safe in this case because the `set_block` ensure
+        //         that the palette is updated according to the blocks contents. If the user
+        //         directly manipulate the contents of palette or blocks array it MUST ensure
+        //         that is correct, if not this will panic here.
+        match self.blocks_palette {
+            SubChunkBlocks::Local { ref palette, .. } => unsafe {
+                // Here we transmute a `*const BlockState` to `&'static BlockState`, this is safe.
+                std::mem::transmute(palette.get_item(sid as usize).unwrap())
+            },
+            SubChunkBlocks::Global => self.env.blocks.get_state_from(sid).unwrap()
+        }
+    }
+
+    /// Internal method to get the save ID of a given block state within this chunk. If this
+    /// block state is not currently registered, a new save ID will be allocated. If there
+    /// are more than `BLOCKS_PALETTE_CAPACITY` blocks in the local palette, the whole blocks
+    /// packed array will be resized in order to store global save ID instead of local ones.
     fn ensure_block_sid(&mut self, state: &'static BlockState) -> Option<u32> {
 
         if let SubChunkBlocks::Local {
@@ -794,11 +786,14 @@ impl SubChunk {
 
     }
 
-    /*pub fn get_blocks_raw(&self) -> impl Iterator<Item = &'static BlockState> {
-
-        todo!("Reciprocal of set_blocks_raw")
-
-    }*/
+    /// Iterate over all blocks in this chunk, ordered by X, Z then Y.
+    pub fn iter_blocks(&self) -> impl Iterator<Item = &'static BlockState> + '_ {
+        SubChunkBlocksIter {
+            inner: self.blocks.iter(),
+            sub_chunk: self,
+            last_block: None
+        }
+    }
 
     fn refresh_non_null_blocks_count(&mut self) {
         if let Some(null_block_sid) = self.blocks_palette.get_null_block_sid() {
@@ -818,6 +813,39 @@ impl SubChunk {
 
     pub fn null_blocks_count(&self) -> u16 {
         4096 - self.non_null_blocks_count
+    }
+
+}
+
+
+/// An efficient iterator over all blocks in a sub chunk.
+pub struct SubChunkBlocksIter<'a, I> {
+    inner: I,
+    sub_chunk: &'a SubChunk,
+    last_block: Option<(u64, &'static BlockState)>
+}
+
+impl<'a, I> Iterator for SubChunkBlocksIter<'a, I>
+where
+    I: Iterator<Item = u64>
+{
+
+    type Item = &'static BlockState;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner.next() {
+            None => None,
+            Some(sid) => {
+                match self.last_block {
+                    Some((last_sid, state)) if last_sid == sid => Some(state),
+                    ref mut last_block => {
+                        let state = self.sub_chunk.get_block_from_sid(sid as u32);
+                        last_block.insert((sid, state));
+                        Some(state)
+                    }
+                }
+            }
+        }
     }
 
 }
