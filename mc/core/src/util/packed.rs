@@ -68,17 +68,30 @@ impl PackedArray {
         if index < self.length {
             let mask = Self::calc_mask(self.byte_size);
             if value <= mask {
-                let (cell_index, bit_index) = self.get_indices(index);
-                let cell = &mut self.cells[cell_index];
-                let old_value = (*cell >> bit_index) & mask;
-                *cell = (*cell & !(mask << bit_index)) | (value << bit_index); // Clear and Set
-                old_value
+                self.internal_set(index, value)
             } else {
                 panic!("Given value {} does not fit in {} bits.", value, self.byte_size);
             }
         } else {
             panic!("Index out of bounds, {} with length {}.", index, self.length);
         }
+    }
+
+    pub fn set_auto_resize(&mut self, index: usize, value: u64) -> u64 {
+        // If the byte size if already 64, we know that the given value must fit.
+        if self.byte_size != 64 && value >= (1u64 << self.byte_size) {
+            self.resize_byte(Self::calc_min_byte_size(value));
+        }
+        self.internal_set(index, value)
+    }
+
+    #[inline]
+    fn internal_set(&mut self, index: usize, value: u64) -> u64 {
+        let (cell_index, bit_index) = self.get_indices(index);
+        let cell = &mut self.cells[cell_index];
+        let old_value = (*cell >> bit_index) & mask;
+        *cell = (*cell & !(mask << bit_index)) | (value << bit_index); // Clear and Set
+        old_value
     }
 
     fn get_indices(&self, index: usize) -> (usize, usize) {
@@ -225,6 +238,11 @@ impl PackedArray {
 
     pub unsafe fn clear_cells(&mut self) {
         self.cells.iter_mut().for_each(|c| *c = 0);
+    }
+
+    #[inline]
+    pub fn into_inner(self) -> Vec<u64> {
+        self.cells
     }
 
     // Utils //
