@@ -12,8 +12,8 @@ use crate::heightmap::GlobalHeightmaps;
 use crate::pos::{EntityPos, BlockPos};
 use crate::debug;
 
+use super::source::{LevelSource, ChunkLoadRequest, ChunkSaveRequest, LevelSourceError, ProtoChunk};
 use super::chunk::{Chunk, ChunkHeight, ChunkResult, ChunkError};
-use super::source::{LevelSource, ChunkInfo, LevelSourceError, ProtoChunk};
 
 
 /// A structure that contains the static environment of a World, this can be used for multiple
@@ -113,13 +113,13 @@ impl Level {
         self.height
     }
 
-    // CHUNKS LOADING (FROM SOURCE //
+    // CHUNKS LOADING (FROM SOURCE) //
 
     /// Request internal level source to load the given chunk.
     pub fn request_chunk(&mut self, cx: i32, cz: i32) -> bool {
         if !self.loading_chunks.contains(&(cx, cz)) {
             debug!("Request chunk load at {}/{}", cx, cz);
-            match self.source.request_chunk_load(ChunkInfo {
+            match self.source.request_chunk_load(ChunkLoadRequest {
                 env: self.get_env(),
                 height: self.height,
                 cx,
@@ -209,6 +209,20 @@ impl Level {
         self.load_chunks_with_callback(|_| {});
     }
 
+    // CHUNK SAVING (TO SOURCE) //
+
+    pub fn request_chunk_save(&mut self, cx: i32, cz: i32) -> bool {
+        if let Some(chunk) = self.chunks.get_chunk_arc(cx, cz) {
+            self.source.request_chunk_save(ChunkSaveRequest {
+                cx,
+                cz,
+                chunk
+            }).is_ok()
+        } else {
+            false
+        }
+    }
+
     // ENTITIES //
 
     pub fn spawn_entity(&mut self, entity_type: &'static EntityType, pos: EntityPos) -> Option<Entity> {
@@ -259,6 +273,10 @@ impl ChunkStorage {
                 v.insert(arc)
             }
         }
+    }
+
+    pub fn get_chunk_arc(&self, cx: i32, cz: i32) -> Option<Arc<RwLock<Chunk>>> {
+        self.chunks.get(&(cx, cz)).map(Arc::clone)
     }
 
     /// Return true if a chunk is loaded at a specific position.

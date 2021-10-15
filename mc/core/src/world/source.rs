@@ -39,20 +39,20 @@ pub trait LevelSource {
     /// Request loading of the chunk at the given position. If you return an error, you must
     /// return back the given `ChunkInfo` together with the `LevelSourceError`. If you return
     /// `Ok(())` **you must** give a result later when calling `poll_chunk`.
-    fn request_chunk_load(&mut self, info: ChunkInfo) -> Result<(), (LevelSourceError, ChunkInfo)> {
-        Err((LevelSourceError::UnsupportedChunkLoad, info))
+    fn request_chunk_load(&mut self, req: ChunkLoadRequest) -> Result<(), (LevelSourceError, ChunkLoadRequest)> {
+        Err((LevelSourceError::UnsupportedChunkLoad, req))
     }
 
     /// Poll the next loaded chunk that is ready to be inserted into the level's chunk storage.
     /// Every requested load chunk `request_chunk_load` method that returned `Ok(())` should
     /// return some some result here, even if it's an error.
-    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
+    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>> {
         None
     }
 
     /// Request saving of the chunk at the given position.
     #[allow(unused_variables)]
-    fn request_chunk_save(&mut self, chunk: Arc<RwLock<Chunk>>) -> Result<(), LevelSourceError> {
+    fn request_chunk_save(&mut self, req: ChunkSaveRequest) -> Result<(), LevelSourceError> {
         Err(LevelSourceError::UnsupportedChunkSave)
     }
 
@@ -62,14 +62,14 @@ pub trait LevelSource {
 /// This structure is constructed by levels and passed to `LevelSource` when requesting for
 /// chunk loading, the chunk must be constructed from the given data.
 #[derive(Clone)]
-pub struct ChunkInfo {
+pub struct ChunkLoadRequest {
     pub env: Arc<LevelEnv>,
     pub height: ChunkHeight,
     pub cx: i32,
     pub cz: i32,
 }
 
-impl ChunkInfo {
+impl ChunkLoadRequest {
 
     /// Build a chunk from this chunk info.
     pub fn build_chunk(&self) -> Chunk {
@@ -83,6 +83,13 @@ impl ChunkInfo {
         }
     }
 
+}
+
+#[derive(Clone)]
+pub struct ChunkSaveRequest {
+    pub cx: i32,
+    pub cz: i32,
+    pub chunk: Arc<RwLock<Chunk>>
 }
 
 
@@ -167,8 +174,8 @@ where
     G: LevelSource,
 {
 
-    fn request_chunk_load(&mut self, info: ChunkInfo) -> Result<(), (LevelSourceError, ChunkInfo)> {
-        match self.loader.request_chunk_load(info) {
+    fn request_chunk_load(&mut self, req: ChunkLoadRequest) -> Result<(), (LevelSourceError, ChunkLoadRequest)> {
+        match self.loader.request_chunk_load(req) {
             Err((LevelSourceError::UnsupportedChunkPosition, info)) => {
                 // If the loader does not support this chunk, directly request the generator.
                 self.generator.request_chunk_load(info)
@@ -178,7 +185,7 @@ where
         }
     }
 
-    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
+    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>> {
 
         // We check the loader first.
         while let Some(res) = self.loader.poll_chunk() {
@@ -200,8 +207,8 @@ where
 
     }
 
-    fn request_chunk_save(&mut self, chunk: Arc<RwLock<Chunk>>) -> Result<(), LevelSourceError> {
-        self.loader.request_chunk_save(chunk)
+    fn request_chunk_save(&mut self, req: ChunkSaveRequest) -> Result<(), LevelSourceError> {
+        self.loader.request_chunk_save(req)
     }
 
 }
@@ -212,7 +219,7 @@ where
 /// to do this you need to wrap it into `LevelGeneratorSource`, this structure will clone your
 /// generator in any given workers count and run them asynchronously.
 pub trait LevelGenerator {
-    fn generate(&mut self, info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)>;
+    fn generate(&mut self, info: ChunkLoadRequest) -> Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>;
 }
 
 
@@ -220,8 +227,8 @@ pub trait LevelGenerator {
 /// generation. This wrapper dispatches incoming chunk request into the given number of worker
 /// threads.
 pub struct LevelGeneratorSource {
-    request_sender: Sender<ChunkInfo>,
-    result_receiver: Receiver<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>,
+    request_sender: Sender<ChunkLoadRequest>,
+    result_receiver: Receiver<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>>,
 }
 
 impl LevelGeneratorSource {
@@ -264,13 +271,13 @@ impl LevelGeneratorSource {
 
 impl LevelSource for LevelGeneratorSource {
 
-    fn request_chunk_load(&mut self, info: ChunkInfo) -> Result<(), (LevelSourceError, ChunkInfo)> {
+    fn request_chunk_load(&mut self, req: ChunkLoadRequest) -> Result<(), (LevelSourceError, ChunkLoadRequest)> {
         // SAFETY: Unwrap should be safe because the channel is unbounded.
-        self.request_sender.send(info).unwrap();
+        self.request_sender.send(req).unwrap();
         Ok(())
     }
 
-    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
+    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>> {
         self.result_receiver.try_recv().ok()
     }
 
@@ -279,8 +286,8 @@ impl LevelSource for LevelGeneratorSource {
 /// Internal thread structure used by `LevelGeneratorSource`.
 struct LevelGeneratorSourceWorker<G> {
     generator: G,
-    request_receiver: Receiver<ChunkInfo>,
-    result_sender: Sender<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>
+    request_receiver: Receiver<ChunkLoadRequest>,
+    result_sender: Sender<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>>
 }
 
 impl<G> LevelGeneratorSourceWorker<G>
@@ -328,7 +335,7 @@ impl SuperFlatGenerator {
 
 impl LevelGenerator for SuperFlatGenerator {
 
-    fn generate(&mut self, info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)> {
+    fn generate(&mut self, info: ChunkLoadRequest) -> Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)> {
         let mut chunk = info.build_proto_chunk();
         for &(state, y, height) in &self.layers {
             for y in y..(y + height as i32) {

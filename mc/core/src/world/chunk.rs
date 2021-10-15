@@ -839,9 +839,7 @@ where
                 match self.last_block {
                     Some((last_sid, state)) if last_sid == sid => Some(state),
                     ref mut last_block => {
-                        let state = self.sub_chunk.get_block_from_sid(sid as u32);
-                        last_block.insert((sid, state));
-                        Some(state)
+                        Some(&last_block.insert((sid, self.sub_chunk.get_block_from_sid(sid as u32))).1)
                     }
                 }
             }
@@ -1000,18 +998,18 @@ mod tests {
         let sub_chunk = chunk.ensure_sub_chunk(0).unwrap();
         assert_eq!(sub_chunk.null_blocks_count(), 4096);
         assert_eq!(sub_chunk.non_null_blocks_count(), 0);
-        sub_chunk.set_block(0, 0, 0, STONE.get_default_state());
+        sub_chunk.set_block(0, 0, 0, STONE.get_default_state()).unwrap();
         assert_eq!(sub_chunk.non_null_blocks_count(), 1);
-        sub_chunk.set_block(0, 1, 0, STONE.get_default_state());
+        sub_chunk.set_block(0, 1, 0, STONE.get_default_state()).unwrap();
         assert_eq!(sub_chunk.non_null_blocks_count(), 2);
-        sub_chunk.set_block(0, 1, 0, DIRT.get_default_state());
+        sub_chunk.set_block(0, 1, 0, DIRT.get_default_state()).unwrap();
         assert_eq!(sub_chunk.non_null_blocks_count(), 2);
-        sub_chunk.set_block(0, 0, 0, AIR.get_default_state());
+        sub_chunk.set_block(0, 0, 0, AIR.get_default_state()).unwrap();
         assert_eq!(sub_chunk.non_null_blocks_count(), 1);
 
-        sub_chunk.fill_block(AIR.get_default_state());
+        sub_chunk.fill_block(AIR.get_default_state()).unwrap();
         assert_eq!(sub_chunk.non_null_blocks_count(), 0);
-        sub_chunk.fill_block(DIRT.get_default_state());
+        sub_chunk.fill_block(DIRT.get_default_state()).unwrap();
         assert_eq!(sub_chunk.null_blocks_count(), 0);
 
         unsafe {

@@ -85,7 +85,7 @@ impl RegionFile {
         let mut sectors;
 
         if file_len == 0 && create {
-            file.write_all(&[0; 8192]);
+            file.write_all(&[0; 8192])?;
             sectors = BitVec::new();
         } else {
 

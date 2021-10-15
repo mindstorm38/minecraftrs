@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
-use mc_core::world::source::{LevelGenerator, ProtoChunk, ChunkInfo, LevelSourceError};
+use mc_core::world::source::{LevelGenerator, ProtoChunk, ChunkLoadRequest, LevelSourceError};
 use mc_core::world::chunk::Chunk;
 use mc_core::biome::{Biome, BiomeKey};
 use mc_core::block::{BlockState, Block};
@@ -499,7 +499,7 @@ impl LevelGenRelease102 {
 
 impl LevelGenerator for LevelGenRelease102 {
 
-    fn generate(&mut self, info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)> {
+    fn generate(&mut self, info: ChunkLoadRequest) -> Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)> {
 
         const POS_LIMIT: i32 = 1_875_004;
         const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);

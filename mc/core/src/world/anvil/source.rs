@@ -1,14 +1,12 @@
 use std::thread::Builder as ThreadBuilder;
 use std::time::{Instant, Duration};
 use std::path::{PathBuf, Path};
-use std::sync::{Arc, RwLock};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use crossbeam_channel::{Sender, Receiver, RecvTimeoutError, unbounded, bounded};
 
-use crate::world::source::{LevelSource, LevelSourceError, ChunkInfo, ProtoChunk};
-use crate::world::chunk::Chunk;
+use crate::world::source::{LevelSource, LevelSourceError, ChunkLoadRequest, ProtoChunk, ChunkSaveRequest};
 use crate::util::TimedCache;
 use crate::debug;
 
@@ -18,8 +16,8 @@ use super::encode::{encode_chunk_to_writer};
 
 
 enum Request {
-    Load(ChunkInfo),
-    Save(Arc<RwLock<Chunk>>)
+    Load(ChunkLoadRequest),
+    Save(ChunkSaveRequest)
 }
 
 
@@ -28,7 +26,7 @@ enum Request {
 /// remains opened for `REGIONS_CACHE_TIME` duration.
 pub struct AnvilLevelSource {
     request_sender: Sender<Request>,
-    result_receiver: Receiver<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>
+    result_receiver: Receiver<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>>
 }
 
 impl AnvilLevelSource {
@@ -56,18 +54,18 @@ impl AnvilLevelSource {
 
 impl LevelSource for AnvilLevelSource {
 
-    fn request_chunk_load(&mut self, info: ChunkInfo) -> Result<(), (LevelSourceError, ChunkInfo)> {
+    fn request_chunk_load(&mut self, req: ChunkLoadRequest) -> Result<(), (LevelSourceError, ChunkLoadRequest)> {
         // SAFETY: Unwrap should be safe because the channel is unbounded.
-        self.request_sender.send(Request::Load(info)).unwrap();
+        self.request_sender.send(Request::Load(req)).unwrap();
         Ok(())
     }
 
-    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
+    fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>> {
         self.result_receiver.try_recv().ok()
     }
 
-    fn request_chunk_save(&mut self, chunk: Arc<RwLock<Chunk>>) -> Result<(), LevelSourceError> {
-        self.request_sender.send(Request::Save(chunk));
+    fn request_chunk_save(&mut self, req: ChunkSaveRequest) -> Result<(), LevelSourceError> {
+        self.request_sender.send(Request::Save(req)).unwrap();
         Ok(())
     }
 
@@ -80,7 +78,7 @@ const REGIONS_REQUEST_RECV_TIMEOUT: Duration = Duration::from_secs(30);
 struct Worker {
     regions_dir: PathBuf,
     request_receiver: Receiver<Request>,
-    result_sender: Sender<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>,
+    result_sender: Sender<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>>,
     regions: HashMap<(i32, i32), TimedCache<RegionFile>>,
     last_cache_check: Instant
 }
@@ -91,7 +89,7 @@ impl Worker {
     fn new(
         regions_dir: PathBuf,
         request_receiver: Receiver<Request>
-    ) -> Receiver<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
+    ) -> Receiver<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>> {
 
         let (
             result_sender,
@@ -120,17 +118,17 @@ impl Worker {
         loop {
 
             match self.request_receiver.recv_timeout(REGIONS_REQUEST_RECV_TIMEOUT) {
-                Ok(Request::Load(chunk_info)) => {
-                    debug!("Received chunk load request for {}/{}", chunk_info.cx, chunk_info.cz);
-                    let chunk = self.load_chunk(chunk_info);
+                Ok(Request::Load(req)) => {
+                    debug!("Received chunk load request for {}/{}", req.cx, req.cz);
+                    let chunk = self.load_chunk(req);
                     if let Err(_) = self.result_sender.send(chunk) {
                         break
                     }
-                },
-                Ok(Request::Save(chunk)) => {
-                    debug!("Received chunk save request for {}/{}", chunk_info.cx, chunk_info.cz);
-                    self.save_chunk(chunk);
-                },
+                }
+                Ok(Request::Save(req)) => {
+                    debug!("Received chunk save request for {}/{}", req.cx, req.cz);
+                    self.save_chunk(req);
+                }
                 Err(RecvTimeoutError::Timeout) => {},
                 Err(RecvTimeoutError::Disconnected) => break
             }
@@ -152,35 +150,35 @@ impl Worker {
         }
     }
 
-    fn load_chunk(&mut self, chunk_info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)> {
+    fn load_chunk(&mut self, req: ChunkLoadRequest) -> Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)> {
 
-        let (rx, rz) = calc_region_pos(chunk_info.cx, chunk_info.cz);
+        let (rx, rz) = calc_region_pos(req.cx, req.cz);
         let region = match self.access_region(rx, rz, false) {
             Ok(region) => region,
-            Err(RegionError::FileNotFound(_)) => return Err((LevelSourceError::UnsupportedChunkPosition, chunk_info)),
-            Err(_) => return Err((LevelSourceError::new_custom(e), chunk_info))
+            Err(RegionError::FileNotFound(_)) => return Err((LevelSourceError::UnsupportedChunkPosition, req)),
+            Err(e) => return Err((LevelSourceError::new_custom(e), req))
         };
 
-        let mut reader = match region.get_chunk_reader(chunk_info.cx, chunk_info.cz) {
+        let mut reader = match region.get_chunk_reader(req.cx, req.cz) {
             Ok(reader) => reader,
             // If the chunk is empty, just return an unsupported chunk pos error, this is used to
             // delegate to the generator in case of LoadOrGen source.
-            Err(RegionError::EmptyChunk) => return Err((LevelSourceError::UnsupportedChunkPosition, chunk_info)),
-            Err(err) => return Err((LevelSourceError::new_custom(err), chunk_info))
+            Err(RegionError::EmptyChunk) => return Err((LevelSourceError::UnsupportedChunkPosition, req)),
+            Err(err) => return Err((LevelSourceError::new_custom(err), req))
         };
 
-        let mut chunk = chunk_info.build_proto_chunk();
+        let mut chunk = req.build_proto_chunk();
 
         match decode_chunk_from_reader(&mut reader, &mut chunk) {
             Ok(_) => Ok(chunk),
-            Err(err) => Err((LevelSourceError::new_custom(err), chunk_info))
+            Err(err) => Err((LevelSourceError::new_custom(err), req))
         }
 
     }
 
-    fn save_chunk(&mut self, chunk_arc: Arc<RwLock<Chunk>>) {
+    fn save_chunk(&mut self, req: ChunkSaveRequest) {
 
-        let chunk = chunk_arc.read().unwrap();
+        let chunk = req.chunk.read().unwrap();
         let (cx, cz) = chunk.get_position();
         let (rx, rz) = calc_region_pos(cx, cz);
 
