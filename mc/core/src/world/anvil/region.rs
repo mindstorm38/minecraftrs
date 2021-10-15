@@ -295,6 +295,7 @@ impl RegionFile {
                 let missing_length = needed_length - length;
                 self.file.set_len((missing_length + self.sectors.len() as u64 + 2) * SECTOR_SIZE)?;
                 self.sectors.extend((0..missing_length).map(|_| true));
+                length = needed_length;
             }
 
             // Mark all new sectors to "not free".
@@ -326,13 +327,14 @@ impl RegionFile {
         self.file.write_all(&u32::to_be_bytes(length))?;
         self.file.write_all(&[method.get_id(external)])?;
         self.file.write_all(data)?;
+        self.file.flush();
         Ok(())
     }
 
     fn write_metadata(&mut self, index: usize, metadata: ChunkMetadata) -> IoResult<()> {
-        self.file.seek(SeekFrom::Start(index as u64 * SECTOR_SIZE))?;
+        self.file.seek(SeekFrom::Start(index as u64 * 4))?;
         self.file.write_all(&u32::to_be_bytes(metadata.location))?;
-        self.file.seek(SeekFrom::Start(SECTOR_SIZE + index as u64 * SECTOR_SIZE))?;
+        self.file.seek(SeekFrom::Start(SECTOR_SIZE + index as u64 * 4))?;
         self.file.write_all(&u32::to_be_bytes(metadata.timestamp))?;
         self.metadata[index] = metadata;
         Ok(())

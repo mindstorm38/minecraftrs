@@ -33,7 +33,11 @@ fn main() {
         load_or_gen_source
     );
 
-    level.request_chunk_load(0, 0);
+    for cx in 0..16 {
+        for cz in 0..16 {
+            level.request_chunk_load(cx, cz);
+        }
+    }
 
     loop {
 
@@ -41,7 +45,7 @@ fn main() {
 
         });
 
-        std::thread::sleep(Duration::from_secs(1));
+        std::thread::sleep(Duration::from_millis(1));
 
     }
 
