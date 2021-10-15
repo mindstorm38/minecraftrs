@@ -116,7 +116,7 @@ impl Level {
     // CHUNKS LOADING (FROM SOURCE) //
 
     /// Request internal level source to load the given chunk.
-    pub fn request_chunk(&mut self, cx: i32, cz: i32) -> bool {
+    pub fn request_chunk_load(&mut self, cx: i32, cz: i32) -> bool {
         if !self.loading_chunks.contains(&(cx, cz)) {
             debug!("Request chunk load at {}/{}", cx, cz);
             match self.source.request_chunk_load(ChunkLoadRequest {
@@ -141,7 +141,7 @@ impl Level {
     /// loaded chunks or loading error.
     pub fn load_chunks_with_callback<F>(&mut self, mut callback: F)
     where
-        F: FnMut((i32, i32, Result<&Arc<RwLock<Chunk>>, LevelSourceError>)),
+        F: FnMut(i32, i32, Result<&Arc<RwLock<Chunk>>, LevelSourceError>),
     {
         while let Some(res) = self.source.poll_chunk() {
             match res {
@@ -188,7 +188,10 @@ impl Level {
                         }
                     }
 
-                    callback((cx, cz, Ok(self.chunks.insert_chunk(chunk))));
+                    let chunk_arc = self.chunks.insert_chunk(chunk);
+                    callback(cx, cz, Ok(chunk_arc));
+
+                    self.request_chunk_save(cx, cz);
 
                 },
                 Err((err, chunk_info)) => {
@@ -196,7 +199,7 @@ impl Level {
                     // crate 'thiserror' to implement it through a custom derive.
                     debug!("Failed to load chunk at {}/{}: {}", chunk_info.cx, chunk_info.cz, err);
                     self.loading_chunks.remove(&(chunk_info.cx, chunk_info.cz));
-                    callback((chunk_info.cx, chunk_info.cz, Err(err)));
+                    callback(chunk_info.cx, chunk_info.cz, Err(err));
                 }
             }
         }
@@ -206,7 +209,7 @@ impl Level {
     /// are added to the underlying `LevelStorage`.
     #[inline]
     pub fn load_chunks(&mut self) {
-        self.load_chunks_with_callback(|_| {});
+        self.load_chunks_with_callback(|_, _, _| {});
     }
 
     // CHUNK SAVING (TO SOURCE) //

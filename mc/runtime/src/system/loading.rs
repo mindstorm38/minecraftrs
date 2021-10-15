@@ -10,7 +10,7 @@ pub fn system_load_chunks(world: &mut World) {
     let event_tracker = &mut world.event_tracker;
 
     for level in &world.levels {
-        level.borrow_mut().load_chunks_with_callback(|(cx, cz, res)| {
+        level.borrow_mut().load_chunks_with_callback(|cx, cz, res| {
             match res {
                 Ok(chunk) => {
                     event_tracker.push_event(ChunkLoadedEvent {

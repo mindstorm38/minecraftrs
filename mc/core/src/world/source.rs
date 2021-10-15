@@ -248,7 +248,7 @@ impl LevelGeneratorSource {
             result_receiver
         ) = bounded(workers_count * 16);
 
-        for _ in 0..workers_count {
+        for i in 0..workers_count {
 
             let worker = LevelGeneratorSourceWorker {
                 generator: generator.clone(),
@@ -256,7 +256,9 @@ impl LevelGeneratorSource {
                 result_sender: result_send.clone()
             };
 
-            std::thread::spawn(move || worker.run());
+            std::thread::Builder::new()
+                .name(format!("Level generator worker #{}", i))
+                .spawn(move || worker.run());
 
         }
 

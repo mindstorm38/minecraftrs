@@ -68,6 +68,10 @@ impl RegionFile {
     /// - `RegionError::Io` An IO error happened.
     pub fn new(dir: PathBuf, rx: i32, rz: i32, create: bool) -> RegionResult<Self> {
 
+        if create {
+            std::fs::create_dir_all(&dir)?;
+        }
+
         let file_path = get_region_file_path(&dir, rx, rz);
         let mut file = OpenOptions::new()
             .read(true)
@@ -238,7 +242,7 @@ impl RegionFile {
         let needed_byte_length = data.len() as u64 + 1;
         let mut external = needed_byte_length > MAX_CHUNK_SIZE;
 
-        let needed_length = if external {
+        let mut needed_length = if external {
             1 // If external, only one sector is needed to store chunk header.
         } else {
             // Adding 4 to the byte length to count the 32 bits length of (data.len() + 1).
@@ -247,17 +251,19 @@ impl RegionFile {
 
         if needed_length != length {
 
-            fill_sectors(&mut self.sectors, offset as usize - 2, length as usize, true);
+            if length != 0 {
+                fill_sectors(&mut self.sectors, offset as usize - 2, length as usize, true);
+            }
 
-            offset = 0;
+            offset = 2;
             length = 0;
 
             let mut first_free_sector: Option<usize> = None;
 
             for (sector, free) in self.sectors.iter().enumerate() {
                 if free {
-                    if let None = first_free_sector {
-                        first_free_sector = Some(sector);
+                    if first_free_sector.is_none() {
+                        first_free_sector.insert(sector + 2);
                     }
                     length += 1;
                     if length == needed_length {
@@ -265,39 +271,30 @@ impl RegionFile {
                     }
                 } else {
                     length = 0;
-                    offset = sector as u64 + 1;
+                    offset = sector as u64 + 2 + 1;
                 }
             }
 
             if offset > MAX_SECTOR_OFFSET {
 
                 // Here we switch to external chunk storage, then we can only use 1 sector and
-                // store the chunk header. This is why we keep track of the first free sector.
+                // store the chunk header. This is why we keep track of the first free sector
+                // even if no free sector were found.
                 if let Some(free_sector) = first_free_sector {
                     external = true;
                     offset = free_sector as u64;
+                    needed_length = 1; // Needed length is now 1 because we have switched to external.
                     length = 1;
                 } else {
                     // Revert the change to sectors "free state".
-                    fill_sectors(&mut self.sectors, offset as usize - 2, length as usize, false);
+                    fill_sectors(&mut self.sectors, metadata.offset() as usize - 2, length as usize, false);
                     return Err(RegionError::OutOfSectors);
                 }
 
-            }
-
-            if length != needed_length {
-
-                // This should be always true according to the sectors finding algorithm that break
-                //  when reaching the needed length.
-                // However, the offset should be valid here and point to the first free sector even
-                //  if the length is not enough.
-                debug_assert!(length < needed_length);
+            } else if length < needed_length {
                 let missing_length = needed_length - length;
-
                 self.file.set_len((missing_length + self.sectors.len() as u64 + 2) * SECTOR_SIZE)?;
-
                 self.sectors.extend((0..missing_length).map(|_| true));
-
             }
 
             // Mark all new sectors to "not free".
@@ -446,6 +443,7 @@ pub enum ChunkWriterInner {
 
 impl ChunkWriter<'_> {
 
+    #[inline]
     fn inner_write(&mut self) -> &mut dyn Write {
         match &mut self.inner {
             ChunkWriterInner::Gzip(encoder) => encoder,
@@ -454,7 +452,10 @@ impl ChunkWriter<'_> {
         }
     }
 
+    /// Finalize and write internal buffered data to the region.
     pub fn write_chunk(&mut self) -> RegionResult<()> {
+
+        self.inner_write().flush();
 
         let (data, method) = match &self.inner {
             ChunkWriterInner::Gzip(encoder) => (encoder.get_ref(), CompressionMethod::Gzip),

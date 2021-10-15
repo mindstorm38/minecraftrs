@@ -36,7 +36,7 @@ fn main() {
 
     for cx in 0..2 {
         for cz in 0..2 {
-            level.request_chunk(cx, cz);
+            level.request_chunk_load(cx, cz);
         }
     }
 
