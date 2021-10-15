@@ -84,7 +84,7 @@ impl PackedArray {
 
     /// Set the value at a specific index and ensure that the given value can fit into it, if
     /// not, the packed array is resized to a new byte size and the value is inserted.
-    pub fn set_auto_resize(&mut self, index: usize, value: u64) -> u64 {
+    pub fn set_with_resize(&mut self, index: usize, value: u64) -> u64 {
         let mask = Self::calc_mask(self.byte_size);
         if value > mask {
             self.resize_byte(Self::calc_min_byte_size(value));
