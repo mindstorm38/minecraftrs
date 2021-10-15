@@ -12,10 +12,12 @@ pub struct HeightmapType {
 
 impl HeightmapType {
 
+    #[inline]
     pub fn get_name(&self) -> &'static str {
         self.name
     }
 
+    #[inline]
     pub fn get_key(&'static self) -> HeightmapTypeKey {
         OpaquePtr::new(self)
     }

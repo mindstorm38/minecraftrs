@@ -1,6 +1,7 @@
+use crate::heightmap::HeightmapType;
 use crate::world::chunk::Chunk;
 use crate::block::BlockState;
-use crate::util::PackedArray;
+use crate::util::{PackedArray, PackedIterator};
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -60,6 +61,14 @@ pub fn encode_chunk(tag_root: &mut CompoundTag, chunk: &mut Chunk) {
                 })
         });
 
+        let mut tag_heightmaps = CompoundTag::new();
+
+        for heightmap_type in chunk.get_env().heightmaps.iter_heightmap_types() {
+            if let Some(arr) = encode_heightmap(chunk, heightmap_type) {
+                tag_heightmaps.insert_i64_vec(heightmap_type.get_name(), arr);
+            }
+        }
+
         tag_level
 
     });
@@ -82,4 +91,9 @@ pub fn encode_block_state(state: &'static BlockState) -> CompoundTag {
 
     tag_block
 
+}
+
+pub fn encode_heightmap(chunk: &Chunk, heightmap_type: &'static HeightmapType) -> Option<Vec<i64>> {
+    let (byte_size, it) = chunk.iter_heightmap_raw_columns(heightmap_type)?;
+    Some(it.pack_aligned(byte_size).map(|v| v as i64).collect())
 }
