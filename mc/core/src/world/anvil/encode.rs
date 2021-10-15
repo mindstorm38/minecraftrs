@@ -1,14 +1,24 @@
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::io::Write;
+
 use crate::heightmap::HeightmapType;
 use crate::world::chunk::Chunk;
 use crate::block::BlockState;
 use crate::util::{PackedArray, PackedIterator};
 
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use nbt::encode::write_compound_tag;
 use nbt::CompoundTag;
 
 
-pub fn encode_chunk(tag_root: &mut CompoundTag, chunk: &mut Chunk) {
+/// Decode the NBT data from a reader and delegate chunk decoding to `decode_chunk`.
+pub fn encode_chunk_to_writer(writer: &mut impl Write, chunk: &Chunk) {
+    let mut root = CompoundTag::new();
+    encode_chunk(&mut root, chunk);
+    write_compound_tag(writer, &root).unwrap();
+}
+
+pub fn encode_chunk(tag_root: &mut CompoundTag, chunk: &Chunk) {
 
     let (cx, cz) = chunk.get_position();
 

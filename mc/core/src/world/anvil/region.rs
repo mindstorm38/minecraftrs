@@ -66,12 +66,13 @@ impl RegionFile {
     /// - `RegionError::FileNotPadded` The file size is not a multiple of sector size, 4096 bytes.
     /// - `RegionError::IllegalMetadata` Failed to parse one of the chunk's metadata.
     /// - `RegionError::Io` An IO error happened.
-    pub fn new(dir: PathBuf, rx: i32, rz: i32) -> RegionResult<Self> {
+    pub fn new(dir: PathBuf, rx: i32, rz: i32, create: bool) -> RegionResult<Self> {
 
         let file_path = get_region_file_path(&dir, rx, rz);
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
+            .create(create)
             .open(&file_path)
             .map_err(|err| match err.kind() {
                 ErrorKind::NotFound => RegionError::FileNotFound(file_path),
@@ -80,46 +81,54 @@ impl RegionFile {
 
         let file_len = file.seek(SeekFrom::End(0))?;
 
-        // The following conditions are used to fix the file
-        if file_len < 8192 {
-            return Err(RegionError::FileTooSmall(file_len));
-        } else if (file_len & 0xFFF) != 0 {
-            return Err(RegionError::FileNotPadded(file_len));
-        }
-
-        file.seek(SeekFrom::Start(0))?;
-
-        // The sectors_count take the two headers sectors into account.
-        let sectors_count = file_len / SECTOR_SIZE;
-        let mut sectors = BitVec::from_elem(sectors_count as usize - 2, true);
-
         let mut metadata = [ChunkMetadata { location: 0, timestamp: 0 }; 1024];
+        let mut sectors;
 
-        // Reading the first sector containing location information of each chunk.
-        for (idx, meta) in metadata.iter_mut().enumerate() {
+        if file_len == 0 && create {
+            file.write_all(&[0; 8192]);
+            sectors = BitVec::new();
+        } else {
 
-            let mut data = [0u8; 4];
-            file.read_exact(&mut data)?;
-            meta.location = u32::from_be_bytes(data);
+            // The following conditions are used to fix the file
+            if file_len < 8192 {
+                return Err(RegionError::FileTooSmall(file_len));
+            } else if (file_len & 0xFFF) != 0 {
+                return Err(RegionError::FileNotPadded(file_len));
+            }
 
-            let offset = meta.offset();
-            let length = meta.length();
+            file.seek(SeekFrom::Start(0))?;
 
-            if length != 0 {
-                if (offset + length) <= sectors_count {
-                    fill_sectors(&mut sectors, offset as usize - 2, length as usize, false);
-                } else {
-                    return Err(RegionError::IllegalMetadata(idx as u16));
+            // The sectors_count take the two headers sectors into account.
+            let sectors_count = file_len / SECTOR_SIZE;
+            sectors = BitVec::from_elem(sectors_count as usize - 2, true);
+
+            // let mut metadata = [ChunkMetadata { location: 0, timestamp: 0 }; 1024];
+
+            // Reading the first sector containing location information of each chunk.
+            for (idx, meta) in metadata.iter_mut().enumerate() {
+                let mut data = [0u8; 4];
+                file.read_exact(&mut data)?;
+                meta.location = u32::from_be_bytes(data);
+
+                let offset = meta.offset();
+                let length = meta.length();
+
+                if length != 0 {
+                    if (offset + length) <= sectors_count {
+                        fill_sectors(&mut sectors, offset as usize - 2, length as usize, false);
+                    } else {
+                        return Err(RegionError::IllegalMetadata(idx as u16));
+                    }
                 }
             }
 
-        }
+            // Reading the second sector containing last modification times for each chunk.
+            for meta in &mut metadata {
+                let mut data = [0u8; 4];
+                file.read_exact(&mut data)?;
+                meta.timestamp = u32::from_be_bytes(data);
+            }
 
-        // Reading the second sector containing last modification times for each chunk.
-        for meta in &mut metadata {
-            let mut data = [0u8; 4];
-            file.read_exact(&mut data)?;
-            meta.timestamp = u32::from_be_bytes(data);
         }
 
         Ok(Self {

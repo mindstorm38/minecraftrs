@@ -1,24 +1,33 @@
 use std::thread::Builder as ThreadBuilder;
+use std::time::{Instant, Duration};
+use std::path::{PathBuf, Path};
+use std::sync::{Arc, RwLock};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::path::{PathBuf, Path};
-use std::time::{Instant, Duration};
 
 use crossbeam_channel::{Sender, Receiver, RecvTimeoutError, unbounded, bounded};
 
 use crate::world::source::{LevelSource, LevelSourceError, ChunkInfo, ProtoChunk};
+use crate::world::chunk::Chunk;
 use crate::util::TimedCache;
 use crate::debug;
 
-use super::region::{RegionFile, RegionError, calc_region_pos};
+use super::region::{RegionFile, RegionResult, RegionError, calc_region_pos};
 use super::decode::{decode_chunk_from_reader};
+use super::encode::{encode_chunk_to_writer};
+
+
+enum Request {
+    Load(ChunkInfo),
+    Save(Arc<RwLock<Chunk>>)
+}
 
 
 /// A level source that load chunks from anvil region files. This source internally use
 /// a threaded worker to avoid disk access durations overhead. Each opened region file
 /// remains opened for `REGIONS_CACHE_TIME` duration.
 pub struct AnvilLevelSource {
-    request_sender: Sender<ChunkInfo>,
+    request_sender: Sender<Request>,
     result_receiver: Receiver<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>
 }
 
@@ -49,12 +58,17 @@ impl LevelSource for AnvilLevelSource {
 
     fn request_chunk_load(&mut self, info: ChunkInfo) -> Result<(), (LevelSourceError, ChunkInfo)> {
         // SAFETY: Unwrap should be safe because the channel is unbounded.
-        self.request_sender.send(info).unwrap();
+        self.request_sender.send(Request::Load(info)).unwrap();
         Ok(())
     }
 
     fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
         self.result_receiver.try_recv().ok()
+    }
+
+    fn request_chunk_save(&mut self, chunk: Arc<RwLock<Chunk>>) -> Result<(), LevelSourceError> {
+        self.request_sender.send(Request::Save(chunk));
+        Ok(())
     }
 
 }
@@ -65,7 +79,7 @@ const REGIONS_REQUEST_RECV_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct Worker {
     regions_dir: PathBuf,
-    request_receiver: Receiver<ChunkInfo>,
+    request_receiver: Receiver<Request>,
     result_sender: Sender<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>>,
     regions: HashMap<(i32, i32), TimedCache<RegionFile>>,
     last_cache_check: Instant
@@ -76,7 +90,7 @@ impl Worker {
     /// Internal constructor for worker, you must give the regions directory, not level directory.
     fn new(
         regions_dir: PathBuf,
-        request_receiver: Receiver<ChunkInfo>
+        request_receiver: Receiver<Request>
     ) -> Receiver<Result<ProtoChunk, (LevelSourceError, ChunkInfo)>> {
 
         let (
@@ -106,12 +120,16 @@ impl Worker {
         loop {
 
             match self.request_receiver.recv_timeout(REGIONS_REQUEST_RECV_TIMEOUT) {
-                Ok(chunk_info) => {
+                Ok(Request::Load(chunk_info)) => {
                     debug!("Received chunk load request for {}/{}", chunk_info.cx, chunk_info.cz);
                     let chunk = self.load_chunk(chunk_info);
                     if let Err(_) = self.result_sender.send(chunk) {
                         break
                     }
+                },
+                Ok(Request::Save(chunk)) => {
+                    debug!("Received chunk save request for {}/{}", chunk_info.cx, chunk_info.cz);
+                    self.save_chunk(chunk);
                 },
                 Err(RecvTimeoutError::Timeout) => {},
                 Err(RecvTimeoutError::Disconnected) => break
@@ -123,22 +141,24 @@ impl Worker {
 
     }
 
+    fn access_region(&mut self, rx: i32, rz: i32, create: bool) -> RegionResult<&mut TimedCache<RegionFile>> {
+        match self.regions.entry((rx, rz)) {
+            Entry::Occupied(o) => Ok(o.into_mut().cache_update()),
+            Entry::Vacant(v) => {
+                let region = RegionFile::new(self.regions_dir.clone(), rx, rz, create)?;
+                debug!("Region file opened at {}/{}", rx, rz);
+                Ok(v.insert(TimedCache::new(region, REGIONS_CACHE_TIME)))
+            }
+        }
+    }
+
     fn load_chunk(&mut self, chunk_info: ChunkInfo) -> Result<ProtoChunk, (LevelSourceError, ChunkInfo)> {
 
-        let region_pos = calc_region_pos(chunk_info.cx, chunk_info.cz);
-
-        let region = match self.regions.entry(region_pos) {
-            Entry::Occupied(o) => o.into_mut().cache_update(),
-            Entry::Vacant(v) => {
-                match RegionFile::new(self.regions_dir.clone(), region_pos.0, region_pos.1) {
-                    Ok(region) => {
-                        debug!("Region file opened at {}/{}", region_pos.0, region_pos.1);
-                        v.insert(TimedCache::new(region, REGIONS_CACHE_TIME))
-                    },
-                    Err(RegionError::FileNotFound(_)) => return Err((LevelSourceError::UnsupportedChunkPosition, chunk_info)),
-                    Err(err) => return Err((LevelSourceError::new_custom(err), chunk_info))
-                }
-            }
+        let (rx, rz) = calc_region_pos(chunk_info.cx, chunk_info.cz);
+        let region = match self.access_region(rx, rz, false) {
+            Ok(region) => region,
+            Err(RegionError::FileNotFound(_)) => return Err((LevelSourceError::UnsupportedChunkPosition, chunk_info)),
+            Err(_) => return Err((LevelSourceError::new_custom(e), chunk_info))
         };
 
         let mut reader = match region.get_chunk_reader(chunk_info.cx, chunk_info.cz) {
@@ -155,6 +175,23 @@ impl Worker {
             Ok(_) => Ok(chunk),
             Err(err) => Err((LevelSourceError::new_custom(err), chunk_info))
         }
+
+    }
+
+    fn save_chunk(&mut self, chunk_arc: Arc<RwLock<Chunk>>) {
+
+        let chunk = chunk_arc.read().unwrap();
+        let (cx, cz) = chunk.get_position();
+        let (rx, rz) = calc_region_pos(cx, cz);
+
+        let region = match self.access_region(rx, rz, true) {
+            Ok(region) => region,
+            Err(_) => return
+        };
+
+        let mut writer = region.get_chunk_writer(cx, cz, Default::default());
+        encode_chunk_to_writer(&mut writer, &*chunk);
+        debug!("Chunk at {}/{} saved", cx, cz);
 
     }
 
