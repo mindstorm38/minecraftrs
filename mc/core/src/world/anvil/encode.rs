@@ -1,5 +1,9 @@
 use crate::world::chunk::Chunk;
 use crate::block::BlockState;
+use crate::util::PackedArray;
+
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use nbt::CompoundTag;
 
 
@@ -26,9 +30,33 @@ pub fn encode_chunk(tag_root: &mut CompoundTag, chunk: &mut Chunk) {
         tag_level.insert_compound_tag_vec("Sections", {
             chunk.iter_loaded_sub_chunks()
                 .map(|(cy, sc)| {
+
                     let mut tag_section = CompoundTag::new();
                     tag_section.insert_i8("Y", cy);
+
+                    let mut palette_indices = HashMap::new();
+                    let mut tag_palette = Vec::new();
+                    let mut packed_blocks = PackedArray::new(4096, 4, None);
+
+                    for (idx, state) in sc.iter_blocks().enumerate() {
+                        let sid = match palette_indices.entry(state.get_key()) {
+                            Entry::Occupied(o) => *o.get(),
+                            Entry::Vacant(v) => {
+                                tag_palette.push(encode_block_state(state));
+                                *v.insert(tag_palette.len() - 1)
+                            }
+                        };
+                        packed_blocks.set_with_resize(idx, sid as u64);
+                    }
+
+                    tag_section.insert_compound_tag_vec("Palette", tag_palette);
+                    tag_section.insert_i64_vec("BlockStates", packed_blocks.into_inner()
+                        .into_iter()
+                        .map(|val| val as i64)
+                        .collect());
+
                     tag_section
+
                 })
         });
 
