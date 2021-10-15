@@ -54,6 +54,7 @@ impl PackedArray {
         }
     }
 
+    /// Get the value at a specific index, `None` is returned if you are out of range.
     pub fn get(&self, index: usize) -> Option<u64> {
         if index < self.length {
             let (cell_index, bit_index) = self.get_indices(index);
@@ -64,6 +65,10 @@ impl PackedArray {
         }
     }
 
+    /// Set the value at a specific index.
+    ///
+    /// # Panics
+    /// If the index is out of bounds or if the given value cannot fit in the current byte size.
     pub fn set(&mut self, index: usize, value: u64) -> u64 {
         if index < self.length {
             let mask = Self::calc_mask(self.byte_size);
@@ -77,6 +82,8 @@ impl PackedArray {
         }
     }
 
+    /// Set the value at a specific index and ensure that the given value can fit into it, if
+    /// not, the packed array is resized to a new byte size and the value is inserted.
     pub fn set_auto_resize(&mut self, index: usize, value: u64) -> u64 {
         let mask = Self::calc_mask(self.byte_size);
         if value > mask {
