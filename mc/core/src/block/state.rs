@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::ptr::NonNull;
 
 use super::{Block, UntypedProperty, Property, PropertySerializable};
+use crate::util::OpaquePtr;
 
 
 /// The maximum number of states for a single block.
@@ -31,6 +32,8 @@ pub struct BlockState {
     /// Circular reference back to the owner
     block: NonNull<Block>
 }
+
+pub type BlockStateKey = OpaquePtr<BlockState>;
 
 unsafe impl Send for BlockState {}
 unsafe impl Sync for BlockState {}
@@ -102,6 +105,11 @@ impl BlockState {
     #[inline]
     pub fn get_index(&self) -> u16 {
         self.index
+    }
+
+    #[inline]
+    pub fn get_key(&'static self) -> BlockStateKey {
+        OpaquePtr::new(self)
     }
 
     #[inline]

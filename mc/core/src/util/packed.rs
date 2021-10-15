@@ -68,7 +68,7 @@ impl PackedArray {
         if index < self.length {
             let mask = Self::calc_mask(self.byte_size);
             if value <= mask {
-                self.internal_set(index, value)
+                self.internal_set(index, value, mask)
             } else {
                 panic!("Given value {} does not fit in {} bits.", value, self.byte_size);
             }
@@ -78,15 +78,15 @@ impl PackedArray {
     }
 
     pub fn set_auto_resize(&mut self, index: usize, value: u64) -> u64 {
-        // If the byte size if already 64, we know that the given value must fit.
-        if self.byte_size != 64 && value >= (1u64 << self.byte_size) {
+        let mask = Self::calc_mask(self.byte_size);
+        if value > mask {
             self.resize_byte(Self::calc_min_byte_size(value));
         }
-        self.internal_set(index, value)
+        self.internal_set(index, value, mask)
     }
 
     #[inline]
-    fn internal_set(&mut self, index: usize, value: u64) -> u64 {
+    fn internal_set(&mut self, index: usize, value: u64, mask: u64) -> u64 {
         let (cell_index, bit_index) = self.get_indices(index);
         let cell = &mut self.cells[cell_index];
         let old_value = (*cell >> bit_index) & mask;
