@@ -21,8 +21,10 @@ use mc_vanilla::block::*;
 use crate::noise::{PerlinNoiseOctaves, NoiseCube, NoiseRect};
 use crate::layer::{LayerBuilder, BoxLayer, Layer};
 use crate::layer::zoom::VoronoiLayer;
-use crate::structure::StructureGenerator;
+
+use crate::structure::ravine::RavineStructure;
 use crate::structure::cave::CaveStructure;
+use crate::structure::StructureGenerator;
 
 
 /// Special level generator builder.
@@ -54,9 +56,8 @@ pub struct LevelGenRelease102 {
     noise_field: NoiseCube,
     layer_voronoi: VoronoiLayer<BoxLayer<&'static Biome>>,
 
-    cave_carver: StructureGenerator<CaveStructure>
-    //ravine_carver: Carver,
-    //cave_carver: Carver
+    cave_carver: StructureGenerator<CaveStructure>,
+    ravine_carver: StructureGenerator<RavineStructure>
 
 }
 
@@ -102,8 +103,7 @@ impl LevelGenRelease102 {
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
             layer_voronoi: Self::new_layers(shared.seed),
             cave_carver: StructureGenerator::new(CaveStructure, 8),
-            // ravine_carver: Carver::new_ravine(),
-            // cave_carver: Carver::new_cave(),
+            ravine_carver: StructureGenerator::new(RavineStructure, 8),
             rand: JavaRandom::new_blank(),
             shared,
         }
@@ -535,9 +535,8 @@ impl LevelGenerator for LevelGenRelease102 {
         let biomes = self.initialize_biomes(&mut *chunk);
         self.generate_terrain(&mut *chunk);
         self.generate_surface(&mut *chunk, &biomes);
-
         self.cave_carver.generate(self.shared.seed, &mut *chunk);
-
+        self.ravine_carver.generate(self.shared.seed, &mut *chunk);
         Ok(chunk)
 
     }

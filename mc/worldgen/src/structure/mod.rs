@@ -4,6 +4,7 @@ use mc_core::rand::JavaRandom;
 use mc_core::world::chunk::Chunk;
 
 pub mod cave;
+pub mod ravine;
 
 
 /// Base trait for all structure implementations, including carvers, village or strongholds.

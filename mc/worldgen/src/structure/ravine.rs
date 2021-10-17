@@ -1,56 +1,33 @@
-use mc_core::rand::JavaRandom;
 use mc_core::world::chunk::Chunk;
+use mc_core::rand::JavaRandom;
 use mc_core::math::{mc_cos, mc_sin, JAVA_PI};
 use mc_vanilla::block::*;
 
 use super::Structure;
 
 
-pub struct CaveStructure;
+pub struct RavineStructure;
 
-impl Structure for CaveStructure {
+impl Structure for RavineStructure {
 
     fn generate(&mut self, ccx: i32, ccz: i32, chunk: &mut Chunk, range: i32, rand: &mut JavaRandom) {
 
-        let count = {
-            let v = rand.next_int_bounded(40);
-            let v = rand.next_int_bounded(v + 1);
-            rand.next_int_bounded(v + 1)
-        };
+        if rand.next_int_bounded(50) == 0 {
 
-        if rand.next_int_bounded(15) == 0 {
+            let x = ccx * 16 + rand.next_int_bounded(16);
+            let y = {
+                let v = rand.next_int_bounded(40);
+                rand.next_int_bounded(v + 8) + 20
+            };
+            let z = ccz * 16 + rand.next_int_bounded(16);
 
-            for _ in 0..count {
+            // Yaw: Around Y, Pitch: Around the horizontal line
+            let angle_yaw = rand.next_float() * JAVA_PI as f32 * 2.0;
+            let angle_pitch = ((rand.next_float() - 0.5) * 2.0) / 8.0;
+            let base_width = (rand.next_float() * 2.0 + rand.next_float()) * 2.0;
 
-                let x = (ccx * 16 + rand.next_int_bounded(16)) as f64;
-                let y = {
-                    let v = rand.next_int_bounded(120);
-                    rand.next_int_bounded(v + 8)
-                } as f64;
-                let z = (ccz * 16 + rand.next_int_bounded(16)) as f64;
-
-                let mut normal_caves_count = 1;
-
-                if rand.next_int_bounded(4) == 0 {
-                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, 1.0 + rand.next_float() * 6.0, 0.0, 0.0, -1, 0, 0.5);
-                    normal_caves_count += rand.next_int_bounded(4);
-                }
-
-                for _ in 0..normal_caves_count {
-
-                    let angle_yaw = rand.next_float() * JAVA_PI as f32 * 2.0;
-                    let angle_pitch = ((rand.next_float() - 0.5) * 2.0) / 8.0;
-                    let mut base_width = rand.next_float() * 2.0 + rand.next_float();
-
-                    if rand.next_int_bounded(10) == 0 {
-                        base_width *= rand.next_float() * rand.next_float() * 3.0 + 1.0;
-                    }
-
-                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, base_width, angle_yaw, angle_pitch, 0, 0, 1.0);
-
-                }
-
-            }
+            let new_seed = rand.next_long();
+            gen_ravine_worker(new_seed, range, chunk, x as f64, y as f64, z as f64, base_width, angle_yaw, angle_pitch, 0, 0, 3.0);
 
         }
 
@@ -59,7 +36,7 @@ impl Structure for CaveStructure {
 }
 
 
-fn gen_cave_node(
+fn gen_ravine_worker(
     seed: i64,
     range: i32,
     chunk: &mut Chunk,
@@ -71,8 +48,8 @@ fn gen_cave_node(
     mut angle_pitch: f32,
     mut offset: i32,
     mut length: i32,
-    height_ratio: f64
-) {
+    height_ratio: f64)
+{
 
     let mut rand = JavaRandom::new(seed);
 
@@ -95,12 +72,19 @@ fn gen_cave_node(
         auto_offset = true;
     }
 
-    // println!("Generate cave at {}/{}/{} for chunk {}/{} with offset/length {}/{}", x, y, z, chunk.get_position().0, chunk.get_position().1, offset, length);
+    let table = {
+        let mut table = [0f32; 128];
+        let mut table_val = 1.0;
+        for i in 0..128 {
+            if i == 0 || rand.next_int_bounded(3) == 0 {
+                table_val = 1.0 + rand.next_float() * rand.next_float() * 1.0;
+            }
+            table[i] = table_val * table_val;
+        }
+        table
+    };
 
-    let new_nodes_offset = rand.next_int_bounded(length / 2) + (length / 4);
-    let stable_pitch = rand.next_int_bounded(6) == 0;
-
-    /*// Querying block ids used in caves
+    /*// Querying block ids used in ravines
     let stone_block = chunk.get_world_info().block_registry.0.expect_from_name("stone").get_id();
     let grass_block = chunk.get_world_info().block_registry.0.expect_from_name("grass").get_id();
     let dirt_block = chunk.get_world_info().block_registry.0.expect_from_name("dirt").get_id();
@@ -115,8 +99,11 @@ fn gen_cave_node(
 
     'length_loop: for offset in offset..length {
 
-        let width = 1.5 + (mc_sin(offset as f32 * JAVA_PI as f32 / length as f32) * base_width * 1.0) as f64;
-        let height = width * height_ratio;
+        let mut width = 1.5 + (mc_sin(offset as f32 * JAVA_PI as f32 / length as f32) * base_width * 1.0) as f64;
+        let mut height = width * height_ratio;
+
+        width *= rand.next_float() as f64 * 0.25 + 0.75;
+        height *= rand.next_float() as f64 * 0.25 + 0.75;
 
         let pitch_cos = mc_cos(angle_pitch);
         let pitch_sin = mc_sin(angle_pitch);
@@ -125,36 +112,14 @@ fn gen_cave_node(
         y += pitch_sin as f64;
         z += (mc_sin(angle_yaw) * pitch_cos) as f64;
 
-        angle_pitch *= if stable_pitch { 0.92 } else { 0.7 };
-        angle_pitch += pitch_modifier * 0.1;
-        angle_yaw += yaw_modifier * 0.1;
-        pitch_modifier *= 0.9;
-        yaw_modifier *= 0.75;
+        angle_pitch *= 0.7;
+        angle_pitch += pitch_modifier * 0.05;
+        angle_yaw += yaw_modifier * 0.05;
+        pitch_modifier *= 0.8;
+        yaw_modifier *= 0.5;
 
         pitch_modifier += (rand.next_float() - rand.next_float()) * rand.next_float() * 2.0;
         yaw_modifier += (rand.next_float() - rand.next_float()) * rand.next_float() * 4.0;
-
-        if !auto_offset && offset == new_nodes_offset && base_width > 1.0 && length > 0 {
-
-            gen_cave_node(
-                rand.next_long(), range, chunk, x, y, z,
-                rand.next_float() * 0.5 + 0.5,
-                angle_yaw - (JAVA_PI as f32 / 2.0),
-                angle_pitch / 3.0,
-                offset, length, 1.0
-            );
-
-            gen_cave_node(
-                rand.next_long(), range, chunk, x, y, z,
-                rand.next_float() * 0.5 + 0.5,
-                angle_yaw + (JAVA_PI as f32 / 2.0),
-                angle_pitch / 3.0,
-                offset, length, 1.0
-            );
-
-            break;
-
-        }
 
         if !auto_offset && rand.next_int_bounded(4) == 0 {
             continue;
@@ -219,7 +184,7 @@ fn gen_cave_node(
 
                     let dy = (by as f64 + 0.5 - y) / height;
 
-                    if dy > -0.69999999999999996 && dx * dx + dy * dy + dz * dz < 1.0 {
+                    if (dx * dx + dz * dz) * table[by as usize] as f64 + ((dy * dy) / 6.0) < 1.0 {
 
                         // Why: in Minecraft code the "by" value has an
                         // offset of 1 block to the bottom.
