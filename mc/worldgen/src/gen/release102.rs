@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
-use mc_core::world::source::{LevelGenerator, ProtoChunk, ChunkLoadRequest, LevelSourceError};
+use mc_core::world::source::{LevelGenerator, ProtoChunk, ChunkLoadRequest, LevelSourceError, LevelGeneratorBuilder};
 use mc_core::world::chunk::Chunk;
 use mc_core::biome::{Biome, BiomeKey};
 use mc_core::block::{BlockState, Block};
@@ -23,8 +23,20 @@ use crate::layer::{LayerBuilder, BoxLayer, Layer};
 use crate::layer::zoom::VoronoiLayer;
 
 
+/// Special level generator builder.
+pub struct LevelGenBuilderRelease102 {
+    shared: Arc<Shared>
+}
+
+impl LevelGeneratorBuilder for LevelGenBuilderRelease102 {
+    type Generator = LevelGenRelease102;
+    fn build(&mut self) -> Self::Generator {
+        LevelGenRelease102::new_internal(Arc::clone(&self.shared))
+    }
+}
+
+
 /// The LevelGenerator for Minecraft 1.2 release.
-// #[derive(Clone)]
 pub struct LevelGenRelease102 {
 
     shared: Arc<Shared>,
@@ -46,6 +58,7 @@ pub struct LevelGenRelease102 {
 }
 
 struct Shared {
+    seed: i64,
     noise1: PerlinNoiseOctaves<16>,
     noise2: PerlinNoiseOctaves<16>,
     noise3: PerlinNoiseOctaves<8>,
@@ -56,24 +69,27 @@ struct Shared {
 
 impl LevelGenRelease102 {
 
-    pub fn new(seed: i64) -> Self {
+    pub fn builder(seed: i64) -> LevelGenBuilderRelease102 {
+        let mut rand = JavaRandom::new(seed);
+        LevelGenBuilderRelease102 {
+            shared: Arc::new(Shared {
+                seed,
+                noise1: PerlinNoiseOctaves::new(&mut rand),
+                noise2: PerlinNoiseOctaves::new(&mut rand),
+                noise3: PerlinNoiseOctaves::new(&mut rand),
+                noise_surface: PerlinNoiseOctaves::new(&mut rand),
+                noise4: PerlinNoiseOctaves::new(&mut rand),
+                noise5: PerlinNoiseOctaves::new(&mut rand),
+            })
+        }
+    }
+
+    fn new_internal(shared: Arc<Shared>) -> Self {
 
         const WIDTH: usize = 5;
         const HEIGHT: usize = 17;
 
-        let mut rand = JavaRandom::new(seed);
-
-        let shared = Arc::new(Shared {
-            noise1: PerlinNoiseOctaves::new(&mut rand),
-            noise2: PerlinNoiseOctaves::new(&mut rand),
-            noise3: PerlinNoiseOctaves::new(&mut rand),
-            noise_surface: PerlinNoiseOctaves::new(&mut rand),
-            noise4: PerlinNoiseOctaves::new(&mut rand),
-            noise5: PerlinNoiseOctaves::new(&mut rand),
-        });
-
         Self {
-            shared,
             noise1_cache: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
             noise2_cache: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
             noise3_cache: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
@@ -81,10 +97,11 @@ impl LevelGenRelease102 {
             noise5_cache: NoiseRect::new_default(WIDTH, WIDTH),
             noise_surface_cache: NoiseCube::new_default(16, 16, 1),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
-            layer_voronoi: Self::new_layers(seed),
+            layer_voronoi: Self::new_layers(shared.seed),
             // ravine_carver: Carver::new_ravine(),
             // cave_carver: Carver::new_cave(),
-            rand,
+            rand: JavaRandom::new_blank(),
+            shared,
         }
 
     }
@@ -428,7 +445,7 @@ impl LevelGenRelease102 {
 
                 let mut depth = -1;
 
-                for y in (0..128i32).rev() {
+                for y in (0..128).rev() {
 
                     if y <= self.rand.next_int_bounded(5) {
                         chunk.set_block(x, y, z, block_bedrock).unwrap();
@@ -468,9 +485,7 @@ impl LevelGenRelease102 {
                                     filler_block
                                 }).unwrap();
 
-                            }
-
-                            if depth > 0 {
+                            } else if depth > 0 {
 
                                 depth -= 1;
                                 chunk.set_block(x, y, z, filler_block).unwrap();
@@ -583,7 +598,7 @@ impl BiomePropertyMap {
                 min_height: 0.1,
                 max_height: 0.3,
                 temperature: 0.5,
-                top_block: GRASS.get_default_state(),
+                top_block: GRASS_BLOCK.get_default_state(),
                 filler_block: DIRT.get_default_state()
             },
             map: self

@@ -1,25 +1,22 @@
 use std::time::Duration;
 use std::sync::Arc;
 
-use mc_core::world::source::{LoadOrGenLevelSource, LevelGeneratorSource, SuperFlatGenerator};
+use mc_core::world::source::{LoadOrGenLevelSource, LevelGeneratorSource};
 use mc_core::world::anvil::source::AnvilLevelSource;
 use mc_core::world::level::{Level, LevelEnv};
 use mc_core::world::chunk::ChunkHeight;
 
+use mc_worldgen::gen::release102::LevelGenRelease102;
+
 use mc_vanilla::ext::WithVanilla;
-use mc_vanilla::block::*;
 
 fn main() {
 
     let region_dir = std::env::var("REGION_DIR").expect("Missing region dir");
     let anvil_source = AnvilLevelSource::new(region_dir);
 
-    let mut gen = SuperFlatGenerator::new();
-    gen.add_layer(BEDROCK.get_default_state(), 0, 1);
-    gen.add_layer(DIRT.get_default_state(), 1, 3);
-    gen.add_layer(GRASS_BLOCK.get_default_state(), 3, 1);
-
-    let gen_source = LevelGeneratorSource::new(gen, 1);
+    let gen_builder = LevelGenRelease102::builder(3048926232851431861);
+    let gen_source = LevelGeneratorSource::new(gen_builder, 4);
 
     let load_or_gen_source = LoadOrGenLevelSource::new(
         anvil_source,
@@ -33,8 +30,11 @@ fn main() {
         load_or_gen_source
     );
 
-    for cx in 0..16 {
-        for cz in 0..16 {
+    let center_x = -24;
+    let center_z = 37;
+
+    for cx in (center_x - 16)..(center_x + 16) {
+        for cz in (center_z - 16)..(center_z + 16) {
             level.request_chunk_load(cx, cz);
         }
     }

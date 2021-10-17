@@ -2,6 +2,7 @@ use std::ops::AddAssign;
 
 /// A generic rectangle.
 /// Coordinates order: X then Z
+#[derive(Clone)]
 pub struct Rect<T> {
     pub data: Vec<T>,
     pub x_size: usize,
@@ -80,6 +81,7 @@ impl<T> Rect<T> {
 /// A generic cube.
 ///
 /// Coordinate ordering: Y then Z then X
+#[derive(Clone)]
 pub struct Cube<T> {
     pub data: Vec<T>,
     pub x_size: usize,

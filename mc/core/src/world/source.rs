@@ -1,5 +1,5 @@
 use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Mutex};
 use std::error::Error;
 
 use crossbeam_channel::{Sender, Receiver, unbounded, bounded};
@@ -223,6 +223,15 @@ pub trait LevelGenerator {
 }
 
 
+/// A trait used by `LevelGeneratorSource` in order to build a specific `LevelGenerator` in each
+/// worker thread, this allows the generator to be thread unsafe. For this specific use, this
+/// implies that this builder should be send and sync for.
+pub trait LevelGeneratorBuilder {
+    type Generator: LevelGenerator;
+    fn build(&mut self) -> Self::Generator;
+}
+
+
 /// A wrapper for `LevelGenerator` that implements `LevelSource` to provide asynchronous level
 /// generation. This wrapper dispatches incoming chunk request into the given number of worker
 /// threads.
@@ -233,9 +242,9 @@ pub struct LevelGeneratorSource {
 
 impl LevelGeneratorSource {
 
-    pub fn new<G>(generator: G, workers_count: usize) -> Self
+    pub fn new<B>(mut generator_builder: B, workers_count: usize) -> Self
     where
-        G: LevelGenerator + Clone + Send + 'static
+        B: LevelGeneratorBuilder + Send + Sync + 'static
     {
 
         let (
@@ -244,21 +253,29 @@ impl LevelGeneratorSource {
         ) = unbounded();
 
         let (
-            result_send,
+            result_sender,
             result_receiver
         ) = bounded(workers_count * 16);
 
+        let generator_builder = Arc::new(Mutex::new(generator_builder));
+
         for i in 0..workers_count {
 
-            let worker = LevelGeneratorSourceWorker {
-                generator: generator.clone(),
-                request_receiver: request_receiver.clone(),
-                result_sender: result_send.clone()
-            };
+            let request_receiver = request_receiver.clone();
+            let result_sender = result_sender.clone();
+            let generator_builder = Arc::clone(&generator_builder);
 
             std::thread::Builder::new()
                 .name(format!("Level generator worker #{}", i))
-                .spawn(move || worker.run());
+                .spawn(move || {
+                    let mut builder = generator_builder.lock().unwrap();
+                    let worker = LevelGeneratorSourceWorker {
+                        generator: builder.build(),
+                        request_receiver,
+                        result_sender
+                    };
+                    worker.run()
+                });
 
         }
 
