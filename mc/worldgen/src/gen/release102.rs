@@ -56,8 +56,8 @@ pub struct LevelGenRelease102 {
     noise_field: NoiseCube,
     layer_voronoi: VoronoiLayer<BoxLayer<&'static Biome>>,
 
-    cave_carver: StructureGenerator<CaveStructure>,
-    ravine_carver: StructureGenerator<RavineStructure>
+    // cave_carver: StructureGenerator<CaveStructure>,
+    // ravine_carver: StructureGenerator<RavineStructure>
 
 }
 
@@ -102,8 +102,8 @@ impl LevelGenRelease102 {
             noise_surface_cache: NoiseCube::new_default(16, 16, 1),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
             layer_voronoi: Self::new_layers(shared.seed),
-            cave_carver: StructureGenerator::new(CaveStructure, 8),
-            ravine_carver: StructureGenerator::new(RavineStructure, 8),
+            // cave_carver: StructureGenerator::new(CaveStructure, 8),
+            // ravine_carver: StructureGenerator::new(RavineStructure, 8),
             rand: JavaRandom::new_blank(),
             shared,
         }
@@ -525,7 +525,6 @@ impl LevelGenerator for LevelGenRelease102 {
         const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
 
         if info.cx < -POS_LIMIT || info.cz < -POS_LIMIT || info.cx >= POS_LIMIT || info.cz >= POS_LIMIT {
-            // In order to return position, we need a better LevelGenerator trait
             return Err((LevelSourceError::UnsupportedChunkPosition, info));
         }
 
@@ -533,10 +532,25 @@ impl LevelGenerator for LevelGenRelease102 {
 
         let mut chunk = info.build_proto_chunk();
         let biomes = self.initialize_biomes(&mut *chunk);
+
         self.generate_terrain(&mut *chunk);
         self.generate_surface(&mut *chunk, &biomes);
-        self.cave_carver.generate(self.shared.seed, &mut *chunk);
-        self.ravine_carver.generate(self.shared.seed, &mut *chunk);
+
+        let mut get_biome_top_block = |x: u8, z: u8| {
+            BIOMES_PROPERTIES.get(*biomes.get(x as usize, z as usize)).unwrap().top_block
+        };
+
+        StructureGenerator::new(8, CaveStructure {
+            get_biome_top_block: &mut get_biome_top_block
+        }).generate(self.shared.seed, &mut *chunk);
+
+        StructureGenerator::new(8, RavineStructure {
+            get_biome_top_block: &mut get_biome_top_block
+        }).generate(self.shared.seed, &mut *chunk);
+
+        // self.cave_carver.generate(self.shared.seed, &mut *chunk);
+        // self.ravine_carver.generate(self.shared.seed, &mut *chunk);
+
         Ok(chunk)
 
     }

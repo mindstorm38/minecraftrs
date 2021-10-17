@@ -1,14 +1,20 @@
 use mc_core::rand::JavaRandom;
 use mc_core::world::chunk::Chunk;
+use mc_core::block::BlockState;
 use mc_core::math::{mc_cos, mc_sin, JAVA_PI};
 use mc_vanilla::block::*;
 
 use super::Structure;
 
 
-pub struct CaveStructure;
+pub struct CaveStructure<'a, F: FnMut(u8, u8) -> &'static BlockState> {
+    pub get_biome_top_block: &'a mut F
+}
 
-impl Structure for CaveStructure {
+impl<F> Structure for CaveStructure<'_, F>
+where
+    F: FnMut(u8, u8) -> &'static BlockState
+{
 
     fn generate(&mut self, ccx: i32, ccz: i32, chunk: &mut Chunk, range: i32, rand: &mut JavaRandom) {
 
@@ -32,7 +38,7 @@ impl Structure for CaveStructure {
                 let mut normal_caves_count = 1;
 
                 if rand.next_int_bounded(4) == 0 {
-                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, 1.0 + rand.next_float() * 6.0, 0.0, 0.0, -1, 0, 0.5);
+                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, 1.0 + rand.next_float() * 6.0, 0.0, 0.0, -1, 0, 0.5, self.get_biome_top_block);
                     normal_caves_count += rand.next_int_bounded(4);
                 }
 
@@ -46,7 +52,7 @@ impl Structure for CaveStructure {
                         base_width *= rand.next_float() * rand.next_float() * 3.0 + 1.0;
                     }
 
-                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, base_width, angle_yaw, angle_pitch, 0, 0, 1.0);
+                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, base_width, angle_yaw, angle_pitch, 0, 0, 1.0, self.get_biome_top_block);
 
                 }
 
@@ -71,7 +77,8 @@ fn gen_cave_node(
     mut angle_pitch: f32,
     mut offset: i32,
     mut length: i32,
-    height_ratio: f64
+    height_ratio: f64,
+    get_biome_top_block: &mut impl FnMut(u8, u8) -> &'static BlockState
 ) {
 
     let mut rand = JavaRandom::new(seed);
@@ -141,7 +148,8 @@ fn gen_cave_node(
                 rand.next_float() * 0.5 + 0.5,
                 angle_yaw - (JAVA_PI as f32 / 2.0),
                 angle_pitch / 3.0,
-                offset, length, 1.0
+                offset, length, 1.0,
+                get_biome_top_block
             );
 
             gen_cave_node(
@@ -149,7 +157,8 @@ fn gen_cave_node(
                 rand.next_float() * 0.5 + 0.5,
                 angle_yaw + (JAVA_PI as f32 / 2.0),
                 angle_pitch / 3.0,
-                offset, length, 1.0
+                offset, length, 1.0,
+                get_biome_top_block
             );
 
             break;
@@ -237,7 +246,7 @@ fn gen_cave_node(
                             } else {
                                 chunk.set_block(bx, rby, bz, air_block);
                                 if pierced_ground && chunk.get_block(bx, by, bz).unwrap() == dirt_block {
-                                    // TODO: Set block at y=by to the biome top block.
+                                    chunk.set_block(bx, by, bz, get_biome_top_block(bx, bz));
                                 }
                             }
                         }

@@ -1,14 +1,20 @@
 use mc_core::world::chunk::Chunk;
 use mc_core::rand::JavaRandom;
+use mc_core::block::BlockState;
 use mc_core::math::{mc_cos, mc_sin, JAVA_PI};
 use mc_vanilla::block::*;
 
 use super::Structure;
 
 
-pub struct RavineStructure;
+pub struct RavineStructure<'a, F: FnMut(u8, u8) -> &'static BlockState> {
+    pub get_biome_top_block: &'a mut F
+}
 
-impl Structure for RavineStructure {
+impl<F> Structure for RavineStructure<'_, F>
+where
+    F: FnMut(u8, u8) -> &'static BlockState
+{
 
     fn generate(&mut self, ccx: i32, ccz: i32, chunk: &mut Chunk, range: i32, rand: &mut JavaRandom) {
 
@@ -27,7 +33,7 @@ impl Structure for RavineStructure {
             let base_width = (rand.next_float() * 2.0 + rand.next_float()) * 2.0;
 
             let new_seed = rand.next_long();
-            gen_ravine_worker(new_seed, range, chunk, x as f64, y as f64, z as f64, base_width, angle_yaw, angle_pitch, 0, 0, 3.0);
+            gen_ravine_worker(new_seed, range, chunk, x as f64, y as f64, z as f64, base_width, angle_yaw, angle_pitch, 0, 0, 3.0, self.get_biome_top_block);
 
         }
 
@@ -48,8 +54,9 @@ fn gen_ravine_worker(
     mut angle_pitch: f32,
     mut offset: i32,
     mut length: i32,
-    height_ratio: f64)
-{
+    height_ratio: f64,
+    get_biome_top_block: &mut impl FnMut(u8, u8) -> &'static BlockState
+) {
 
     let mut rand = JavaRandom::new(seed);
 
@@ -202,6 +209,7 @@ fn gen_ravine_worker(
                             } else {
                                 chunk.set_block(bx, rby, bz, air_block);
                                 if pierced_ground && chunk.get_block(bx, by, bz).unwrap() == dirt_block {
+                                    chunk.set_block(bx, by, bz, get_biome_top_block(bx, bz));
                                     // TODO: Set block at y=by to the biome top block.
                                 }
                             }

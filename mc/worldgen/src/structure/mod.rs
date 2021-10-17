@@ -15,13 +15,13 @@ pub trait Structure {
 
 /// A functional wrapper for `Structure` with a local random and range.
 pub struct StructureGenerator<S: Structure> {
-    range: i32,
-    structure: S
+    pub range: i32,
+    pub structure: S
 }
 
 impl<S: Structure> StructureGenerator<S> {
 
-    pub fn new(structure: S, range: i32) -> Self {
+    pub fn new(range: i32, structure: S) -> Self {
         Self {
             range,
             structure
