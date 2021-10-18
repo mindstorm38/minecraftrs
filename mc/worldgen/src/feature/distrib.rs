@@ -1,9 +1,11 @@
-use crate::rand::jrand::JavaRandom;
-use crate::world::WorldAccess;
+use mc_core::rand::JavaRandom;
+
+use super::ChunkAccess;
 
 
-pub trait PosDistrib {
-    fn pick_pos(&self, world: &mut WorldAccess, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> Option<(i32, i32, i32)>;
+/// A trait to implement on feature distribution structures to use later in composed structures.
+pub trait Distrib {
+    fn pick_pos(&self, chunk: &mut ChunkAccess, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> Option<(i32, i32, i32)>;
 }
 
 
@@ -18,8 +20,8 @@ impl UniformVerticalDistrib {
     }
 }
 
-impl PosDistrib for UniformVerticalDistrib {
-    fn pick_pos(&self, _world: &mut WorldAccess, rand: &mut JavaRandom, x: i32, _y: i32, z: i32) -> Option<(i32, i32, i32)> {
+impl Distrib for UniformVerticalDistrib {
+    fn pick_pos(&self, _chunk: &mut ChunkAccess, rand: &mut JavaRandom, x: i32, _y: i32, z: i32) -> Option<(i32, i32, i32)> {
         let rx = x + rand.next_int_bounded(16);
         let ry = rand.next_int_bounded((self.y_max - self.y_min) as i32) + self.y_min as i32;
         let rz = z + rand.next_int_bounded(16);
@@ -39,8 +41,8 @@ impl TriangularVerticalDistrib {
     }
 }
 
-impl PosDistrib for TriangularVerticalDistrib {
-    fn pick_pos(&self, _world: &mut WorldAccess, rand: &mut JavaRandom, x: i32, _y: i32, z: i32) -> Option<(i32, i32, i32)> {
+impl Distrib for TriangularVerticalDistrib {
+    fn pick_pos(&self, _chunk: &mut ChunkAccess, rand: &mut JavaRandom, x: i32, _y: i32, z: i32) -> Option<(i32, i32, i32)> {
         let rx = x + rand.next_int_bounded(16);
         let ry = rand.next_int_bounded(self.y_spread as i32) + rand.next_int_bounded(self.y_spread as i32) + (self.y_center - self.y_spread) as i32;
         let rz = z + rand.next_int_bounded(16);

@@ -255,7 +255,7 @@ impl LevelGeneratorSource {
         let (
             result_sender,
             result_receiver
-        ) = bounded(workers_count * 16);
+        ) = bounded(workers_count * 128);
 
         let generator_builder = Arc::new(Mutex::new(generator_builder));
 
