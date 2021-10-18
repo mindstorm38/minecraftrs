@@ -11,6 +11,7 @@ use crate::block::BlockState;
 use crate::biome::Biome;
 
 use super::level::LevelEnv;
+use std::ops::{Deref, DerefMut};
 
 
 /// The number of blocks for each direction in sub chunks.
@@ -36,7 +37,7 @@ pub enum ChunkError {
     #[error("You gave a heightmap type that is not supported by this chunk's level's env.")]
     IllegalHeightmap,
     #[error("You are trying to access an unloaded chunk.")]
-    ChunkUnloaded  // Made for LevelStorage
+    ChunkUnloaded,  // Made for LevelStorage
 }
 
 /// A type alias with an error type of `ChunkError`.
@@ -173,6 +174,17 @@ impl Chunk {
         self.last_save = Instant::now();
     }
 
+    #[inline]
+    pub fn get_guard(&mut self) -> ChunkGuard {
+        ChunkGuard {
+            min_x: self.cx << 4,
+            min_z: self.cz << 4,
+            max_x: (self.cx << 4) + 16,
+            max_z: (self.cz << 4) + 16,
+            chunk: self
+        }
+    }
+
     /// Ensure that a sub chunk is existing at a specific chunk-Y coordinate, if this coordinate
     /// is out of the height of the level, `Err(ChunkError::SubChunkOutOfRange)` is returned.
     /// You can pass `Some(&SubChunkOptions)` in order to change the default block and biome used
@@ -289,6 +301,9 @@ impl Chunk {
         }
     }
 
+    /// Same description as `get_block` but accept level coordinates instead of relative ones. This
+    /// method ignore if the given coordinates are not actually pointing to this chunk, it only
+    /// take the 4 least significant bits.
     #[inline]
     pub fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState> {
         self.get_block((x & 15) as u8, y, (z & 15) as u8)
@@ -313,6 +328,9 @@ impl Chunk {
         }
     }
 
+    /// Same description as `set_block` but accept level coordinates instead of relative ones. This
+    /// method ignore if the given coordinates are not actually pointing to this chunk, it only
+    /// take the 4 least significant bits.
     #[inline]
     pub fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()> {
         self.set_block((x & 15) as u8, y, (z & 15) as u8, state)
@@ -495,6 +513,48 @@ impl Chunk {
     #[inline]
     pub fn has_entity(&self, entity: Entity) -> bool {
         self.entities.contains(&entity)
+    }
+
+}
+
+
+pub struct ChunkGuard<'a> {
+    chunk: &'a mut Chunk,
+    pub min_x: i32,
+    pub min_z: i32,
+    pub max_x: i32,
+    pub max_z: i32
+}
+
+impl<'a> Deref for ChunkGuard<'a> {
+    type Target = Chunk;
+    fn deref(&self) -> &Self::Target {
+        self.chunk
+    }
+}
+
+impl<'a> DerefMut for ChunkGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.chunk
+    }
+}
+
+impl<'a> ChunkGuard<'a> {
+
+    /// Get block at real level coordinates only if the given coordinates are in this chunk.
+    pub fn get_block_at_safe(&self, x: i32, y: i32, z: i32) -> Option<&'static BlockState> {
+        if x >= self.min_x && x < self.max_x && z >= self.min_z && z < self.max_z {
+            self.chunk.get_block_at(x, y, z).ok()
+        } else {
+            None
+        }
+    }
+
+    /// Set block at real level coordinates and do nothing if given coordinates are out of range.
+    pub fn set_block_at_safe(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) {
+         if x >= self.min_x && x < self.max_x && z >= self.min_z && z < self.max_z {
+             let _ = self.chunk.set_block_at(x, y, z, state);
+         }
     }
 
 }
