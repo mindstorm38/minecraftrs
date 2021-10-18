@@ -4,7 +4,7 @@ use crate::world::WorldAccess;
 
 pub trait Feature {
 
-    /// Generate the feature in this chunk, the x/y/z coordinates is where to generate it.
+    /// Generate the feature_old in this chunk, the x/y/z coordinates is where to generate it.
     ///
     /// When called from the biome decorator, `y=0` and x/z are the coordinates of the population
     /// chunk, a.k.a. the chunk with an offset of 8/8 blocks.
