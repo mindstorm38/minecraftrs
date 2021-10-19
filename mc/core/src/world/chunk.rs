@@ -391,7 +391,7 @@ impl Chunk {
 
     pub fn set_biomes_2d(&mut self, biomes: &Rect<&'static Biome>) -> ChunkResult<()> {
 
-        assert_eq!(biomes.data.len(), 256, "Given biomes array must be 256 biomes long.");
+        assert!(biomes.x_size >= 16 && biomes.z_size >= 16, "Given biomes rectangle is too small.");
 
         let mut layer_biomes = [0; 16];
 
