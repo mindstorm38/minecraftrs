@@ -147,7 +147,8 @@ impl Level {
             match res {
                 Ok(ProtoChunk {
                     inner: mut chunk,
-                    mut proto_entities
+                    mut proto_entities,
+                    dirty
                 }) => {
 
                     let (cx, cz) = chunk.get_position();
@@ -191,7 +192,9 @@ impl Level {
                     let chunk_arc = self.chunks.insert_chunk(chunk);
                     callback(cx, cz, Ok(chunk_arc));
 
-                    self.request_chunk_save(cx, cz);
+                    if dirty {
+                        self.request_chunk_save(cx, cz);
+                    }
 
                 },
                 Err((err, chunk_info)) => {

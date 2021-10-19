@@ -79,7 +79,8 @@ impl ChunkLoadRequest {
     pub fn build_proto_chunk(&self) -> ProtoChunk {
         ProtoChunk {
             inner: self.build_chunk(),
-            proto_entities: Vec::new()
+            proto_entities: Vec::new(),
+            dirty: false
         }
     }
 
@@ -97,7 +98,9 @@ pub struct ChunkSaveRequest {
 /// later in sync when the source actually returns it.
 pub struct ProtoChunk {
     pub(super) inner: Chunk,
-    pub(super) proto_entities: Vec<(EntityBuilder, Option<Vec<usize>>)>
+    pub(super) proto_entities: Vec<(EntityBuilder, Option<Vec<usize>>)>,
+    /// This boolean indicates when the proto chunk must be saved after added to the level.
+    pub dirty: bool
 }
 
 impl ProtoChunk {
@@ -203,7 +206,13 @@ where
         }
 
         // Then we poll chunks from the generator.
-        self.generator.poll_chunk()
+        let res = self.generator.poll_chunk();
+        if let Some(Ok(ref mut proto_chunk)) = res {
+            // Because this proto chunk was just generated, mark it as dirty in
+            // order to save it once added to the level.
+            proto_chunk.dirty = true;
+        }
+        res
 
     }
 
