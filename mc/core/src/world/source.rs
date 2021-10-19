@@ -206,7 +206,7 @@ where
         }
 
         // Then we poll chunks from the generator.
-        let res = self.generator.poll_chunk();
+        let mut res = self.generator.poll_chunk();
         if let Some(Ok(ref mut proto_chunk)) = res {
             // Because this proto chunk was just generated, mark it as dirty in
             // order to save it once added to the level.
