@@ -16,7 +16,7 @@ fn main() {
     let anvil_source = AnvilLevelSource::new(region_dir);
 
     let gen_builder = LevelGenRelease102::builder(3048926232851431861);
-    let gen_source = LevelGeneratorSource::new(gen_builder, 4);
+    let gen_source = LevelGeneratorSource::new(gen_builder, 6);
 
     let load_or_gen_source = LoadOrGenLevelSource::new(
         anvil_source,
