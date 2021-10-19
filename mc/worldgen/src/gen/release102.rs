@@ -44,22 +44,19 @@ impl LevelGeneratorBuilder for LevelGenBuilderRelease102 {
 
 /// The LevelGenerator for Minecraft 1.2 release.
 pub struct LevelGenRelease102 {
-
     shared: Arc<Shared>,
     rand: JavaRandom,
-
     noise1_cache: NoiseCube,
     noise2_cache: NoiseCube,
     noise3_cache: NoiseCube,
     noise4_cache: NoiseRect,
     noise5_cache: NoiseRect,
     noise_surface_cache: NoiseCube,
-
     noise_field: NoiseCube,
     layer_voronoi: VoronoiLayer<BoxLayer<&'static Biome>>,
-
 }
 
+/// Internal shared structure built from the same `LevelGeneratorBuilder`.
 struct Shared {
     seed: i64,
     noise1: PerlinNoiseOctaves<16>,
