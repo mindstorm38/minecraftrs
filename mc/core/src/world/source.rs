@@ -1,5 +1,6 @@
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock, Mutex};
+use std::time::{Instant, Duration};
 use std::error::Error;
 
 use crossbeam_channel::{Sender, Receiver, unbounded, bounded};
@@ -277,14 +278,18 @@ impl LevelGeneratorSource {
             std::thread::Builder::new()
                 .name(format!("Level generator worker #{}", i))
                 .spawn(move || {
-                    let mut builder = generator_builder.lock().unwrap();
-                    let worker = LevelGeneratorSourceWorker {
-                        generator: builder.build(),
-                        request_receiver,
-                        result_sender
+                    let worker = {
+                        LevelGeneratorSourceWorker {
+                            generator: generator_builder.lock().unwrap().build(),
+                            request_receiver,
+                            result_sender,
+                            total_count: 0,
+                            total_duration: Duration::default(),
+                        }
                     };
                     worker.run()
-                });
+                })
+                .unwrap();
 
         }
 
@@ -315,7 +320,9 @@ impl LevelSource for LevelGeneratorSource {
 struct LevelGeneratorSourceWorker<G> {
     generator: G,
     request_receiver: Receiver<ChunkLoadRequest>,
-    result_sender: Sender<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>>
+    result_sender: Sender<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>>,
+    total_count: u32,
+    total_duration: Duration
 }
 
 impl<G> LevelGeneratorSourceWorker<G>
@@ -325,9 +332,14 @@ where
 
     fn run(mut self) {
         loop {
+            println!("[{}] Waiting...", std::thread::current().name().unwrap());
             match self.request_receiver.recv() {
                 Ok(chunk_info) => {
+                    let begin = Instant::now();
                     let res = self.generator.generate(chunk_info);
+                    self.total_duration += begin.elapsed();
+                    self.total_count += 1;
+                    // TODO: println!("[{}] Average time: {:?}", std::thread::current().name().unwrap(), self.total_duration / self.total_count);
                     if let Err(_) = self.result_sender.send(res) {
                         break
                     }
