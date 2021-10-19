@@ -4,6 +4,7 @@ use mc_core::world::chunk::{Chunk, ChunkGuard};
 pub mod distrib;
 pub mod repeated;
 pub mod vein;
+pub mod lake;
 
 use distrib::{Distrib, DistribFeature, UniformVerticalDistrib, TriangularVerticalDistrib};
 use repeated::RepeatedFeature;
