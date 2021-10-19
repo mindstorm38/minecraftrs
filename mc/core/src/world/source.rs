@@ -332,7 +332,7 @@ where
 
     fn run(mut self) {
         loop {
-            println!("[{}] Waiting...", std::thread::current().name().unwrap());
+            // TODO: println!("[{}] Waiting...", std::thread::current().name().unwrap());
             match self.request_receiver.recv() {
                 Ok(chunk_info) => {
                     let begin = Instant::now();
