@@ -146,11 +146,12 @@ impl Level {
         while let Some(res) = self.source.poll_chunk() {
             match res {
                 Ok(ProtoChunk {
-                    inner: mut chunk,
+                    inner: chunk,
                     mut proto_entities,
                     dirty
                 }) => {
 
+                    let mut chunk = *chunk;
                     let (cx, cz) = chunk.get_position();
                     debug!("Loaded chunk at {}/{}", cx, cz);
 

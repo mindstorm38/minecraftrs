@@ -1,5 +1,5 @@
+use mc_core::world::chunk::{Chunk, ChunkGuard, ChunkResult};
 use mc_core::rand::JavaRandom;
-use mc_core::world::chunk::{Chunk, ChunkGuard};
 
 pub mod distrib;
 pub mod repeated;
@@ -8,8 +8,10 @@ pub mod lake;
 
 use distrib::{Distrib, DistribFeature, UniformVerticalDistrib, TriangularVerticalDistrib};
 use repeated::RepeatedFeature;
+use mc_core::block::BlockState;
 
 
+/// Base trait for level features generators.
 pub trait Feature {
 
     /// Generate the feature in this chunk, the x/y/z coordinates is where to generate it.
@@ -71,4 +73,11 @@ impl FeatureChain {
         }
     }
 
+}
+
+
+/// A local level view used to generate feature in an partial level view.
+pub trait LevelView {
+    fn set_block_at(&mut self, x: i32, y: i32, z: i32, block: &'static BlockState) -> ChunkResult<()>;
+    fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
 }

@@ -79,7 +79,7 @@ impl ChunkLoadRequest {
 
     pub fn build_proto_chunk(&self) -> ProtoChunk {
         ProtoChunk {
-            inner: self.build_chunk(),
+            inner: Box::new(self.build_chunk()),
             proto_entities: Vec::new(),
             dirty: false
         }
@@ -98,7 +98,10 @@ pub struct ChunkSaveRequest {
 /// A temporary chunk structure used to add entity builders that will be added to the level's ECS
 /// later in sync when the source actually returns it.
 pub struct ProtoChunk {
-    pub(super) inner: Chunk,
+    /// A boxed chunk, the inner chunk is intentionally boxed because proto chunks are made
+    /// to be moved and sent between threads.
+    pub(super) inner: Box<Chunk>,
+    /// Proto entities that will be built and added to the
     pub(super) proto_entities: Vec<(EntityBuilder, Option<Vec<usize>>)>,
     /// This boolean indicates when the proto chunk must be saved after added to the level.
     pub dirty: bool

@@ -8,11 +8,82 @@ use mc_core::world::source::{LevelSource, ChunkLoadRequest, LevelSourceError, Pr
 
 
 /// A common threaded generator level source that generate legacy terrain.
+///
+/// The following diagram explain how workers are connected through channels:
+/// ```text
+/// ┌────────────┐       ┌───────────────────┐
+/// │   Source   ├─┬─────► Terrain Worker #0 ├─┐
+/// └─▲──────────┘ │     └───────────────────┘ │
+///   │            │ load request              │
+///   │            │     ┌───────────────────┐ │
+///   │            └─────► Terrain Worker #1 ├─┤
+///   │                  └───────────────────┘ │
+///   │ full                                   │
+///   │ chunk ┌────────────────┐ terrain chunk │
+///   └───────┤ Feature Worker ◄───────────────┘
+///           └────────────────┘
+/// ```
 pub struct LegacyGeneratorLevelSource {
-    load_request_sender: Sender<ChunkLoadRequest>,
+    request_sender: Sender<ChunkLoadRequest>,
+    chunk_receiver: Receiver<ProtoChunk>,
     loading_chunks: HashSet<(i32, i32)>
 }
 
+impl LegacyGeneratorLevelSource {
+
+    /// Construct a new legacy generator with the given number of terrain workers (threads).
+    /// For now there is only a single worker for features generation, this might change in
+    /// the future.
+    pub fn new(terrain_workers: u16) -> Self {
+
+        let (
+            request_sender,
+            request_receiver
+        ) = unbounded();
+
+        let (
+            terrain_sender,
+            terrain_receiver
+        ) = bounded(256);
+
+        let (
+            chunk_sender,
+            chunk_receiver
+        ) = bounded(256);
+
+        for i in 0..terrain_workers {
+
+            let worker = TerrainWorker {
+                request_receiver: request_receiver.clone(),
+                terrain_sender: terrain_sender.clone()
+            };
+
+            std::thread::Builder::new()
+                .name(format!("Legacy Generator Terrain Worker #{}", i))
+                .spawn(move || worker.run());
+
+        }
+
+        let feature_worker = FeatureWorker {
+            chunks: HashMap::new(),
+            chunks_counters: HashMap::new(),
+            terrain_receiver,
+            chunk_sender,
+        };
+
+        std::thread::Builder::new()
+            .name("Legacy Generator Feature Worker".to_string())
+            .spawn(move || feature_worker.run());
+
+        Self {
+            request_sender,
+            chunk_receiver,
+            loading_chunks: HashSet::new()
+        }
+
+    }
+
+}
 
 impl LevelSource for LegacyGeneratorLevelSource {
 
@@ -24,7 +95,7 @@ impl LevelSource for LegacyGeneratorLevelSource {
                     let mut req = req.clone();
                     req.cx = cx;
                     req.cz = cz;
-                    self.load_request_sender.send(req).unwrap();
+                    self.request_sender.send(req).unwrap();
                 }
             }
         }
@@ -32,7 +103,7 @@ impl LevelSource for LegacyGeneratorLevelSource {
     }
 
     fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>> {
-        match self.answer_receiver.try_recv() {
+        /*match self.answer_receiver.try_recv() {
             Ok(Answer::Terrain(chunk)) => {
                 let (cx, cz) = chunk.get_position();
                 let mut chunks = self.chunks.write().unwrap();
@@ -43,7 +114,7 @@ impl LevelSource for LegacyGeneratorLevelSource {
 
             },
             Err(_) => None
-        }
+        }*/
         todo!()
     }
 
@@ -54,7 +125,7 @@ impl LevelSource for LegacyGeneratorLevelSource {
 /// process. Another thread is responsible of the features generation.
 struct TerrainWorker {
     request_receiver: Receiver<ChunkLoadRequest>,
-    terrain_sender: Sender<ProtoChunk>
+    terrain_sender: Sender<Box<ProtoChunk>>
 }
 
 impl TerrainWorker {
@@ -64,7 +135,7 @@ impl TerrainWorker {
             match self.request_receiver.recv() {
                 Err(_) => break,
                 Ok(req) => {
-                    self.terrain_sender.send(self.generate_terrain(req)).unwrap();
+                    self.terrain_sender.send(Box::new(self.generate_terrain(req))).unwrap();
                 },
             }
         }
@@ -77,10 +148,12 @@ impl TerrainWorker {
 }
 
 
+/// Internal thread worker
 struct FeatureWorker {
     chunks: HashMap<(i32, i32), ProtoChunk>,
     chunks_counters: HashMap<(i32, i32), u8>,
-    terrain_receiver: Receiver<ProtoChunk>
+    terrain_receiver: Receiver<Box<ProtoChunk>>,
+    chunk_sender: Sender<ProtoChunk>
 }
 
 impl FeatureWorker {
