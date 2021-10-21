@@ -1,4 +1,4 @@
-use mc_core::world::chunk::{Chunk, ChunkGuard, ChunkResult};
+use mc_core::world::chunk::{Chunk, ChunkResult};
 use mc_core::rand::JavaRandom;
 
 pub mod distrib;
@@ -9,6 +9,7 @@ pub mod lake;
 use distrib::{Distrib, DistribFeature, UniformVerticalDistrib, TriangularVerticalDistrib};
 use repeated::RepeatedFeature;
 use mc_core::block::BlockState;
+use mc_core::biome::Biome;
 
 
 /// Base trait for level features generators.
@@ -18,7 +19,7 @@ pub trait Feature {
     ///
     /// When called from the biome decorator, `y=0` and x/z are the coordinates of the population
     /// chunk, a.k.a. the chunk with an offset of 8/8 blocks.
-    fn generate(&self, chunk: &mut ChunkGuard, rand: &mut JavaRandom, x: i32, y: i32, z: i32);
+    fn generate(&self, chunk: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32);
 
     fn distributed<D: Distrib>(self, distrib: D) -> DistribFeature<Self, D>
     where
@@ -67,7 +68,7 @@ impl FeatureChain {
         self.features.push(Box::new(feature));
     }
 
-    pub fn generate(&self, chunk: &mut ChunkGuard, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
+    pub fn generate(&self, chunk: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
         for feature in &self.features {
             feature.generate(chunk, rand, x, y, z);
         }
@@ -78,6 +79,10 @@ impl FeatureChain {
 
 /// A local level view used to generate feature in an partial level view.
 pub trait LevelView {
+
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()>;
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
+
+    fn get_biome_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static Biome>;
+
 }

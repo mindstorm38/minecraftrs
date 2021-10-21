@@ -25,53 +25,23 @@ use crate::layer::zoom::VoronoiLayer;
 use crate::structure::ravine::RavineStructure;
 use crate::structure::cave::CaveStructure;
 use crate::structure::StructureGenerator;
-use crate::feature::{FeatureChain, Feature};
+use crate::feature::{FeatureChain, Feature, LevelView};
 use crate::feature::vein::GenVeinFeature;
 
+use super::legacy::{GeneratorProvider, FeatureGenerator, TerrainGenerator, QuadLevelView};
+use super::biome::BiomePropertyMap;
 
-/// Special level generator builder.
-pub struct LevelGenBuilderRelease102 {
+/// Base implementation of `GeneratorProvider` for release 1.2 generation.
+pub struct R102Provider {
     shared: Arc<Shared>
 }
 
-impl LevelGeneratorBuilder for LevelGenBuilderRelease102 {
-    type Generator = LevelGenRelease102;
-    fn build(&mut self) -> Self::Generator {
-        LevelGenRelease102::new_internal(Arc::clone(&self.shared))
-    }
-}
+impl R102Provider {
 
-
-/// The LevelGenerator for Minecraft 1.2 release.
-pub struct LevelGenRelease102 {
-    shared: Arc<Shared>,
-    rand: JavaRandom,
-    noise1_cache: NoiseCube,
-    noise2_cache: NoiseCube,
-    noise3_cache: NoiseCube,
-    noise4_cache: NoiseRect,
-    noise5_cache: NoiseRect,
-    noise_surface_cache: NoiseCube,
-    noise_field: NoiseCube,
-    layer_voronoi: VoronoiLayer<BoxLayer<&'static Biome>>,
-}
-
-/// Internal shared structure built from the same `LevelGeneratorBuilder`.
-struct Shared {
-    seed: i64,
-    noise1: PerlinNoiseOctaves<16>,
-    noise2: PerlinNoiseOctaves<16>,
-    noise3: PerlinNoiseOctaves<8>,
-    noise4: PerlinNoiseOctaves<10>,
-    noise5: PerlinNoiseOctaves<16>,
-    noise_surface: PerlinNoiseOctaves<4>,
-}
-
-impl LevelGenRelease102 {
-
-    pub fn builder(seed: i64) -> LevelGenBuilderRelease102 {
+    /// Construct a new provider with the given seed.
+    pub fn new(seed: i64) -> Self {
         let mut rand = JavaRandom::new(seed);
-        LevelGenBuilderRelease102 {
+        Self {
             shared: Arc::new(Shared {
                 seed,
                 noise1: PerlinNoiseOctaves::new(&mut rand),
@@ -84,11 +54,58 @@ impl LevelGenRelease102 {
         }
     }
 
-    fn new_internal(shared: Arc<Shared>) -> Self {
+}
 
+impl GeneratorProvider for R102Provider {
+
+    type Terrain = R102TerrainGenerator;
+    type Feature = R102FeatureGenerator;
+
+    fn build_terrain(&self) -> Self::Terrain {
+        R102TerrainGenerator::new(Arc::clone(&self.shared))
+    }
+
+    fn build_feature(&self) -> Self::Feature {
+        R102FeatureGenerator::new(Arc::clone(&self.shared))
+    }
+
+}
+
+/// Terrain generator for release 1.2
+pub struct R102TerrainGenerator {
+    shared: Arc<Shared>,
+    noise1_cache: NoiseCube,
+    noise2_cache: NoiseCube,
+    noise3_cache: NoiseCube,
+    noise4_cache: NoiseRect,
+    noise5_cache: NoiseRect,
+    noise_surface_cache: NoiseCube,
+    noise_field: NoiseCube,
+    layer_voronoi: VoronoiLayer<BoxLayer<&'static Biome>>,
+}
+
+impl TerrainGenerator for R102TerrainGenerator {
+    fn generate(&mut self, chunk: &mut ProtoChunk) {
+
+        const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);
+        const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
+
+        let (cx, cz) = chunk.get_position();
+        let mut rand = JavaRandom::new((Wrapping(cx as i64) * X_MUL + Wrapping(cz as i64) * Z_MUL).0);
+
+        let biomes = self.initialize_biomes(&mut *chunk);
+        self.generate_terrain(&mut *chunk);
+        self.generate_surface(&mut *chunk, &mut rand, &biomes);
+        self.generate_structures(&mut *chunk, &biomes);
+
+    }
+}
+
+impl R102TerrainGenerator {
+
+    fn new(shared: Arc<Shared>) -> Self {
         const WIDTH: usize = 5;
         const HEIGHT: usize = 17;
-
         Self {
             noise1_cache: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
             noise2_cache: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
@@ -98,10 +115,8 @@ impl LevelGenRelease102 {
             noise_surface_cache: NoiseCube::new_default(16, 16, 1),
             noise_field: NoiseCube::new_default(WIDTH, HEIGHT, WIDTH),
             layer_voronoi: Self::new_layers(shared.seed),
-            rand: JavaRandom::new_blank(),
             shared,
         }
-
     }
 
     fn new_layers(seed: i64) -> VoronoiLayer<BoxLayer<&'static Biome>> {
@@ -164,9 +179,7 @@ impl LevelGenRelease102 {
 
     fn initialize_biomes(&mut self, chunk: &mut Chunk) -> Rect<&'static Biome> {
         let (cx, cz) = chunk.get_position();
-        // Here we take 17 blocks instead of 16 because we need an extra layer in order to know
-        // the biome of neighbors chunks (cx+1/cz+1).
-        let biomes = self.layer_voronoi.next_grid(cx * 16, cz * 16, 17, 17);
+        let biomes = self.layer_voronoi.next_grid(cx * 16, cz * 16, 16, 16);
         chunk.set_biomes_2d(&biomes).expect("The biome layer returned invalid biomes.");
         biomes
     }
@@ -415,7 +428,7 @@ impl LevelGenRelease102 {
 
     }
 
-    fn generate_surface(&mut self, chunk: &mut Chunk, biomes: &Rect<&'static Biome>) {
+    fn generate_surface(&mut self, chunk: &mut Chunk, rand: &mut JavaRandom, biomes: &Rect<&'static Biome>) {
 
         let (cx, cz) = chunk.get_position();
 
@@ -435,7 +448,7 @@ impl LevelGenRelease102 {
                 let biome_prop = BIOMES_PROPERTIES.get(biome).unwrap();
 
                 // x/z are inverted
-                let noise_val = (*self.noise_surface_cache.get(x as usize, z as usize, 0) / 3.0 + 3.0 + self.rand.next_double() * 0.25) as i32;
+                let noise_val = (*self.noise_surface_cache.get(x as usize, z as usize, 0) / 3.0 + 3.0 + rand.next_double() * 0.25) as i32;
 
                 let biome_top_block = biome_prop.top_block;
                 let biome_filler_block = biome_prop.filler_block;
@@ -447,7 +460,7 @@ impl LevelGenRelease102 {
 
                 for y in (0..128).rev() {
 
-                    if y <= self.rand.next_int_bounded(5) {
+                    if y <= rand.next_int_bounded(5) {
                         chunk.set_block(x, y, z, block_bedrock).unwrap();
                     } else {
 
@@ -493,7 +506,7 @@ impl LevelGenRelease102 {
                                 if depth == 0 && filler_block == block_sand {
                                     // This block is used to generate the sandstone behind the sand in
                                     // the desert.
-                                    depth = self.rand.next_int_bounded(4);
+                                    depth = rand.next_int_bounded(4);
                                     filler_block = block_sandstone;
                                 }
 
@@ -526,165 +539,46 @@ impl LevelGenRelease102 {
 
     }
 
-    fn generate_features(&mut self, chunk: &mut Chunk, biomes: &Rect<&'static Biome>) {
-
-        let (cx, cz) = chunk.get_position();
-
-        let order = match (cx & 1, cz & 1) {
-            (0, 0) => [(1, 1), (1, 0), (0, 0), (0, 1)],
-            (0, 1) => [(1, 0), (1, 1), (0, 1), (0, 0)],
-            (1, 0) => [(0, 1), (0, 0), (1, 0), (1, 1)],
-            (1, 1) => [(0, 0), (0, 1), (1, 1), (1, 0)],
-            _ => unreachable!()
-        };
-
-        let mut guard = chunk.get_guard();
-        let mut rand = JavaRandom::new_blank();
-
-        for (dx, dz) in order {
-
-            rand.set_seed(self.shared.seed);
-            let a = Wrapping(rand.next_long() / 2 * 2 + 1);
-            let b = Wrapping(rand.next_long() / 2 * 2 + 1);
-            rand.set_seed((Wrapping((cx + dx - 1) as i64) * a + Wrapping((cz + dz - 1) as i64) * b).0 ^ self.shared.seed);
-
-            let (center_x, center_z) = ((cx + dx) << 4, (cz + dz) << 4);
-            let (block_x, block_z) = (center_x - 8, center_z - 8);
-
-            let center_biome = *biomes.get((dx as usize) << 4, (dz as usize) << 4);
-            let center_biome_prop = BIOMES_PROPERTIES.get(center_biome).unwrap();
-
-            // fixme:
-            // center_biome_prop.features.generate(&mut guard, &mut rand, block_x, 0, block_z);
-
-        }
-
-    }
-
 }
 
-impl LevelGenerator for LevelGenRelease102 {
-
-    fn generate(&mut self, info: ChunkLoadRequest) -> Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)> {
-
-        const POS_LIMIT: i32 = 1_875_004;
-        const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);
-        const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
-
-        if info.cx < -POS_LIMIT || info.cz < -POS_LIMIT || info.cx >= POS_LIMIT || info.cz >= POS_LIMIT {
-            return Err((LevelSourceError::UnsupportedChunkPosition, info));
-        }
-
-        self.rand.set_seed((Wrapping(info.cx as i64) * X_MUL + Wrapping(info.cz as i64) * Z_MUL).0);
-
-        let mut chunk = info.build_proto_chunk();
-        let biomes = self.initialize_biomes(&mut *chunk);
-
-        self.generate_terrain(&mut *chunk);
-        self.generate_surface(&mut *chunk, &biomes);
-        self.generate_structures(&mut *chunk, &biomes);
-        self.generate_features(&mut *chunk, &biomes);
-
-        Ok(chunk)
-
-    }
-
+pub struct R102FeatureGenerator {
+    shared: Arc<Shared>
 }
 
-
-struct BiomePropertyMap {
-    data: HashMap<BiomeKey, BiomeProperty>
+impl FeatureGenerator for R102FeatureGenerator {
+    fn decorate(&mut self, mut level: QuadLevelView, cx: i32, cz: i32, x: i32, z: i32) {
+        let mut rand = JavaRandom::new(self.shared.seed);
+        let a = Wrapping(rand.next_long() / 2 * 2 + 1);
+        let b = Wrapping(rand.next_long() / 2 * 2 + 1);
+        rand.set_seed((Wrapping(cx as i64) * a + Wrapping(cz as i64) * b).0 ^ self.shared.seed);
+        let biome = level.get_biome_at(x + 8, 0, z + 8).unwrap();
+        let biome_prop = BIOMES_PROPERTIES.get(biome).unwrap();
+        biome_prop.features.generate(&mut level, &mut rand, x, 0, z);
+    }
 }
 
-struct BiomeProperty {
-    pub min_height: f32,
-    pub max_height: f32,
-    pub temperature: f32,
-    pub top_block: &'static BlockState,
-    pub filler_block: &'static BlockState,
-    pub features: FeatureChain
-}
-
-struct BiomePropertyBuilder {
-    biome: &'static Biome,
-    inner: BiomeProperty,
-    map: BiomePropertyMap,
-}
-
-impl BiomePropertyBuilder {
-
-    pub fn height(mut self, min: f32, max: f32) -> Self {
-        self.inner.min_height = min;
-        self.inner.max_height = max;
-        self
-    }
-
-    pub fn temp(mut self, temp: f32) -> Self {
-        self.inner.temperature = temp;
-        self
-    }
-
-    pub fn blocks(mut self, top: &'static Block, filler: &'static Block) -> Self {
-        self.inner.top_block = top.get_default_state();
-        self.inner.filler_block = filler.get_default_state();
-        self
-    }
-
-    pub fn build(mut self) -> BiomePropertyMap {
-        self.map.data.insert(self.biome.get_key(), self.inner);
-        self.map
-    }
-
-}
-
-impl BiomePropertyMap {
-
-    pub fn new() -> Self {
+impl R102FeatureGenerator {
+    fn new(shared: Arc<Shared>) -> Self {
         Self {
-            data: HashMap::new()
+            shared
         }
     }
-
-    pub fn insert(self, biome: &'static Biome) -> BiomePropertyBuilder {
-        BiomePropertyBuilder {
-            biome,
-            inner: BiomeProperty {
-                min_height: 0.1,
-                max_height: 0.3,
-                temperature: 0.5,
-                top_block: GRASS_BLOCK.get_default_state(),
-                filler_block: DIRT.get_default_state(),
-                features: get_common_features()
-            },
-            map: self
-        }
-    }
-
-    pub fn get(&self, biome: &'static Biome) -> Option<&BiomeProperty> {
-        self.data.get(&biome.get_key())
-    }
-
-    pub fn get_height(&self, biome: &'static Biome) -> Option<(f32, f32)> {
-        self.get(biome).map(|prop| (prop.min_height, prop.max_height))
-    }
-
 }
 
-fn get_common_features() -> FeatureChain {
-    let mut chain = FeatureChain::new();
-    chain.push(GenVeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
-    chain.push(GenVeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
-    chain.push(GenVeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
-    chain.push(GenVeinFeature::new(IRON_ORE.get_default_state(), 8).distributed_uniform(0, 64).repeated(20));
-    chain.push(GenVeinFeature::new(GOLD_ORE.get_default_state(), 8).distributed_uniform(0, 32).repeated(2));
-    chain.push(GenVeinFeature::new(REDSTONE_ORE.get_default_state(), 7).distributed_uniform(0, 16).repeated(8));
-    chain.push(GenVeinFeature::new(DIAMOND_ORE.get_default_state(), 7).distributed_uniform(0, 16));
-    chain.push(GenVeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));
-    chain
+
+/// Internal shared structure among terrain and feature generators.
+struct Shared {
+    seed: i64,
+    noise1: PerlinNoiseOctaves<16>,
+    noise2: PerlinNoiseOctaves<16>,
+    noise3: PerlinNoiseOctaves<8>,
+    noise4: PerlinNoiseOctaves<10>,
+    noise5: PerlinNoiseOctaves<16>,
+    noise_surface: PerlinNoiseOctaves<4>,
 }
+
 
 static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
-
     BiomePropertyMap::new()
         .insert(&OCEAN).height(-1.0, 0.4).build()
         .insert(&PLAINS).height(0.1, 0.3).temp(0.8).build()

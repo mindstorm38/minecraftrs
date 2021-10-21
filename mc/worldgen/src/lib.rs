@@ -1,8 +1,3 @@
-//!
-//! Naming convention for generators modules (check the `version` module before):
-//!
-//! `"gen" + <major_version> + <minor_version>` with `minor_version` being padded to 2 digits.
-//!
 
 // pub mod carver_old;
 // pub mod layer;

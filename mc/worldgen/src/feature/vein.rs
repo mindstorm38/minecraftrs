@@ -1,10 +1,9 @@
-use mc_core::world::chunk::ChunkGuard;
 use mc_core::rand::JavaRandom;
 use mc_core::block::BlockState;
 use mc_core::math::{mc_cos, mc_sin, JAVA_PI};
 use mc_vanilla::block::*;
 
-use super::Feature;
+use super::{Feature, LevelView};
 
 
 pub struct GenWaterCircleFeature {
@@ -23,32 +22,25 @@ impl GenWaterCircleFeature {
 
 impl Feature for GenWaterCircleFeature {
 
-    fn generate(&self, chunk: &mut ChunkGuard, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
-
-        if let Some(state) = chunk.get_block_at_safe(x, y, z) {
-            if state.is_block(&WATER) {
-
-                let radius = rand.next_int_bounded(self.radius as i32 - 2) + 2;
-
-                for bx in (x - radius).max(chunk.min_x)..=(x + radius).min(chunk.max_x - 1) {
-                    for bz in (z - radius).max(chunk.min_z)..=(z + radius).min(chunk.max_z - 1) {
-                        let dx = bx - x;
-                        let dz = bz - z;
-                        if dx * dx + dz * dz <= radius * radius {
-                            for by in (y - 2)..=(y + 2) {
-                                if let Ok(prev_state) = chunk.get_block_at(bx, by, bz) {
-                                    if prev_state.is_block(&DIRT) || prev_state.is_block(&GRASS_BLOCK) {
-                                        chunk.set_block_at(bx, by, bz, self.block).unwrap();
-                                    }
+    fn generate(&self, chunk: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
+        if chunk.get_block_at(x, y, z).unwrap().is_block(&WATER) {
+            let radius = rand.next_int_bounded(self.radius as i32 - 2) + 2;
+            for bx in (x - radius)..=(x + radius) {
+                for bz in (z - radius)..=(z + radius) {
+                    let dx = bx - x;
+                    let dz = bz - z;
+                    if dx * dx + dz * dz <= radius * radius {
+                        for by in (y - 2)..=(y + 2) {
+                            if let Ok(prev_state) = chunk.get_block_at(bx, by, bz) {
+                                if prev_state.is_block(&DIRT) || prev_state.is_block(&GRASS_BLOCK) {
+                                    chunk.set_block_at(bx, by, bz, self.block).unwrap();
                                 }
                             }
                         }
                     }
                 }
-
             }
         }
-
     }
 
 }
@@ -69,7 +61,7 @@ impl GenVeinFeature {
 }
 
 impl Feature for GenVeinFeature {
-    fn generate(&self, chunk: &mut ChunkGuard, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
+    fn generate(&self, chunk: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
 
         let angle = rand.next_float() * JAVA_PI as f32;
         let angle_sin = mc_sin(angle);
@@ -101,19 +93,17 @@ impl Feature for GenVeinFeature {
             let y_end = (y_center + half_size).floor() as i32;
             let z_end = (z_center + half_size).floor() as i32;
 
-            for bx in x_start.max(chunk.min_x)..=x_end.min(chunk.max_x - 1) {
+            for bx in x_start..=x_end {
                 let bx_dist = (bx as f64 + 0.5 - x_center) / half_size;
                 if bx_dist * bx_dist < 1.0 {
                     for by in y_start..=y_end {
                         let by_dist = (by as f64 + 0.5 - y_center) / half_size;
                         if bx_dist * bx_dist + by_dist * by_dist < 1.0 {
-                            for bz in z_start.max(chunk.min_z)..=z_end.min(chunk.max_z - 1) {
+                            for bz in z_start..=z_end {
                                 let bz_dist = (bz as f64 + 0.5 - z_center) / half_size;
                                 if bx_dist * bx_dist + by_dist * by_dist + bz_dist * bz_dist < 1.0 {
-                                    if let Ok(old_state) = chunk.get_block_at(bx, by, bz) {
-                                        if old_state.is_block(&STONE) {
-                                            chunk.set_block_at(bx, by, bz, self.block).unwrap();
-                                        }
+                                    if chunk.get_block_at(bx, by, bz).unwrap().is_block(&STONE) {
+                                        chunk.set_block_at(bx, by, bz, self.block).unwrap();
                                     }
                                 }
                             }

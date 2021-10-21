@@ -9,6 +9,7 @@ use mc_core::world::source::{LevelSource, ChunkLoadRequest, LevelSourceError, Pr
 use mc_core::world::chunk::{ChunkResult, ChunkError};
 use mc_core::block::BlockState;
 use crate::feature::LevelView;
+use mc_core::biome::Biome;
 
 
 /// Trait for terrain generators.
@@ -18,7 +19,7 @@ pub trait TerrainGenerator {
 
 /// Trait for feature generators.
 pub trait FeatureGenerator {
-    fn decorate(&mut self, level: QuadLevelView, x: i32, y: i32, z: i32);
+    fn decorate(&mut self, level: QuadLevelView, cx: i32, cz: i32, x: i32, z: i32);
 }
 
 /// Base trait for a temporary provider of terrain and feature generators. Structures
@@ -223,8 +224,7 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                     // chunks for the QuadLevelView.
                                     let (ocx, ocz) = (cx + dx - 1, cz + dz - 1);
                                     // Block coordinates of the feature chunk.
-                                    let (center_x, center_z) = ((cx + dx) << 4, (cz + dz) << 4);
-                                    let (block_x, block_z) = (center_x - 8, center_z - 8);
+                                    let (block_x, block_z) = ((ocx << 4) + 8, (ocz << 4) + 8);
 
                                     let view = QuadLevelView {
                                         chunks: [
@@ -237,7 +237,7 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                         z_start: ocz << 4
                                     };
 
-                                    self.generator.decorate(view, block_x, 0, block_z);
+                                    self.generator.decorate(view, ocx, ocz, block_x, block_z);
 
                                 };
 
@@ -291,6 +291,10 @@ impl<'a> LevelView for QuadLevelView<'a> {
 
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState> {
         self.chunks[self.get_chunk_index(x, z)?].get_block_at(x, y, z)
+    }
+
+    fn get_biome_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static Biome> {
+        self.chunks[self.get_chunk_index(x, z)?].get_biome_at(x, y, z)
     }
 
 }

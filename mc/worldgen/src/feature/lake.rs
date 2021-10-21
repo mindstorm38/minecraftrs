@@ -1,8 +1,7 @@
 use mc_core::block::BlockState;
-use mc_core::world::chunk::ChunkGuard;
 use mc_core::rand::JavaRandom;
 
-use super::Feature;
+use super::{Feature, LevelView};
 
 
 pub struct LakeFeature {
@@ -11,7 +10,7 @@ pub struct LakeFeature {
 
 impl Feature for LakeFeature {
 
-    fn generate(&self, chunk: &mut ChunkGuard, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
+    fn generate(&self, chunk: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
 
         let x = x - 8;
         let mut y = y;

@@ -1,7 +1,6 @@
-use mc_core::world::chunk::ChunkGuard;
 use mc_core::rand::JavaRandom;
 
-use super::Feature;
+use super::{Feature, LevelView};
 
 
 pub struct RepeatedFeature<F: Feature> {
@@ -19,7 +18,7 @@ impl<F: Feature> RepeatedFeature<F> {
 }
 
 impl<F: Feature> Feature for RepeatedFeature<F> {
-    fn generate(&self, chunk: &mut ChunkGuard, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
+    fn generate(&self, chunk: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
         for _ in 0..self.count {
             self.feature.generate(chunk, rand, x, y, z);
         }
