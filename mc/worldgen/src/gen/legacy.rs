@@ -144,7 +144,13 @@ impl LevelSource for LegacyGeneratorLevelSource {
     }
 
     fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>> {
-        self.chunk_receiver.recv().ok().map(|c| Ok(c))
+        match self.chunk_receiver.recv() {
+            Ok(chunk) => {
+                self.loading_chunks.remove(&chunk.get_position());
+                Some(Ok(chunk))
+            },
+            _ => None
+        }
     }
 
 }
