@@ -444,12 +444,22 @@ impl Chunk {
         Ok(())
     }
 
+    #[inline]
+    pub fn set_heightmap_column_at(&mut self, heightmap_type: &'static HeightmapType, x: i32, z: i32, y: i32) -> ChunkResult<()> {
+        self.set_heightmap_column(heightmap_type, (x & 15) as u8, (z & 15) as u8, y)
+    }
+
     /// Get the value of a specific heightmap at specific coordinates.
     pub fn get_heightmap_column(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8) -> ChunkResult<i32> {
         let column_index = self.get_heightmap_column_index(heightmap_type, x, z)?;
         // SAFETY: We unwrap because the column index is checked into `get_heightmap_column_index`
         //         and if x or z are wrong, this panics in debug mode.
         Ok(self.heightmaps.get(column_index).unwrap() as i32 + self.get_height().get_min_block())
+    }
+
+    #[inline]
+    pub fn get_heightmap_column_at(&self, heightmap_type: &'static HeightmapType, x: i32, z: i32) -> ChunkResult<i32> {
+        self.get_heightmap_column(heightmap_type, (x & 15) as u8, (z & 15) as u8)
     }
 
     /// Efficiently update all heightmaps for a specific column according to a block update.

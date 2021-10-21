@@ -119,14 +119,14 @@ impl Worker {
 
             match self.request_receiver.recv_timeout(REGIONS_REQUEST_RECV_TIMEOUT) {
                 Ok(Request::Load(req)) => {
-                    debug!("Received chunk load request for {}/{}", req.cx, req.cz);
+                    // debug!("Received chunk load request for {}/{}", req.cx, req.cz);
                     let chunk = self.load_chunk(req);
                     if let Err(_) = self.result_sender.send(chunk) {
                         break
                     }
                 }
                 Ok(Request::Save(req)) => {
-                    debug!("Received chunk save request for {}/{}", req.cx, req.cz);
+                    // debug!("Received chunk save request for {}/{}", req.cx, req.cz);
                     self.save_chunk(req);
                 }
                 Err(RecvTimeoutError::Timeout) => {},

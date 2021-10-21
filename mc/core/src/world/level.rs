@@ -118,7 +118,7 @@ impl Level {
     /// Request internal level source to load the given chunk.
     pub fn request_chunk_load(&mut self, cx: i32, cz: i32) -> bool {
         if !self.loading_chunks.contains(&(cx, cz)) {
-            debug!("Request chunk load at {}/{}", cx, cz);
+            // debug!("Request chunk load at {}/{}", cx, cz);
             match self.source.request_chunk_load(ChunkLoadRequest {
                 env: self.get_env(),
                 height: self.height,
@@ -153,7 +153,7 @@ impl Level {
 
                     let mut chunk = *chunk;
                     let (cx, cz) = chunk.get_position();
-                    debug!("Loaded chunk at {}/{}", cx, cz);
+                    // debug!("Loaded chunk at {}/{}", cx, cz);
 
                     self.loading_chunks.remove(&(cx, cz));
 

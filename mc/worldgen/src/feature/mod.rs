@@ -5,9 +5,12 @@ pub mod distrib;
 pub mod repeated;
 pub mod vein;
 pub mod lake;
+pub mod debug;
 
 use distrib::{Distrib, DistribFeature, UniformVerticalDistrib, TriangularVerticalDistrib};
 use repeated::RepeatedFeature;
+
+use mc_core::heightmap::HeightmapType;
 use mc_core::block::BlockState;
 use mc_core::biome::Biome;
 
@@ -84,5 +87,7 @@ pub trait LevelView {
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
 
     fn get_biome_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static Biome>;
+
+    fn get_heightmap_column_at(&self, heightmap_type: &'static HeightmapType, x: i32, z: i32) -> ChunkResult<i32>;
 
 }

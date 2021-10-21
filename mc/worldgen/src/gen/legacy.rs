@@ -10,6 +10,7 @@ use mc_core::world::chunk::{ChunkResult, ChunkError};
 use mc_core::block::BlockState;
 use crate::feature::LevelView;
 use mc_core::biome::Biome;
+use mc_core::heightmap::HeightmapType;
 
 
 /// Trait for terrain generators.
@@ -131,6 +132,7 @@ impl LevelSource for LegacyGeneratorLevelSource {
         for cx in (req.cx - 1)..=(req.cx + 1) {
             for cz in (req.cz - 1)..=(req.cz + 1) {
                 if !self.loading_chunks.contains(&(cx, cz)) {
+                    self.loading_chunks.insert((cx, cz));
                     let mut req = req.clone();
                     req.cx = cx;
                     req.cz = cz;
@@ -163,6 +165,7 @@ impl<G: TerrainGenerator> TerrainWorker<G> {
             match self.request_receiver.recv() {
                 Err(_) => break,
                 Ok(req) => {
+                    println!("[{}] Generating terrain {}/{}", std::thread::current().name().unwrap(), req.cx, req.cz);
                     let mut proto_chunk = req.build_proto_chunk();
                     self.generator.generate(&mut proto_chunk);
                     self.terrain_sender.send(proto_chunk).unwrap();
@@ -192,12 +195,15 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                 Ok(chunk) => {
 
                     let (cx, cz) = chunk.get_position();
+                    println!("[{}] Decorating {}/{}", std::thread::current().name().unwrap(), cx, cz);
 
-                    // Here we increment counters for each surrounding chunks.
-                    for dcx in (cx - 1)..=(cx + 1) {
-                        for dcz in (cz - 1)..=(cz + 1) {
+                    self.chunks.insert((cx, cz), RefCell::new(chunk));
 
-                            let count = match self.chunks_counters.entry((dcx, dcz)) {
+                    // Here we increment counters for each surrounding chunks ('n' for neighbor).
+                    for ncx in (cx - 1)..=(cx + 1) {
+                        for ncz in (cz - 1)..=(cz + 1) {
+
+                            let count = match self.chunks_counters.entry((ncx, ncz)) {
                                 Entry::Occupied(o) => {
                                     let count = o.into_mut();
                                     *count += 1;
@@ -210,7 +216,7 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                             // let's generate features for this chunk.
                             if count == 9 {
 
-                                let order = match (cx & 1, cz & 1) {
+                                let order = match (ncx & 1, ncz & 1) {
                                     (0, 0) => [(1, 1), (1, 0), (0, 0), (0, 1)],
                                     (0, 1) => [(1, 0), (1, 1), (0, 1), (0, 0)],
                                     (1, 0) => [(0, 1), (0, 0), (1, 0), (1, 1)],
@@ -218,39 +224,78 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                     _ => unreachable!()
                                 };
 
+                                println!(" => Ready to be decorated... {}/{} {:?}", ncx, ncz, (ncx & 1, ncz & 1));
+
                                 for (dx, dz) in order {
 
                                     // Chunk coordinates of the chunk with lowest x/z of the 4
                                     // chunks for the QuadLevelView.
-                                    let (ocx, ocz) = (cx + dx - 1, cz + dz - 1);
+                                    let (ocx, ocz) = (ncx + dx - 1, ncz + dz - 1);
                                     // Block coordinates of the feature chunk.
                                     let (block_x, block_z) = ((ocx << 4) + 8, (ocz << 4) + 8);
 
-                                    let view = QuadLevelView {
-                                        chunks: [
-                                            self.chunks.get(&(ocx + 0, ocz + 0)).unwrap().borrow_mut(),
-                                            self.chunks.get(&(ocx + 1, ocz + 0)).unwrap().borrow_mut(),
-                                            self.chunks.get(&(ocx + 0, ocz + 1)).unwrap().borrow_mut(),
-                                            self.chunks.get(&(ocx + 1, ocz + 1)).unwrap().borrow_mut()
-                                        ],
-                                        x_start: ocx << 4,
-                                        z_start: ocz << 4
-                                    };
+                                    if let (
+                                        Some(c00),
+                                        Some(c10),
+                                        Some(c01),
+                                        Some(c11)
+                                    ) = (
+                                        self.chunks.get(&(ocx + 0, ocz + 0)),
+                                        self.chunks.get(&(ocx + 1, ocz + 0)),
+                                        self.chunks.get(&(ocx + 0, ocz + 1)),
+                                        self.chunks.get(&(ocx + 1, ocz + 1))
+                                    ) {
 
-                                    self.generator.decorate(view, ocx, ocz, block_x, block_z);
+                                        println!(" => Decorating feature chunk {}/{}", ocx, ocz);
+
+                                        let view = QuadLevelView {
+                                            chunks: [
+                                                c00.borrow_mut(), c10.borrow_mut(),
+                                                c01.borrow_mut(), c11.borrow_mut()
+                                            ],
+                                            x_start: ocx << 4,
+                                            z_start: ocz << 4
+                                        };
+
+                                        self.generator.decorate(view, ocx, ocz, block_x, block_z);
+
+                                    }
 
                                 };
 
                                 // When a chunk is decorated, remove it from maps, it should never
                                 // be queried again because all surrounding chunks have received
                                 // its decoration.
-                                self.chunks_counters.remove(&(cx, cz));
-                                let chunk = self.chunks.remove(&(cx, cz)).unwrap().into_inner();
+                                self.chunks_counters.remove(&(ncx, ncz));
+                                let chunk = self.chunks.remove(&(ncx, ncz)).unwrap().into_inner();
                                 self.chunk_sender.send(chunk).unwrap();
 
                             }
 
                         }
+                    }
+
+                    print!("    ");
+                    for dcx in (cx - 8)..=(cx + 8) {
+                        print!("{:03} ", dcx);
+                    }
+                    println!();
+                    for dcz in (cz - 8)..=(cz + 8) {
+                        print!("{:03} ", dcz);
+                        for dcx in (cx - 8)..=(cx + 8) {
+                            if let Some(&count) = self.chunks_counters.get(&(dcx, dcz)) {
+                                if dcx == cx && dcz == cz {
+                                    print!(">{}< ", count);
+                                } else if self.chunks.contains_key(&(dcx, dcz)) {
+                                    print!("[{}] ", count);
+                                } else {
+                                    print!(" {}  ", count);
+                                }
+                            } else {
+                                print!("    ");
+                            }
+                        }
+                        println!();
                     }
 
                 }
@@ -295,6 +340,10 @@ impl<'a> LevelView for QuadLevelView<'a> {
 
     fn get_biome_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static Biome> {
         self.chunks[self.get_chunk_index(x, z)?].get_biome_at(x, y, z)
+    }
+
+    fn get_heightmap_column_at(&self, heightmap_type: &'static HeightmapType, x: i32, z: i32) -> ChunkResult<i32> {
+        self.chunks[self.get_chunk_index(x, z)?].get_heightmap_column_at(heightmap_type, x, z)
     }
 
 }
