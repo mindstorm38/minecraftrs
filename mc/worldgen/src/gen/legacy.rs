@@ -1,23 +1,31 @@
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::cell::{RefCell, RefMut};
+use std::sync::Arc;
 
 use crossbeam_channel::{Sender, Receiver, unbounded, bounded};
 
 use mc_core::world::source::{LevelSource, ChunkLoadRequest, LevelSourceError, ProtoChunk};
-use mc_core::world::chunk::ChunkResult;
+use mc_core::world::chunk::{ChunkResult, ChunkError};
 use mc_core::block::BlockState;
 use crate::feature::LevelView;
 
 
+/// Trait for terrain generators.
 pub trait TerrainGenerator {
     fn generate(&mut self, chunk: &mut ProtoChunk);
 }
 
+/// Trait for feature generators.
 pub trait FeatureGenerator {
     fn decorate(&mut self, level: QuadLevelView, x: i32, y: i32, z: i32);
 }
 
+/// Base trait for a temporary provider of terrain and feature generators. Structures
+/// implementing this trait should also be `Sync` and `Send` because they will be shared
+/// between threads in order to call its methods inside the thread. This allows terrain
+/// and feature generators not to be Send and/or Sync, which is not required because these
+/// generators will not be moved outside the thread.
 pub trait GeneratorProvider {
     type Terrain: TerrainGenerator;
     type Feature: FeatureGenerator;
@@ -58,7 +66,7 @@ impl LegacyGeneratorLevelSource {
     /// the future.
     pub fn new<P>(provider: P, terrain_workers: u16) -> Self
     where
-        P: GeneratorProvider + Sync
+        P: GeneratorProvider + Send + Sync + 'static
     {
 
         let (
@@ -76,29 +84,32 @@ impl LegacyGeneratorLevelSource {
             chunk_receiver
         ) = bounded(256);
 
-        for i in 0..terrain_workers {
+        let provider = Arc::new(provider);
 
+        for i in 0..terrain_workers {
+            let request_receiver = request_receiver.clone();
+            let terrain_sender = terrain_sender.clone();
+            let provider = Arc::clone(&provider);
             std::thread::Builder::new()
                 .name(format!("Legacy Generator Terrain Worker #{}", i))
-                .spawn(|| {
+                .spawn(move || {
                     TerrainWorker {
-                        request_receiver: request_receiver.clone(),
-                        terrain_sender: terrain_sender.clone(),
+                        request_receiver,
+                        terrain_sender,
                         generator: provider.build_terrain()
                     }.run()
                 }).unwrap();
-
         }
 
         std::thread::Builder::new()
             .name("Legacy Generator Feature Worker".to_string())
-            .spawn(|| {
+            .spawn(move || {
                 FeatureWorker {
                     chunks: HashMap::new(),
                     chunks_counters: HashMap::new(),
                     terrain_receiver,
                     chunk_sender,
-                    generator: provider.build_feature()
+                    generator: provider.build_feature(),
                 }.run()
             }).unwrap();
 
@@ -151,16 +162,12 @@ impl<G: TerrainGenerator> TerrainWorker<G> {
             match self.request_receiver.recv() {
                 Err(_) => break,
                 Ok(req) => {
-                    self.terrain_sender.send(self.generate_terrain(req)).unwrap();
+                    let mut proto_chunk = req.build_proto_chunk();
+                    self.generator.generate(&mut proto_chunk);
+                    self.terrain_sender.send(proto_chunk).unwrap();
                 },
             }
         }
-    }
-
-    fn generate_terrain(&mut self, req: ChunkLoadRequest) -> ProtoChunk {
-        let mut proto_chunk = req.build_proto_chunk();
-        self.generator.generate(&mut proto_chunk);
-        proto_chunk
     }
 
 }
@@ -225,7 +232,9 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                             self.chunks.get(&(ocx + 1, ocz + 0)).unwrap().borrow_mut(),
                                             self.chunks.get(&(ocx + 0, ocz + 1)).unwrap().borrow_mut(),
                                             self.chunks.get(&(ocx + 1, ocz + 1)).unwrap().borrow_mut()
-                                        ]
+                                        ],
+                                        x_start: ocx << 4,
+                                        z_start: ocz << 4
                                     };
 
                                     self.generator.decorate(view, block_x, 0, block_z);
@@ -254,17 +263,34 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
 
 pub struct QuadLevelView<'a> {
     /// Ordering is 0/0 1/0 0/1 1/1 (X then Z)
-    chunks: [RefMut<'a, ProtoChunk>; 4]
+    chunks: [RefMut<'a, ProtoChunk>; 4],
+    x_start: i32,
+    z_start: i32
+}
+
+impl<'a> QuadLevelView<'a> {
+
+    #[inline(always)]
+    fn get_chunk_index(&self, x: i32, z: i32) -> ChunkResult<usize> {
+        let dx = (x - self.x_start) >> 4;
+        let dz = (z - self.z_start) >> 4;
+        if dx >= 0 && dz >= 0 && dx < 2 && dz < 2 {
+            Ok(dx as usize + dz as usize * 2)
+        } else {
+            Err(ChunkError::ChunkUnloaded)
+        }
+    }
+
 }
 
 impl<'a> LevelView for QuadLevelView<'a> {
 
-    fn set_block_at(&mut self, x: i32, y: i32, z: i32, block: &'static BlockState) -> ChunkResult<()> {
-        todo!()
+    fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()> {
+        self.chunks[self.get_chunk_index(x, z)?].set_block_at(x, y, z, state)
     }
 
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState> {
-        todo!()
+        self.chunks[self.get_chunk_index(x, z)?].get_block_at(x, y, z)
     }
 
 }

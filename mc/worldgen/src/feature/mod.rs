@@ -78,6 +78,6 @@ impl FeatureChain {
 
 /// A local level view used to generate feature in an partial level view.
 pub trait LevelView {
-    fn set_block_at(&mut self, x: i32, y: i32, z: i32, block: &'static BlockState) -> ChunkResult<()>;
+    fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()>;
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
 }
