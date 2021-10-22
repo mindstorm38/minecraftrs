@@ -171,7 +171,7 @@ impl<G: TerrainGenerator> TerrainWorker<G> {
             match self.request_receiver.recv() {
                 Err(_) => break,
                 Ok(req) => {
-                    println!("[{}] Generating terrain {}/{}", std::thread::current().name().unwrap(), req.cx, req.cz);
+                    // println!("[{}] Generating terrain {}/{}", std::thread::current().name().unwrap(), req.cx, req.cz);
                     let mut proto_chunk = req.build_proto_chunk();
                     self.generator.generate(&mut proto_chunk);
                     self.terrain_sender.send(proto_chunk).unwrap();
@@ -201,7 +201,7 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                 Ok(chunk) => {
 
                     let (cx, cz) = chunk.get_position();
-                    println!("[{}] Decorating {}/{}", std::thread::current().name().unwrap(), cx, cz);
+                    // println!("[{}] Decorating {}/{}", std::thread::current().name().unwrap(), cx, cz);
 
                     self.chunks.insert((cx, cz), RefCell::new(chunk));
 
@@ -230,7 +230,7 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                     _ => unreachable!()
                                 };
 
-                                println!(" => Ready to be decorated... {}/{} {:?}", ncx, ncz, (ncx & 1, ncz & 1));
+                                // println!(" => Ready to be decorated... {}/{} {:?}", ncx, ncz, (ncx & 1, ncz & 1));
 
                                 for (dx, dz) in order {
 
@@ -252,7 +252,7 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                         self.chunks.get(&(ocx + 1, ocz + 1))
                                     ) {
 
-                                        println!(" => Decorating feature chunk {}/{}", ocx, ocz);
+                                        // println!(" => Decorating feature chunk {}/{}", ocx, ocz);
 
                                         let view = QuadLevelView {
                                             chunks: [
@@ -281,7 +281,7 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                         }
                     }
 
-                    print!("    ");
+                    /*print!("    ");
                     for dcx in (cx - 8)..=(cx + 8) {
                         print!("{:03} ", dcx);
                     }
@@ -302,7 +302,7 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                             }
                         }
                         println!();
-                    }
+                    }*/
 
                 }
             }

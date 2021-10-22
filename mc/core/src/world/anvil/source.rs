@@ -126,7 +126,7 @@ impl Worker {
                     }
                 }
                 Ok(Request::Save(req)) => {
-                    // debug!("Received chunk save request for {}/{}", req.cx, req.cz);
+                    debug!("Received chunk save request for {}/{}", req.cx, req.cz);
                     self.save_chunk(req);
                 }
                 Err(RecvTimeoutError::Timeout) => {},

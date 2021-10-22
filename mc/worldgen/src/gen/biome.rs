@@ -6,7 +6,7 @@ use mc_vanilla::block::*;
 
 use crate::feature::{FeatureChain, Feature};
 use crate::feature::vein::GenVeinFeature;
-use crate::feature::debug::DebugChunkFeature;
+// use crate::feature::debug::DebugChunkFeature;
 
 
 pub struct BiomePropertyMap {
@@ -90,14 +90,14 @@ impl BiomePropertyMap {
 
 fn get_common_features() -> FeatureChain {
     let mut chain = FeatureChain::new();
-    /*chain.push(GenVeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
+    chain.push(GenVeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
     chain.push(GenVeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
     chain.push(GenVeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
     chain.push(GenVeinFeature::new(IRON_ORE.get_default_state(), 8).distributed_uniform(0, 64).repeated(20));
     chain.push(GenVeinFeature::new(GOLD_ORE.get_default_state(), 8).distributed_uniform(0, 32).repeated(2));
     chain.push(GenVeinFeature::new(REDSTONE_ORE.get_default_state(), 7).distributed_uniform(0, 16).repeated(8));
     chain.push(GenVeinFeature::new(DIAMOND_ORE.get_default_state(), 7).distributed_uniform(0, 16));
-    chain.push(GenVeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));*/
-    chain.push(DebugChunkFeature);
+    chain.push(GenVeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));
+    // chain.push(DebugChunkFeature);
     chain
 }

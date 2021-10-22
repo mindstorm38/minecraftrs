@@ -102,8 +102,10 @@ impl Feature for GenVeinFeature {
                             for bz in z_start..=z_end {
                                 let bz_dist = (bz as f64 + 0.5 - z_center) / half_size;
                                 if bx_dist * bx_dist + by_dist * by_dist + bz_dist * bz_dist < 1.0 {
-                                    if chunk.get_block_at(bx, by, bz).unwrap().is_block(&STONE) {
-                                        chunk.set_block_at(bx, by, bz, self.block).unwrap();
+                                    if let Ok(block) = chunk.get_block_at(bx, by, bz) {
+                                        if block.is_block(&STONE) {
+                                            chunk.set_block_at(bx, by, bz, self.block).unwrap();
+                                        }
                                     }
                                 }
                             }
