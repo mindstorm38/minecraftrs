@@ -26,7 +26,7 @@ use crate::structure::ravine::RavineStructure;
 use crate::structure::cave::CaveStructure;
 use crate::structure::StructureGenerator;
 use crate::feature::{FeatureChain, Feature, LevelView};
-use crate::feature::vein::GenVeinFeature;
+use crate::feature::vein::VeinFeature;
 
 use super::legacy::{GeneratorProvider, FeatureGenerator, TerrainGenerator, QuadLevelView};
 use super::biome::BiomePropertyMap;

@@ -2,13 +2,13 @@ use mc_core::world::chunk::{Chunk, ChunkResult};
 use mc_core::rand::JavaRandom;
 
 pub mod distrib;
-pub mod repeated;
+pub mod branch;
 pub mod vein;
 pub mod lake;
 pub mod debug;
 
 use distrib::{Distrib, DistribFeature, UniformVerticalDistrib, TriangularVerticalDistrib};
-use repeated::RepeatedFeature;
+use branch::{RepeatedFeature, OptionalFeature};
 
 use mc_core::heightmap::HeightmapType;
 use mc_core::block::BlockState;
@@ -22,7 +22,7 @@ pub trait Feature {
     ///
     /// When called from the biome decorator, `y=0` and x/z are the coordinates of the population
     /// chunk, a.k.a. the chunk with an offset of 8/8 blocks.
-    fn generate(&self, chunk: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32);
+    fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool;
 
     fn distributed<D: Distrib>(self, distrib: D) -> DistribFeature<Self, D>
     where
@@ -35,21 +35,29 @@ pub trait Feature {
     where
         Self: Sized
     {
-        DistribFeature::new_uniform_vertical(self, min_y, max_y)
+        self.distributed(UniformVerticalDistrib::new(min_y, max_y))
     }
 
     fn distributed_triangular(self, y_center: i32, y_spread: i32) -> DistribFeature<Self, TriangularVerticalDistrib>
     where
         Self: Sized
     {
-        DistribFeature::new_triangular_vertical(self, y_center, y_spread)
+        self.distributed(TriangularVerticalDistrib::new(y_center, y_spread))
     }
 
     fn repeated(self, count: u16) -> RepeatedFeature<Self>
     where
         Self: Sized
     {
-        RepeatedFeature::new(count, self)
+        RepeatedFeature::new(self, count)
+    }
+
+    /// Make the current feature actually generate 1 in a `bound` time.
+    fn optional(self, bound: u16) -> OptionalFeature<Self>
+    where
+        Self: Sized
+    {
+        OptionalFeature::new(self, bound)
     }
 
 }

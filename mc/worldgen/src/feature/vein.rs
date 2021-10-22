@@ -6,12 +6,12 @@ use mc_vanilla::block::*;
 use super::{Feature, LevelView};
 
 
-pub struct GenWaterCircleFeature {
+pub struct WaterCircleFeature {
     block: &'static BlockState,
     radius: u16
 }
 
-impl GenWaterCircleFeature {
+impl WaterCircleFeature {
     pub fn new(block: &'static BlockState, radius: u16) -> Self {
         Self {
             block,
@@ -20,10 +20,10 @@ impl GenWaterCircleFeature {
     }
 }
 
-impl Feature for GenWaterCircleFeature {
+impl Feature for WaterCircleFeature {
 
-    fn generate(&self, chunk: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
-        if chunk.get_block_at(x, y, z).unwrap().is_block(&WATER) {
+    fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
+        if level.get_block_at(x, y, z).unwrap().is_block(&WATER) {
             let radius = rand.next_int_bounded(self.radius as i32 - 2) + 2;
             for bx in (x - radius)..=(x + radius) {
                 for bz in (z - radius)..=(z + radius) {
@@ -31,9 +31,9 @@ impl Feature for GenWaterCircleFeature {
                     let dz = bz - z;
                     if dx * dx + dz * dz <= radius * radius {
                         for by in (y - 2)..=(y + 2) {
-                            if let Ok(prev_state) = chunk.get_block_at(bx, by, bz) {
+                            if let Ok(prev_state) = level.get_block_at(bx, by, bz) {
                                 if prev_state.is_block(&DIRT) || prev_state.is_block(&GRASS_BLOCK) {
-                                    chunk.set_block_at(bx, by, bz, self.block).unwrap();
+                                    level.set_block_at(bx, by, bz, self.block).unwrap();
                                 }
                             }
                         }
@@ -41,17 +41,18 @@ impl Feature for GenWaterCircleFeature {
                 }
             }
         }
+        true
     }
 
 }
 
 
-pub struct GenVeinFeature {
+pub struct VeinFeature {
     block: &'static BlockState,
     count: u16
 }
 
-impl GenVeinFeature {
+impl VeinFeature {
     pub fn new(block: &'static BlockState, count: u16) -> Self {
         Self {
             block,
@@ -60,8 +61,8 @@ impl GenVeinFeature {
     }
 }
 
-impl Feature for GenVeinFeature {
-    fn generate(&self, chunk: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) {
+impl Feature for VeinFeature {
+    fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
 
         let angle = rand.next_float() * JAVA_PI as f32;
         let angle_sin = mc_sin(angle);
@@ -102,9 +103,9 @@ impl Feature for GenVeinFeature {
                             for bz in z_start..=z_end {
                                 let bz_dist = (bz as f64 + 0.5 - z_center) / half_size;
                                 if bx_dist * bx_dist + by_dist * by_dist + bz_dist * bz_dist < 1.0 {
-                                    if let Ok(block) = chunk.get_block_at(bx, by, bz) {
+                                    if let Ok(block) = level.get_block_at(bx, by, bz) {
                                         if block.is_block(&STONE) {
-                                            chunk.set_block_at(bx, by, bz, self.block).unwrap();
+                                            level.set_block_at(bx, by, bz, self.block).unwrap();
                                         }
                                     }
                                 }
@@ -115,6 +116,8 @@ impl Feature for GenVeinFeature {
             }
 
         }
+
+        true
 
     }
 }
