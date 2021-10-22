@@ -6,6 +6,7 @@ pub mod branch;
 pub mod vein;
 pub mod lake;
 pub mod debug;
+pub mod dungeon;
 
 use distrib::{Distrib, DistribFeature, UniformVerticalDistrib, TriangularVerticalDistrib};
 use branch::{RepeatedFeature, OptionalFeature};

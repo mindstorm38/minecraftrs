@@ -7,6 +7,7 @@ use mc_vanilla::block::*;
 use crate::feature::{FeatureChain, Feature};
 use crate::feature::vein::VeinFeature;
 use crate::feature::lake::LakeFeature;
+use crate::feature::dungeon::DungeonFeature;
 use crate::feature::distrib::LavaLakeDistrib;
 
 
@@ -93,6 +94,7 @@ fn get_common_features() -> FeatureChain {
     let mut chain = FeatureChain::new();
     chain.push(LakeFeature::new(WATER.get_default_state()).distributed_uniform(0, 128).optional(4));
     chain.push(LakeFeature::new(LAVA.get_default_state()).distributed(LavaLakeDistrib).optional(8));
+    chain.push(DungeonFeature.distributed_uniform(0, 128).repeated(8));
     chain.push(VeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
     chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
     chain.push(VeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
