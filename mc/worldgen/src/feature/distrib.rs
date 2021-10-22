@@ -1,4 +1,6 @@
 use mc_core::rand::JavaRandom;
+use mc_vanilla::heightmap::WORLD_SURFACE;
+
 use super::{Feature, LevelView};
 
 
@@ -72,6 +74,17 @@ impl Distrib for TriangularVerticalDistrib {
         let ry = rand.next_int_bounded(self.y_spread) + rand.next_int_bounded(self.y_spread) + self.y_center - self.y_spread;
         let rz = z + rand.next_int_bounded(16);
         Some((rx, ry, rz))
+    }
+}
+
+
+pub struct SurfaceDistrib;
+
+impl Distrib for SurfaceDistrib {
+    fn pick_pos(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, _y: i32, z: i32) -> Option<(i32, i32, i32)> {
+        let rx = x + rand.next_int_bounded(16);
+        let rz = z + rand.next_int_bounded(16);
+        Some((rx, level.get_heightmap_column_at(&WORLD_SURFACE, rx, rz).unwrap(), rz))
     }
 }
 

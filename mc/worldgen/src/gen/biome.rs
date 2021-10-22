@@ -5,10 +5,10 @@ use mc_core::block::{BlockState, Block};
 use mc_vanilla::block::*;
 
 use crate::feature::{FeatureChain, Feature};
-use crate::feature::vein::VeinFeature;
+use crate::feature::vein::{WaterCircleFeature, VeinFeature};
 use crate::feature::lake::LakeFeature;
 use crate::feature::dungeon::DungeonFeature;
-use crate::feature::distrib::LavaLakeDistrib;
+use crate::feature::distrib::{SurfaceDistrib, LavaLakeDistrib};
 
 
 pub struct BiomePropertyMap {
@@ -91,10 +91,12 @@ impl BiomePropertyMap {
 
 
 fn get_common_features() -> FeatureChain {
+
     let mut chain = FeatureChain::new();
     chain.push(LakeFeature::new(WATER.get_default_state()).distributed_uniform(0, 128).optional(4));
     chain.push(LakeFeature::new(LAVA.get_default_state()).distributed(LavaLakeDistrib).optional(8));
     chain.push(DungeonFeature.distributed_uniform(0, 128).repeated(8));
+
     chain.push(VeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
     chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
     chain.push(VeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
@@ -103,6 +105,11 @@ fn get_common_features() -> FeatureChain {
     chain.push(VeinFeature::new(REDSTONE_ORE.get_default_state(), 7).distributed_uniform(0, 16).repeated(8));
     chain.push(VeinFeature::new(DIAMOND_ORE.get_default_state(), 7).distributed_uniform(0, 16));
     chain.push(VeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));
-    // chain.push(DebugChunkFeature);
+
+    chain.push(WaterCircleFeature::new_sand(7).distributed(SurfaceDistrib).repeated(3));
+    chain.push(WaterCircleFeature::new_clay(4).distributed(SurfaceDistrib));
+    chain.push(WaterCircleFeature::new_sand(7).distributed(SurfaceDistrib));
+
     chain
+
 }

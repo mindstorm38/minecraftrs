@@ -8,16 +8,34 @@ use super::{Feature, LevelView};
 
 pub struct WaterCircleFeature {
     block: &'static BlockState,
+    replace_grass: bool,
+    depth: u16,
     radius: u16
 }
 
 impl WaterCircleFeature {
-    pub fn new(block: &'static BlockState, radius: u16) -> Self {
+
+    pub fn new(block: &'static BlockState, replace_grass: bool, depth: u16, radius: u16) -> Self {
         Self {
             block,
+            replace_grass,
+            depth,
             radius
         }
     }
+
+    pub fn new_sand(radius: u16) -> Self {
+        Self::new(SAND.get_default_state(), true, 2, radius)
+    }
+
+    pub fn new_gravel(radius: u16) -> Self {
+        Self::new(GRAVEL.get_default_state(), true, 2, radius)
+    }
+
+    pub fn new_clay(radius: u16) -> Self {
+        Self::new(CLAY.get_default_state(), false, 1, radius)
+    }
+
 }
 
 impl Feature for WaterCircleFeature {
@@ -30,9 +48,9 @@ impl Feature for WaterCircleFeature {
                     let dx = bx - x;
                     let dz = bz - z;
                     if dx * dx + dz * dz <= radius * radius {
-                        for by in (y - 2)..=(y + 2) {
+                        for by in (y - self.depth as i32)..=(y + self.depth as i32) {
                             if let Ok(prev_state) = level.get_block_at(bx, by, bz) {
-                                if prev_state.is_block(&DIRT) || prev_state.is_block(&GRASS_BLOCK) {
+                                if prev_state.is_block(&DIRT) || (self.replace_grass && prev_state.is_block(&GRASS_BLOCK)) {
                                     level.set_block_at(bx, by, bz, self.block).unwrap();
                                 }
                             }
@@ -40,8 +58,10 @@ impl Feature for WaterCircleFeature {
                     }
                 }
             }
+            true
+        } else {
+            false
         }
-        true
     }
 
 }
