@@ -187,20 +187,23 @@ impl Chunk {
 
     /// Ensure that a sub chunk is existing at a specific chunk-Y coordinate, if this coordinate
     /// is out of the height of the level, `Err(ChunkError::SubChunkOutOfRange)` is returned.
-    /// You can pass `Some(&SubChunkOptions)` in order to change the default block and biome used
-    /// to fill the sub chunk if it need to be created.
-    pub fn ensure_sub_chunk(&mut self, cy: i8/*, options: Option<&SubChunkOptions>*/) -> ChunkResult<&mut SubChunk> {
+    pub fn ensure_sub_chunk(&mut self, cy: i8) -> ChunkResult<&mut SubChunk> {
 
         let offset = self.calc_sub_chunk_offset(cy).ok_or(ChunkError::SubChunkOutOfRange)?;
 
         match self.sub_chunks.get_mut(offset) {
             Some(Some(sub_chunk)) => Ok(sub_chunk),
             Some(sub_chunk ) => {
-                Ok(sub_chunk.insert(SubChunk::new(Arc::clone(&self.env)/*, options*/)))
+                Ok(sub_chunk.insert(SubChunk::new(Arc::clone(&self.env))))
             },
             None => Err(ChunkError::SubChunkOutOfRange)
         }
 
+    }
+
+    #[inline]
+    pub fn ensure_sub_chunk_at(&mut self, y: i32) -> ChunkResult<&mut SubChunk> {
+        self.ensure_sub_chunk((y >> 4) as i8)
     }
 
     /// Replace the sub chunk at the given Y chunk coordinate by the given one.
@@ -223,6 +226,11 @@ impl Chunk {
         }
     }
 
+    #[inline]
+    pub fn get_sub_chunk_at(&self, y: i32) -> Option<&SubChunk> {
+        self.get_sub_chunk((y >> 4) as i8)
+    }
+
     /// Get a sub chunk mutable reference at a specified index.
     pub fn get_sub_chunk_mut(&mut self, cy: i8) -> Option<&mut SubChunk> {
         let offset = self.calc_sub_chunk_offset(cy)?;
@@ -230,6 +238,11 @@ impl Chunk {
             Some(Some(chunk)) => Some(chunk),
             _ => None
         }
+    }
+
+    #[inline]
+    pub fn get_sub_chunk_mut_at(&mut self, y: i32) -> Option<&mut SubChunk> {
+        self.get_sub_chunk_mut((y >> 4) as i8)
     }
 
     /// Return the number of sub chunks in the height of this chunk.
@@ -318,7 +331,7 @@ impl Chunk {
     /// # Panics (debug-only)
     /// This method panics if either X or Z is higher than 15.
     pub fn set_block(&mut self, x: u8, y: i32, z: u8, state: &'static BlockState) -> ChunkResult<()> {
-        let sub_chunk = self.ensure_sub_chunk((y >> 4) as i8/*, None*/)?;
+        let sub_chunk = self.ensure_sub_chunk_at(y)?;
         match sub_chunk.set_block(x, (y & 15) as u8, z, state) {
             Ok(()) => {
                 self.update_heightmap_column(x, y, z, state);
@@ -478,7 +491,9 @@ impl Chunk {
                 // For example, if we have `current_y = 2`, `y = 1`, then we recompute.
                 // But if we have `y = 0`, then we do nothing because top block is unchanged.
                 if y + 1 == current_y {
-                    let mut check_y = y - 1;
+                    let height = self.recompute_heightmap_column_internal(heightmap_type, x, z, y - 1);
+                    self.heightmaps.set(column_index, height);
+                    /*let mut check_y = y - 1;
                     let mut new_y = min_block_y;
                     while check_y >= min_block_y {
                         match self.get_block(x, check_y, z) {
@@ -495,10 +510,41 @@ impl Chunk {
                             }
                         }
                     }
-                    self.heightmaps.set(column_index, (new_y - min_block_y) as u64);
+                    self.heightmaps.set(column_index, (new_y - min_block_y) as u64);*/
                 }
             }
         }
+    }
+
+    pub fn recompute_heightmap_column(&mut self, x: u8, z: u8) {
+        let column_index = calc_heightmap_index(x, z);
+        for (idx, heightmap_type) in self.env.heightmaps.iter_heightmap_types().enumerate() {
+            let column_index = idx * 256 + column_index;
+            let height = self.recompute_heightmap_column_internal(heightmap_type, x, z, self.get_height().get_max_block());
+            self.heightmaps.set(column_index, height);
+        }
+    }
+
+    fn recompute_heightmap_column_internal(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8, from_y: i32) -> u64 {
+        let min_block_y = self.get_height().get_min_block();
+        let mut check_y = from_y;
+        let mut new_y = min_block_y;
+        while check_y >= min_block_y {
+            match self.get_block(x, check_y, z) {
+                Ok(state) => {
+                    if heightmap_type.check_block(state) {
+                        new_y = check_y + 1;
+                        break;
+                    }
+                    check_y -= 1;
+                },
+                Err(_) => {
+                    // The sub chunk is empty, skip it.
+                    check_y -= 16;
+                }
+            }
+        }
+        (new_y - min_block_y) as u64
     }
 
     /// Direct access method to internal packed array, returning each of the 256 values from the

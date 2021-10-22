@@ -458,65 +458,73 @@ impl R102TerrainGenerator {
 
                 let mut depth = -1;
 
-                for y in (0..128).rev() {
+                for cy in (0..8).rev() {
+                    if let Some(sub_chunk) = chunk.get_sub_chunk_mut(cy) {
+                        for y in (0..16u8).rev() {
 
-                    if y <= rand.next_int_bounded(5) {
-                        chunk.set_block(x, y, z, block_bedrock).unwrap();
-                    } else {
+                            let y_real = (cy as i32) * 16 + y as i32;
 
-                        let block = chunk.get_block(x, y, z).unwrap();
+                            if y_real <= rand.next_int_bounded(5) {
+                                sub_chunk.set_block(x, y, z, block_bedrock).unwrap();
+                            } else {
 
-                        if block == block_air {
-                            depth = -1;
-                        } else if block == block_stone {
+                                let block = sub_chunk.get_block(x, y, z);
 
-                            if depth == -1 {
+                                if block == block_air {
+                                    depth = -1;
+                                } else if block == block_stone {
 
-                                if noise_val <= 0 {
-                                    // This block is used to generate places where there is no grass but
-                                    // stone at the layer behind de surface.
-                                    top_block = block_air;
-                                    filler_block = block_stone;
-                                } else if y >= 59 && y <= 64 {
-                                    top_block = biome_top_block;
-                                    filler_block = biome_filler_block;
-                                }
+                                    if depth == -1 {
 
-                                if y < 63 && top_block == block_air {
-                                    if biome_prop.temperature < 0.15 {
-                                        top_block = ICE.get_default_state();
-                                    } else {
-                                        top_block = WATER.get_default_state();
+                                        if noise_val <= 0 {
+                                            // This block is used to generate places where there is no grass but
+                                            // stone at the layer behind de surface.
+                                            top_block = block_air;
+                                            filler_block = block_stone;
+                                        } else if y_real >= 59 && y_real <= 64 {
+                                            top_block = biome_top_block;
+                                            filler_block = biome_filler_block;
+                                        }
+
+                                        if y_real < 63 && top_block == block_air {
+                                            if biome_prop.temperature < 0.15 {
+                                                top_block = ICE.get_default_state();
+                                            } else {
+                                                top_block = WATER.get_default_state();
+                                            }
+                                        }
+
+                                        depth = noise_val;
+
+                                        sub_chunk.set_block(x, y, z, if y_real >= 62 {
+                                            top_block
+                                        } else {
+                                            filler_block
+                                        }).unwrap();
+
+                                    } else if depth > 0 {
+
+                                        depth -= 1;
+                                        sub_chunk.set_block(x, y, z, filler_block).unwrap();
+
+                                        if depth == 0 && filler_block == block_sand {
+                                            // This block is used to generate the sandstone behind the sand in
+                                            // the desert.
+                                            depth = rand.next_int_bounded(4);
+                                            filler_block = block_sandstone;
+                                        }
+
                                     }
-                                }
 
-                                depth = noise_val;
-
-                                chunk.set_block(x, y, z, if y >= 62 {
-                                    top_block
-                                } else {
-                                    filler_block
-                                }).unwrap();
-
-                            } else if depth > 0 {
-
-                                depth -= 1;
-                                chunk.set_block(x, y, z, filler_block).unwrap();
-
-                                if depth == 0 && filler_block == block_sand {
-                                    // This block is used to generate the sandstone behind the sand in
-                                    // the desert.
-                                    depth = rand.next_int_bounded(4);
-                                    filler_block = block_sandstone;
                                 }
 
                             }
 
                         }
-
                     }
-
                 }
+
+                chunk.recompute_heightmap_column(x, z);
 
             }
         }

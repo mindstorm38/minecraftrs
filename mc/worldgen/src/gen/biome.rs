@@ -9,6 +9,7 @@ use crate::feature::vein::{WaterCircleFeature, VeinFeature};
 use crate::feature::lake::LakeFeature;
 use crate::feature::dungeon::DungeonFeature;
 use crate::feature::distrib::{SurfaceDistrib, LavaLakeDistrib};
+use crate::feature::debug::DebugChunkFeature;
 
 
 pub struct BiomePropertyMap {
@@ -109,6 +110,8 @@ fn get_common_features() -> FeatureChain {
     chain.push(WaterCircleFeature::new_sand(7).distributed(SurfaceDistrib).repeated(3));
     chain.push(WaterCircleFeature::new_clay(4).distributed(SurfaceDistrib));
     chain.push(WaterCircleFeature::new_sand(7).distributed(SurfaceDistrib));
+
+    chain.push(DebugChunkFeature);
 
     chain
 
