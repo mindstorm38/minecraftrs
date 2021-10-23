@@ -3,15 +3,18 @@ use std::ptr::NonNull;
 use std::fmt::Debug;
 
 use once_cell::sync::OnceCell;
+use bit_vec::BitVec;
+
+use crate::tag::{TagType, TagTypeKey};
 use crate::util::OpaquePtr;
 
 mod state;
 mod property;
-mod behaviour;
+mod util;
 
 pub use state::*;
 pub use property::*;
-pub use behaviour::*;
+pub use util::*;
 
 
 /// A basic block defined by a name, its states and properties. This block structure
@@ -224,9 +227,16 @@ impl BlockStorage {
 /// defined using the macro `blocks!`.
 pub struct GlobalBlocks {
     next_sid: u32,
-    block_to_sid: HashMap<BlockKey, u32>,
-    sid_to_state: Vec<&'static BlockState>,
-    name_to_block: HashMap<&'static str, &'static Block>
+    /// Each registered block is mapped to a tuple (index, sid), where index is the index of
+    /// insertion of the block and sid being the save ID of the first state of this block.
+    block_to_indices: HashMap<BlockKey, (usize, u32)>,
+    /// A vector storing references to each block state, the index of each state is called
+    /// its "save ID".
+    ordered_states: Vec<&'static BlockState>,
+    /// A mapping of block's names to them.
+    name_to_blocks: HashMap<&'static str, &'static Block>,
+    /// Contains stores of each tag type. For each tag, either small of big stores are used.
+    tag_stores: HashMap<TagTypeKey, TagStore>
 }
 
 impl GlobalBlocks {
@@ -234,9 +244,10 @@ impl GlobalBlocks {
     pub fn new() -> Self {
         Self {
             next_sid: 0,
-            block_to_sid: HashMap::new(),
-            sid_to_state: Vec::new(),
-            name_to_block: HashMap::new()
+            block_to_indices: HashMap::new(),
+            ordered_states: Vec::new(),
+            name_to_blocks: HashMap::new(),
+            tag_stores: HashMap::new()
         }
     }
 
@@ -256,16 +267,23 @@ impl GlobalBlocks {
         let states_count = states.len();
 
         let sid = self.next_sid;
+        let idx = self.block_to_indices.len();
         let next_sid = sid.checked_add(states_count as u32).ok_or(())?;
 
-        if let None = self.block_to_sid.insert(block.get_key(), sid) {
+        for store in self.tag_stores.values_mut() {
+            if let TagStore::Big(store) = store {
+                store.push(false);
+            }
+        }
+
+        if self.block_to_indices.insert(block.get_key(), (idx, sid)).is_none() {
 
             self.next_sid = next_sid;
 
-            self.name_to_block.insert(block.name, block);
-            self.sid_to_state.reserve(states_count);
+            self.name_to_blocks.insert(block.name, block);
+            self.ordered_states.reserve(states_count);
             for state in states {
-                self.sid_to_state.push(state);
+                self.ordered_states.push(state);
             }
 
         }
@@ -279,8 +297,13 @@ impl GlobalBlocks {
     /// return without and previous added blocks are kept.
     pub fn register_all(&mut self, slice: &[&'static Block]) -> Result<(), ()> {
         let count = slice.len();
-        self.block_to_sid.reserve(count);
-        self.name_to_block.reserve(count);
+        self.block_to_indices.reserve(count);
+        self.name_to_blocks.reserve(count);
+        for store in self.tag_stores.values_mut() {
+            if let TagStore::Big(store) = store {
+                store.reserve(count);
+            }
+        }
         for &block in slice {
             self.register(block)?;
         }
@@ -289,23 +312,28 @@ impl GlobalBlocks {
 
     /// Get the save ID from the given state.
     pub fn get_sid_from(&self, state: &'static BlockState) -> Option<u32> {
-        let block_offset = *self.block_to_sid.get(&state.get_block().get_key())?;
+        let (_, block_offset) = *self.block_to_indices.get(&state.get_block().get_key())?;
         Some(block_offset + state.get_index() as u32)
     }
 
     /// Get the block state from the given save ID.
     pub fn get_state_from(&self, sid: u32) -> Option<&'static BlockState> {
-        Some(*self.sid_to_state.get(sid as usize)?)
+        Some(*self.ordered_states.get(sid as usize)?)
     }
 
     /// Get the default state from the given block name.
     pub fn get_block_from_name(&self, name: &str) -> Option<&'static Block> {
-        self.name_to_block.get(name).cloned()
+        self.name_to_blocks.get(name).cloned()
+    }
+
+    /// Return true if the palette contains the given block.
+    pub fn has_block(&self, block: &'static Block) -> bool {
+        self.block_to_indices.contains_key(&block.get_key())
     }
 
     /// Return true if the palette contains the given block state.
     pub fn has_state(&self, state: &'static BlockState) -> bool {
-        self.block_to_sid.contains_key(&state.get_block().get_key())
+        self.has_block(state.get_block())
     }
 
     /// Check if the given state is registered in this palette, `Ok` is returned if true, in
@@ -314,14 +342,89 @@ impl GlobalBlocks {
         if self.has_state(state) { Ok(state) } else { Err(err()) }
     }
 
+    /// Register a tag type that will be later possible to set to blocks.
+    pub fn register_tag_type(&mut self, tag_type: &'static TagType) {
+        self.tag_stores.insert(tag_type.get_key(), TagStore::Small(Vec::new()));
+    }
+
+    /// Set or unset a tag to some blocks.
+    pub fn set_blocks_tag<I>(&mut self, tag_type: &'static TagType, enabled: bool, blocks: I) -> Result<(), ()>
+    where
+        I: IntoIterator<Item = &'static Block>
+    {
+
+        const MAX_SMALL_LEN: usize = 8;
+
+        let store = self.tag_stores.get_mut(&tag_type.get_key()).ok_or(())?;
+
+        for block in blocks {
+
+            if let TagStore::Small(vec) = store {
+                let idx = vec.iter().position(move |&b| b == block);
+                if enabled {
+                    if idx.is_none() {
+                        if vec.len() >= MAX_SMALL_LEN {
+                            // If the small vector is too big, migrate to a big bit vector.
+                            let mut new_vec = BitVec::from_elem(self.block_to_indices.len(), false);
+                            for old_block in vec {
+                                let (idx, _) = *self.block_to_indices.get(&old_block.get_key()).ok_or(())?;
+                                new_vec.set(idx, true);
+                            }
+                            *store = TagStore::Big(new_vec);
+                        } else {
+                            vec.push(block);
+                        }
+                    }
+                } else if let Some(idx) = idx {
+                    vec.swap_remove(idx);
+                }
+            }
+
+            if let TagStore::Big(vec) = store {
+                let (idx, _) = *self.block_to_indices.get(&block.get_key()).ok_or(())?;
+                vec.set(idx, enabled);
+            }
+
+        }
+
+        Ok(())
+
+    }
+
+    /// Get the tag state on specific block, returning false if unknown block or tag type.
+    pub fn has_block_tag(&self, block: &'static Block, tag_type: &'static TagType) -> bool {
+        match self.tag_stores.get(&tag_type.get_key()) {
+            None => false,
+            Some(store) => {
+                match store {
+                    TagStore::Small(vec) => vec.iter().any(move |&b| b == block),
+                    TagStore::Big(vec) => match self.block_to_indices.get(&block.get_key()) {
+                        None => false,
+                        Some(&(idx, _)) => vec.get(idx).unwrap()
+                    }
+                }
+            }
+        }
+    }
+
     pub fn blocks_count(&self) -> usize {
-        self.block_to_sid.len()
+        self.block_to_indices.len()
     }
 
     pub fn states_count(&self) -> usize {
-        self.sid_to_state.len()
+        self.ordered_states.len()
     }
 
+    pub fn tags_count(&self) -> usize {
+        self.tag_stores.len()
+    }
+
+}
+
+#[derive(Debug)]
+enum TagStore {
+    Small(Vec<&'static Block>),
+    Big(BitVec)
 }
 
 #[macro_export]

@@ -1,9 +1,10 @@
-use mc_core::{blocks, blocks_specs, blocks_properties, impl_enum_serializable, def_enum_serializable};
-use mc_core::pos::{Direction, Axis};
+use mc_core::{blocks, blocks_properties, blocks_specs, def_enum_serializable, impl_enum_serializable};
+use mc_core::pos::{Axis, Direction};
 
-use crate::util::{DyeColor};
+use crate::util::DyeColor;
 
-pub mod behaviour;
+pub mod redstone;
+pub mod material;
 
 
 impl_enum_serializable!(DyeColor {
@@ -258,7 +259,9 @@ blocks_specs! {
     pub SPEC_FARMLAND: [PROP_FARMLAND_MOISTURE];
     pub SPEC_SNOW: [PROP_SNOW_LAYERS];
     pub SPEC_VINE: [PROP_UP, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
-    pub SPEC_CORAL: [PROP_CORAL_TYPE];
+    pub SPEC_CORAL_BLOCK: [PROP_CORAL_TYPE];
+    pub SPEC_CORAL: [PROP_WATERLOGGED, PROP_CORAL_TYPE];
+    pub SPEC_CORAL_WALL: [PROP_WATERLOGGED, PROP_FACING, PROP_CORAL_TYPE];
     pub SPEC_SEA_PICKLE: [PROP_PICKLES, PROP_WATERLOGGED];
     pub SPEC_BAMBOO: [PROP_BAMBOO_AGE, PROP_BAMBOO_LEAVES, PROP_BAMBOO_STAGE];
     pub SPEC_BIG_DRIPLEAF: [PROP_WATERLOGGED, PROP_HORIZONTAL_FACING, PROP_DRIPLEAF_TILT];
@@ -461,6 +464,8 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     JUNGLE_LEAVES "jungle_leaves" SPEC_LEAVES,
     ACACIA_LEAVES "acacia_leaves" SPEC_LEAVES,
     DARK_OAK_LEAVES "dark_oak_leaves" SPEC_LEAVES,
+    AZALEA_LEAVES "azalea_leaves" SPEC_LEAVES,
+    FLOWERING_AZALEA_LEAVES "flowering_azalea_leaves" SPEC_LEAVES,
 
     SPONGE "sponge",
     WET_SPONGE "wet_sponge",
@@ -826,12 +831,14 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     KELP_PLANT "kelp_plant",
     DRIED_KELP_BLOCK "dried_kelp_block",
     TURTLE_EGG "turtle_egg" SPEC_TURTLE_EGG,
-    CORAL_BLOCK "coral_block" SPEC_CORAL, // Merged
-    DEAD_CORAL_BLOCK "dead_coral_block" SPEC_CORAL, // Merged
+    CORAL_BLOCK "coral_block" SPEC_CORAL_BLOCK, // Merged
+    DEAD_CORAL_BLOCK "dead_coral_block" SPEC_CORAL_BLOCK, // Merged
     CORAL "coral" SPEC_CORAL, // Merged
     DEAD_CORAL "dead_coral" SPEC_CORAL, // Merged
     CORAL_FAN "coral_fan" SPEC_CORAL, // Merged
     DEAD_CORAL_FAN "dead_coral_fan" SPEC_CORAL, // Merged
+    CORAL_WALL_FAN "coral_wall_fan" SPEC_CORAL_WALL, // Merged
+    DEAD_CORAL_WALL_FAN "dead_coral_wall_fan" SPEC_CORAL_WALL, // Merged
     SEA_PICKLE "sea_pickle" SPEC_SEA_PICKLE,
     BLUE_ICE "blue_ice",
     CONDUIT "conduit" SPEC_WATERLOGGED,
@@ -1067,9 +1074,7 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
 
 
 pub fn register_behaviours() {
-
-    // TODO
-
+    todo!()
 }
 
 

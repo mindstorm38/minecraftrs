@@ -1,4 +1,5 @@
 use mc_core::block::{Block, GlobalBlocks, Property, PropertySerializable, BlockState};
+use mc_vanilla::ext::WithVanilla;
 use mc_vanilla::block::*;
 use std::time::Instant;
 use std::mem::size_of;
@@ -8,8 +9,7 @@ fn main() {
 
     println!("==== LOADING STATES ====");
     let start = Instant::now();
-    let mut blocks = GlobalBlocks::new();
-    blocks.register_all(&VANILLA_BLOCKS).unwrap();
+    let blocks = GlobalBlocks::with_vanilla();
     println!("Vanilla blocks registered in {}us", start.elapsed().as_micros());
     let blocks_count = blocks.blocks_count();
     let states_count = blocks.states_count();

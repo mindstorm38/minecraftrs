@@ -1,10 +1,8 @@
-use super::*;
-
-pub mod redstone;
-
-use redstone::{REDSTONE_BEHAVIOURS, RedstoneBehaviour, RedstoneConstant};
 use mc_core::block::BlockState;
 
+use crate::block::redstone::{REDSTONE_BEHAVIOURS, RedstoneBehaviour, RedstoneConstant};
+
+use super::*;
 
 pub fn register_behaviours() {
 

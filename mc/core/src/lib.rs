@@ -33,6 +33,7 @@ pub mod world;
 
 pub mod rand;
 pub mod util;
+pub mod tag;
 
 pub mod math;
 pub mod pos;

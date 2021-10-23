@@ -1,7 +1,4 @@
 
-// pub mod carver_old;
-// pub mod layer;
-
 pub mod noise;
 pub mod structure;
 pub mod feature;

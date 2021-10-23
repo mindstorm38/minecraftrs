@@ -1,8 +1,8 @@
-use mc_core::block::{BlockState, BlockBehaviourRegister};
+use mc_core::block::{BlockState, BlockStaticMap};
 use mc_core::pos::Direction;
 
 
-pub static REDSTONE_BEHAVIOURS: BlockBehaviourRegister<&'static dyn RedstoneBehaviour> = BlockBehaviourRegister::new();
+pub static REDSTONE_BEHAVIOURS: BlockStaticMap<&'static dyn RedstoneBehaviour> = BlockStaticMap::new();
 
 
 pub trait RedstoneBehaviour: Sync {

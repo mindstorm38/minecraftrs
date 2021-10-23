@@ -8,16 +8,24 @@ use std::hash::{Hash, Hasher};
 ///
 /// This opaque pointer also implements `Hash` and `Eq` to be usable as a map key.
 #[repr(transparent)]
+#[derive(Copy, Clone)]
 pub struct OpaquePtr<T>(*const T);
 
 unsafe impl<T> Send for OpaquePtr<T> {}
 unsafe impl<T> Sync for OpaquePtr<T> {}
 
 impl<T> OpaquePtr<T> {
+
     #[inline]
     pub const fn new(rf: &'static T) -> Self {
         Self(rf)
     }
+
+    #[inline]
+    pub const fn inner(self) -> &'static T {
+        unsafe { std::mem::transmute(self.0) }
+    }
+
 }
 
 impl<T> Hash for OpaquePtr<T> {

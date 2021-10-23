@@ -255,7 +255,7 @@ pub struct LevelGeneratorSource {
 
 impl LevelGeneratorSource {
 
-    pub fn new<B>(mut generator_builder: B, workers_count: usize) -> Self
+    pub fn new<B>(generator_builder: B, workers_count: usize) -> Self
     where
         B: LevelGeneratorBuilder + Send + Sync + 'static
     {

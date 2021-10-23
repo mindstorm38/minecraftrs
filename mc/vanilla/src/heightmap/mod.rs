@@ -1,25 +1,25 @@
-use mc_core::block::BlockState;
+use mc_core::block::{BlockState, GlobalBlocks};
 use mc_core::heightmaps;
 
+use crate::block::material::{TAG_LIQUID, TAG_NON_BLOCKING, TAG_LEAVES};
 use crate::block::AIR;
 
 
-fn heightmap_world_surface(state: &'static BlockState) -> bool {
+fn heightmap_world_surface(state: &'static BlockState, _blocks: &GlobalBlocks) -> bool {
     state != AIR.get_default_state()
 }
 
-fn heightmap_ocean_floor(state: &'static BlockState) -> bool {
-    // TODO: In reality this returns true if the block is motion blocking.
-    state != AIR.get_default_state()
+fn heightmap_ocean_floor(state: &'static BlockState, blocks: &GlobalBlocks) -> bool {
+    !blocks.has_block_tag(state.get_block(), &TAG_NON_BLOCKING)
 }
 
-fn heightmap_motion_blocking(state: &'static BlockState) -> bool {
-    // TODO: Complete the '||' and is motion blocking
-    state != AIR.get_default_state() // || state is fluid
+fn heightmap_motion_blocking(state: &'static BlockState, blocks: &GlobalBlocks) -> bool {
+    let block = state.get_block();
+    !blocks.has_block_tag(block, &TAG_NON_BLOCKING) || blocks.has_block_tag(block, &TAG_LIQUID)
 }
 
-fn heightmap_motion_blocking_no_leaves(state: &'static BlockState) -> bool {
-    heightmap_motion_blocking(state) // && state is not leaves
+fn heightmap_motion_blocking_no_leaves(state: &'static BlockState, blocks: &GlobalBlocks) -> bool {
+    heightmap_motion_blocking(state, blocks) && !blocks.has_block_tag(state.get_block(), &TAG_LEAVES)
 }
 
 heightmaps!(pub VANILLA_HEIGHTMAPS [

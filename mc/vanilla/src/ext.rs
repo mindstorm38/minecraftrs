@@ -20,7 +20,9 @@ impl WithVanilla for GlobalBlocks {
     fn with_vanilla() -> Self {
         // SAFETY: It's safe to unwrap because the states count for vanilla
         //         (around 20k states) can't overflow 32 bits save ID.
-        Self::with_all(&VANILLA_BLOCKS).unwrap()
+        let mut blocks = Self::with_all(&VANILLA_BLOCKS).unwrap();
+        crate::block::material::register_tags(&mut blocks);
+        blocks
     }
 }
 

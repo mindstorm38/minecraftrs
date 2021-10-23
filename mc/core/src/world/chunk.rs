@@ -482,7 +482,7 @@ impl Chunk {
         for (idx, heightmap_type) in self.env.heightmaps.iter_heightmap_types().enumerate() {
             let column_index = idx * 256 + column_index;
             let current_y = self.heightmaps.get(column_index).unwrap() as i32 + min_block_y;
-            if heightmap_type.check_block(state) {
+            if heightmap_type.check_block(state, &self.env.blocks) {
                 // For example, if we have `current_y = 0`, `y = 0`, then we set `1`.
                 if y >= current_y {
                     self.heightmaps.set(column_index, (y + 1 - min_block_y) as u64);
@@ -532,7 +532,7 @@ impl Chunk {
         while check_y >= min_block_y {
             match self.get_block(x, check_y, z) {
                 Ok(state) => {
-                    if heightmap_type.check_block(state) {
+                    if heightmap_type.check_block(state, &self.env.blocks) {
                         new_y = check_y + 1;
                         break;
                     }

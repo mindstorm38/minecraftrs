@@ -189,7 +189,7 @@ impl Worker {
 
         let mut writer = region.get_chunk_writer(cx, cz, Default::default());
         encode_chunk_to_writer(&mut writer, &*chunk);
-        writer.write_chunk();
+        writer.write_chunk().unwrap();
         // debug!("Chunk at {}/{} saved", cx, cz);
 
     }

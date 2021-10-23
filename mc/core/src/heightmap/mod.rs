@@ -1,4 +1,4 @@
-use crate::block::BlockState;
+use crate::block::{BlockState, GlobalBlocks};
 use crate::util::OpaquePtr;
 
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use std::collections::HashMap;
 /// A structure used to statically define an heightmap type.
 pub struct HeightmapType {
     pub name: &'static str,
-    pub predicate: fn(&'static BlockState) -> bool
+    pub predicate: fn(&'static BlockState, &GlobalBlocks) -> bool
 }
 
 impl HeightmapType {
@@ -22,8 +22,9 @@ impl HeightmapType {
         OpaquePtr::new(self)
     }
 
-    pub fn check_block(&self, state: &'static BlockState) -> bool {
-        (self.predicate)(state)
+    #[inline]
+    pub fn check_block(&self, state: &'static BlockState, blocks: &GlobalBlocks) -> bool {
+        (self.predicate)(state, blocks)
     }
 
 }
