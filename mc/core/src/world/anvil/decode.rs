@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::sync::Arc;
 
 use nbt::decode::{read_compound_tag, TagDecodeError};
 use nbt::{CompoundTag, Tag, CompoundTagError};
@@ -74,7 +75,7 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
     });
 
     // Common environment
-    let env = chunk.clone_env();
+    let env = Arc::clone(chunk.get_env());
     let height = chunk.get_height();
 
     if let Ok(raw_biomes) = tag_level.get_i32_vec("Biomes") {
@@ -196,7 +197,7 @@ fn decode_entities(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<(),
     let tag_entities = tag_root.get_compound_tag_vec("Entities")?;
 
     // Common environment
-    let env = chunk.clone_env();
+    let env = Arc::clone(chunk.get_env());
 
     // Decode entities
     for tag_entity in tag_entities {

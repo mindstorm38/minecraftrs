@@ -327,7 +327,7 @@ impl RegionFile {
         self.file.write_all(&u32::to_be_bytes(length))?;
         self.file.write_all(&[method.get_id(external)])?;
         self.file.write_all(data)?;
-        self.file.flush();
+        self.file.flush()?;
         Ok(())
     }
 
@@ -457,7 +457,7 @@ impl ChunkWriter<'_> {
     /// Finalize and write internal buffered data to the region.
     pub fn write_chunk(&mut self) -> RegionResult<()> {
 
-        self.inner_write().flush();
+        self.inner_write().flush()?;
 
         let (data, method) = match &self.inner {
             ChunkWriterInner::Gzip(encoder) => (encoder.get_ref(), CompressionMethod::Gzip),

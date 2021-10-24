@@ -10,6 +10,7 @@ pub static TAG_NON_SOLID: TagType = TagType::new_logical("minecraft:rust:non_sol
 pub static TAG_NON_BLOCKING: TagType = TagType::new_logical("minecraft:rust:non_blocking");
 pub static TAG_LIQUID: TagType = TagType::new_logical("minecraft:rust:liquid");
 pub static TAG_LEAVES: TagType = TagType::new_logical("minecraft:rust:leaves");
+pub static TAG_LOG: TagType = TagType::new_logical("minecraft:rust:log");
 
 
 pub(crate) fn register_tags(blocks: &mut GlobalBlocks) {
@@ -24,7 +25,7 @@ pub(crate) fn register_tags(blocks: &mut GlobalBlocks) {
     blocks.set_blocks_tag(&TAG_LIQUID, true, [
         &WATER,
         &LAVA
-    ].iter().copied());
+    ]).unwrap();
 
     blocks.register_tag_type(&TAG_LEAVES);
     blocks.set_blocks_tag(&TAG_LEAVES, true, [
@@ -36,7 +37,17 @@ pub(crate) fn register_tags(blocks: &mut GlobalBlocks) {
         &DARK_OAK_LEAVES,
         &AZALEA_LEAVES,
         &FLOWERING_AZALEA_LEAVES
-    ].iter().copied());
+    ]).unwrap();
+
+    blocks.register_tag_type(&TAG_LOG);
+    blocks.set_blocks_tag(&TAG_LOG, true, [
+        &OAK_LOG,
+        &SPRUCE_LOG,
+        &BIRCH_LOG,
+        &JUNGLE_LOG,
+        &ACACIA_LOG,
+        &DARK_OAK_LOG,
+    ]).unwrap();
 
 }
 

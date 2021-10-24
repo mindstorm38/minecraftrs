@@ -103,8 +103,8 @@ impl Level {
     }
 
     /// Return the level environment used by this level.
-    pub fn get_env(&self) -> Arc<LevelEnv> {
-        Arc::clone(&self.env)
+    pub fn get_env(&self) -> &Arc<LevelEnv> {
+        &self.env
     }
 
     /// Return the minimum and maximum chunks position allowed in this world.
@@ -120,7 +120,7 @@ impl Level {
         if !self.loading_chunks.contains(&(cx, cz)) {
             // debug!("Request chunk load at {}/{}", cx, cz);
             match self.source.request_chunk_load(ChunkLoadRequest {
-                env: self.get_env(),
+                env: Arc::clone(&self.env),
                 height: self.height,
                 cx,
                 cz

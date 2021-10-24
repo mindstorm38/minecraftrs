@@ -7,10 +7,12 @@ use crossbeam_channel::{Sender, Receiver, unbounded, bounded};
 
 use mc_core::world::source::{LevelSource, ChunkLoadRequest, LevelSourceError, ProtoChunk};
 use mc_core::world::chunk::{ChunkResult, ChunkError};
-use mc_core::block::BlockState;
-use crate::feature::LevelView;
-use mc_core::biome::Biome;
+use mc_core::world::level::LevelEnv;
 use mc_core::heightmap::HeightmapType;
+use mc_core::block::BlockState;
+use mc_core::biome::Biome;
+
+use crate::feature::LevelView;
 
 
 /// Trait for terrain generators.
@@ -39,7 +41,7 @@ pub trait GeneratorProvider {
 /// A common threaded generator level source that generate legacy terrain.
 /// This source is a generator that uses multiple terrain workers and a single
 /// feature worker. Proto chunk are created by terrain workers and then
-/// decorate by feature worker and then queued waiting for poll.
+/// decorated by feature worker and then queued waiting for polling.
 ///
 /// The following diagram explain how workers are connected through channels:
 /// ```text
@@ -48,7 +50,7 @@ pub trait GeneratorProvider {
 /// └─▲──────────┘ │     └───────────────────┘ │
 ///   │            │ load request              │
 ///   │            │     ┌───────────────────┐ │
-///   │            └─────► Terrain Worker #n ├─┤
+///   │            └─────► Terrain Worker #N ├─┤
 ///   │                  └───────────────────┘ │
 ///   │ full                                   │
 ///   │ chunk ┌────────────────┐ terrain chunk │
@@ -312,6 +314,8 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
 }
 
 
+/// An implementation of `LevelView` (from feature module) that refers to a quad of 4 chunks,
+/// used to generate one feature chunk.
 pub struct QuadLevelView<'a> {
     /// Ordering is 0/0 1/0 0/1 1/1 (X then Z)
     chunks: [RefMut<'a, ProtoChunk>; 4],
@@ -321,7 +325,7 @@ pub struct QuadLevelView<'a> {
 
 impl<'a> QuadLevelView<'a> {
 
-    #[inline(always)]
+    #[inline]
     fn get_chunk_index(&self, x: i32, z: i32) -> ChunkResult<usize> {
         let dx = (x - self.x_start) >> 4;
         let dz = (z - self.z_start) >> 4;
@@ -335,6 +339,10 @@ impl<'a> QuadLevelView<'a> {
 }
 
 impl<'a> LevelView for QuadLevelView<'a> {
+
+    fn get_env(&self) -> &Arc<LevelEnv> {
+        self.chunks[0].get_env()
+    }
 
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()> {
         self.chunks[self.get_chunk_index(x, z)?].set_block_at(x, y, z, state)

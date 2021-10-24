@@ -2,19 +2,18 @@
 //! Generator for release 1.2
 //!
 
-use std::collections::HashMap;
 use std::num::Wrapping;
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
-use mc_core::world::source::{LevelGenerator, ProtoChunk, ChunkLoadRequest, LevelSourceError, LevelGeneratorBuilder};
+use mc_core::world::source::{LevelGenerator, ProtoChunk, LevelGeneratorBuilder};
 use mc_core::world::chunk::Chunk;
-use mc_core::biome::{Biome, BiomeKey};
-use mc_core::block::{BlockState, Block};
+use mc_core::biome::Biome;
 use mc_core::rand::JavaRandom;
 use mc_core::util::Rect;
 
+use mc_vanilla::heightmap::*;
 use mc_vanilla::biome::*;
 use mc_vanilla::block::*;
 
@@ -25,11 +24,18 @@ use crate::layer::zoom::VoronoiLayer;
 use crate::structure::ravine::RavineStructure;
 use crate::structure::cave::CaveStructure;
 use crate::structure::StructureGenerator;
+
 use crate::feature::{FeatureChain, Feature, LevelView};
-use crate::feature::vein::VeinFeature;
+use crate::feature::distrib::{HeightmapDistrib, LavaLakeDistrib};
+use crate::feature::vein::{WaterCircleFeature, VeinFeature};
+// use crate::feature::debug::DebugChunkFeature;
+use crate::feature::branch::TreeRepeatCount;
+use crate::feature::dungeon::DungeonFeature;
+use crate::feature::tree::TreeFeature;
+use crate::feature::lake::LakeFeature;
 
 use super::legacy::{GeneratorProvider, FeatureGenerator, TerrainGenerator, QuadLevelView};
-use super::biome::BiomePropertyMap;
+use super::biome::{BiomePropertyMap, BiomeProperty};
 
 /// Base implementation of `GeneratorProvider` for release 1.2 generation.
 pub struct R102Provider {
@@ -585,9 +591,125 @@ struct Shared {
     noise_surface: PerlinNoiseOctaves<4>,
 }
 
-
 static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
-    BiomePropertyMap::new()
+
+    struct PropConfig {
+        sand_count_1: u16,
+        sand_count_2: u16,
+        clay_count: u16,
+        tree_count: u16,
+        big_mushroom_count: u16,
+        flower_count: u16,
+        grass_count: u16,
+        dead_bush_count: u16,
+        lily_pad_count: u16,
+        mushroom_count: u16,
+        sugar_cane_count: u16,
+        cactus_count: u16,
+        tree_feature_type: TreeFeatureType
+    }
+
+    enum TreeFeatureType {
+        Default,
+        Forest,
+        Jungle,
+        Swamp,
+        Taiga
+    }
+
+    static DEFAULT_PROP_CONFIG: PropConfig = PropConfig {
+        sand_count_1: 3,
+        sand_count_2: 1,
+        clay_count: 1,
+        tree_count: 0,
+        big_mushroom_count: 0,
+        flower_count: 2,
+        grass_count: 1,
+        dead_bush_count: 0,
+        lily_pad_count: 0,
+        mushroom_count: 0,
+        sugar_cane_count: 0,
+        cactus_count: 0,
+        tree_feature_type: TreeFeatureType::Default
+    };
+
+    fn new_prop(config: Option<&PropConfig>) -> BiomeProperty {
+        BiomeProperty {
+            min_height: 0.1,
+            max_height: 0.3,
+            temperature: 0.5,
+            top_block: GRASS_BLOCK.get_default_state(),
+            filler_block: DIRT.get_default_state(),
+            features: {
+
+                let config = config.unwrap_or(&DEFAULT_PROP_CONFIG);
+
+                let mut chain = FeatureChain::new();
+                chain.push(LakeFeature::new(WATER.get_default_state()).distributed_uniform(0, 128).optional(4));
+                chain.push(LakeFeature::new(LAVA.get_default_state()).distributed(LavaLakeDistrib).optional(8));
+                chain.push(DungeonFeature.distributed_uniform(0, 128).repeated(8));
+
+                chain.push(VeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
+                chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
+                chain.push(VeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
+                chain.push(VeinFeature::new(IRON_ORE.get_default_state(), 8).distributed_uniform(0, 64).repeated(20));
+                chain.push(VeinFeature::new(GOLD_ORE.get_default_state(), 8).distributed_uniform(0, 32).repeated(2));
+                chain.push(VeinFeature::new(REDSTONE_ORE.get_default_state(), 7).distributed_uniform(0, 16).repeated(8));
+                chain.push(VeinFeature::new(DIAMOND_ORE.get_default_state(), 7).distributed_uniform(0, 16));
+                chain.push(VeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));
+
+                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_1));
+                chain.push(WaterCircleFeature::new_clay(4).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.clay_count));
+                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_2));
+
+                macro_rules! new_tree_feature {
+                    ($feature:expr) => {
+                        $feature.distributed(HeightmapDistrib::new(&WORLD_SURFACE)).repeated(TreeRepeatCount(config.tree_count))
+                    };
+                }
+
+                match config.tree_feature_type {
+                    TreeFeatureType::Default => chain.push(new_tree_feature!(TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false))),
+                    TreeFeatureType::Forest => todo!(),
+                    TreeFeatureType::Jungle => todo!(),
+                    TreeFeatureType::Swamp => todo!(),
+                    TreeFeatureType::Taiga => todo!(),
+                }
+
+                // chain.push(DebugChunkFeature);
+
+                chain
+
+            }
+        }
+    }
+
+    let mut map = BiomePropertyMap::new();
+    map.insert(&OCEAN, new_prop(None).height(-1.0, 0.4));
+    map.insert(&PLAINS, new_prop(None).height(0.1, 0.3).temp(0.8));
+    map.insert(&DESERT, new_prop(None).height(0.1, 0.2).temp(2.0).blocks(&SAND, &SAND));
+    map.insert(&MOUNTAINS, new_prop(None).height(0.2, 1.3).temp(0.2));
+    map.insert(&FOREST, new_prop(None).temp(0.7));
+    map.insert(&TAIGA, new_prop(None).height(0.1, 0.4).temp(0.05));
+    map.insert(&SWAMP, new_prop(None).height(-0.2, 0.1).temp(0.8));
+    map.insert(&RIVER, new_prop(None).height(-0.5, 0.0));
+    map.insert(&FROZEN_OCEAN, new_prop(None).height(-1.0, 0.5).temp(0.0));
+    map.insert(&FROZEN_RIVER, new_prop(None).height(-0.5, 0.0).temp(0.0));
+    map.insert(&SNOWY_TUNDRA, new_prop(None).temp(0.0));
+    map.insert(&SNOWY_MOUNTAINS, new_prop(None).height(0.2, 1.2).temp(0.0));
+    map.insert(&MUSHROOM_FIELDS, new_prop(None).height(0.2, 1.0).temp(0.9).blocks(&MYCELIUM, &DIRT));
+    map.insert(&MUSHROOM_FIELD_SHORE, new_prop(None).height(-1.0, 0.1).temp(0.9).blocks(&MYCELIUM, &DIRT));
+    map.insert(&BEACH, new_prop(None).height(0.0, 0.1).temp(0.8).blocks(&SAND, &SAND));
+    map.insert(&DESERT_HILLS, new_prop(None).height(0.2, 0.7).temp(2.0).blocks(&SAND, &SAND));
+    map.insert(&WOODED_HILLS, new_prop(None).height(0.2, 0.6).temp(0.7));
+    map.insert(&TAIGA_HILLS, new_prop(None).height(0.2, 0.7).temp(0.05));
+    map.insert(&MOUNTAIN_EDGE, new_prop(None).height(0.2, 0.8).temp(0.2));
+    map.insert(&JUNGLE, new_prop(None).height(0.2, 0.4).temp(1.2));
+    map.insert(&JUNGLE_HILLS, new_prop(None).height(1.8, 0.2).temp(1.2));
+    map
+
+
+    /*BiomePropertyMap::new()
         .insert(&OCEAN).height(-1.0, 0.4).build()
         .insert(&PLAINS).height(0.1, 0.3).temp(0.8).build()
         .insert(&DESERT).height(0.1, 0.2).temp(2.0).blocks(&SAND, &SAND).build()
@@ -608,5 +730,5 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
         .insert(&TAIGA_HILLS).height(0.2, 0.7).temp(0.05).build()
         .insert(&MOUNTAIN_EDGE).height(0.2, 0.8).temp(0.2).build()
         .insert(&JUNGLE).height(0.2, 0.4).temp(1.2).build()
-        .insert(&JUNGLE_HILLS).height(1.8, 0.2).temp(1.2).build()
+        .insert(&JUNGLE_HILLS).height(1.8, 0.2).temp(1.2).build()*/
 });

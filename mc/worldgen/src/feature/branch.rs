@@ -3,14 +3,26 @@ use mc_core::rand::JavaRandom;
 use super::{Feature, LevelView};
 
 
-/// A feature that repeat a give number of time the given feature.
-pub struct RepeatedFeature<F: Feature> {
-    feature: F,
-    count: u16,
+/// A trait to implement to types that can be interpreted as a count for the `RepeatedFeature`.
+pub trait RepeatCount {
+    fn get_count(&self, rand: &mut JavaRandom) -> u16;
 }
 
-impl<F: Feature> RepeatedFeature<F> {
-    pub fn new(feature: F, count: u16) -> Self {
+impl RepeatCount for u16 {
+    fn get_count(&self, _rand: &mut JavaRandom) -> u16 {
+        *self
+    }
+}
+
+
+/// A feature that repeat a give number of time the given feature.
+pub struct RepeatedFeature<F: Feature, C: RepeatCount> {
+    feature: F,
+    count: C,
+}
+
+impl<F: Feature, C: RepeatCount> RepeatedFeature<F, C> {
+    pub fn new(feature: F, count: C) -> Self {
         Self {
             feature,
             count,
@@ -18,9 +30,9 @@ impl<F: Feature> RepeatedFeature<F> {
     }
 }
 
-impl<F: Feature> Feature for RepeatedFeature<F> {
+impl<F: Feature, C: RepeatCount> Feature for RepeatedFeature<F, C> {
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
-        for _ in 0..self.count {
+        for _ in 0..self.count.get_count(rand) {
             self.feature.generate(level, rand, x, y, z);
         }
         true  // TODO
@@ -28,26 +40,39 @@ impl<F: Feature> Feature for RepeatedFeature<F> {
 }
 
 
-pub struct OptionalFeature<F: Feature> {
-    feature: F,
+pub struct OptionalFeature<F: Feature, E: Feature> {
+    if_feature: F,
+    else_feature: E,
     bound: i32,
 }
 
-impl<F: Feature> OptionalFeature<F> {
-    pub fn new(feature: F, bound: u16) -> Self {
+impl<F: Feature, E: Feature> OptionalFeature<F, E> {
+    pub fn new(if_feature: F, else_feature: E, bound: u16) -> Self {
         Self {
-            feature,
+            if_feature,
+            else_feature,
             bound: bound as i32,
         }
     }
 }
 
-impl<F: Feature> Feature for OptionalFeature<F> {
+impl<F: Feature, E: Feature> Feature for OptionalFeature<F, E> {
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
         if rand.next_int_bounded(self.bound) == 0 {
-            self.feature.generate(level, rand, x, y, z)
+            self.if_feature.generate(level, rand, x, y, z)
         } else {
-            false
+            self.else_feature.generate(level, rand, x, y, z)
         }
+    }
+}
+
+
+// Specific count providers //
+
+pub struct TreeRepeatCount(pub u16);
+
+impl RepeatCount for TreeRepeatCount {
+    fn get_count(&self, rand: &mut JavaRandom) -> u16 {
+        self.0 + (rand.next_int_bounded(10) == 0) as u16
     }
 }

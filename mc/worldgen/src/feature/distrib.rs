@@ -1,5 +1,5 @@
+use mc_core::heightmap::HeightmapType;
 use mc_core::rand::JavaRandom;
-use mc_vanilla::heightmap::WORLD_SURFACE;
 
 use super::{Feature, LevelView};
 
@@ -43,7 +43,7 @@ pub struct UniformVerticalDistrib {
 
 impl UniformVerticalDistrib {
     pub fn new(min_y: i32, max_y: i32) -> Self {
-        UniformVerticalDistrib { min_y, max_y }
+        Self { min_y, max_y }
     }
 }
 
@@ -64,7 +64,7 @@ pub struct TriangularVerticalDistrib {
 
 impl TriangularVerticalDistrib {
     pub fn new(y_center: i32, y_spread: i32) -> Self {
-        TriangularVerticalDistrib { y_center, y_spread }
+        Self { y_center, y_spread }
     }
 }
 
@@ -78,13 +78,21 @@ impl Distrib for TriangularVerticalDistrib {
 }
 
 
-pub struct SurfaceDistrib;
+pub struct HeightmapDistrib {
+    heightmap_type: &'static HeightmapType
+}
 
-impl Distrib for SurfaceDistrib {
+impl HeightmapDistrib {
+    pub fn new(heightmap_type: &'static HeightmapType) -> Self {
+        Self { heightmap_type }
+    }
+}
+
+impl Distrib for HeightmapDistrib {
     fn pick_pos(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, _y: i32, z: i32) -> Option<(i32, i32, i32)> {
         let rx = x + rand.next_int_bounded(16);
         let rz = z + rand.next_int_bounded(16);
-        Some((rx, level.get_heightmap_column_at(&WORLD_SURFACE, rx, rz).unwrap(), rz))
+        Some((rx, level.get_heightmap_column_at(self.heightmap_type, rx, rz).unwrap(), rz))
     }
 }
 

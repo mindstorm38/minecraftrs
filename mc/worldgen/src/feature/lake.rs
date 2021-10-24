@@ -10,7 +10,7 @@ pub struct LakeFeature {
 }
 
 impl LakeFeature {
-    pub fn new(block: &'static BlockState) -> Self {
+    pub const fn new(block: &'static BlockState) -> Self {
         Self {
             block
         }

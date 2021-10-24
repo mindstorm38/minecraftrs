@@ -2,14 +2,8 @@ use std::collections::HashMap;
 
 use mc_core::biome::{BiomeKey, Biome};
 use mc_core::block::{BlockState, Block};
-use mc_vanilla::block::*;
 
-use crate::feature::{FeatureChain, Feature};
-use crate::feature::vein::{WaterCircleFeature, VeinFeature};
-use crate::feature::lake::LakeFeature;
-use crate::feature::dungeon::DungeonFeature;
-use crate::feature::distrib::{SurfaceDistrib, LavaLakeDistrib};
-use crate::feature::debug::DebugChunkFeature;
+use crate::feature::{FeatureChain};
 
 
 pub struct BiomePropertyMap {
@@ -25,38 +19,6 @@ pub struct BiomeProperty {
     pub features: FeatureChain
 }
 
-pub struct BiomePropertyBuilder {
-    biome: &'static Biome,
-    inner: BiomeProperty,
-    map: BiomePropertyMap,
-}
-
-impl BiomePropertyBuilder {
-
-    pub fn height(mut self, min: f32, max: f32) -> Self {
-        self.inner.min_height = min;
-        self.inner.max_height = max;
-        self
-    }
-
-    pub fn temp(mut self, temp: f32) -> Self {
-        self.inner.temperature = temp;
-        self
-    }
-
-    pub fn blocks(mut self, top: &'static Block, filler: &'static Block) -> Self {
-        self.inner.top_block = top.get_default_state();
-        self.inner.filler_block = filler.get_default_state();
-        self
-    }
-
-    pub fn build(mut self) -> BiomePropertyMap {
-        self.map.data.insert(self.biome.get_key(), self.inner);
-        self.map
-    }
-
-}
-
 impl BiomePropertyMap {
 
     pub fn new() -> Self {
@@ -65,19 +27,8 @@ impl BiomePropertyMap {
         }
     }
 
-    pub fn insert(self, biome: &'static Biome) -> BiomePropertyBuilder {
-        BiomePropertyBuilder {
-            biome,
-            inner: BiomeProperty {
-                min_height: 0.1,
-                max_height: 0.3,
-                temperature: 0.5,
-                top_block: GRASS_BLOCK.get_default_state(),
-                filler_block: DIRT.get_default_state(),
-                features: get_common_features()
-            },
-            map: self
-        }
+    pub fn insert(&mut self, biome: &'static Biome, prop: BiomeProperty) {
+        self.data.insert(biome.get_key(), prop);
     }
 
     pub fn get(&self, biome: &'static Biome) -> Option<&BiomeProperty> {
@@ -90,29 +41,23 @@ impl BiomePropertyMap {
 
 }
 
+impl BiomeProperty {
 
-fn get_common_features() -> FeatureChain {
+    pub fn height(mut self, min: f32, max: f32) -> Self {
+        self.min_height = min;
+        self.max_height = max;
+        self
+    }
 
-    let mut chain = FeatureChain::new();
-    chain.push(LakeFeature::new(WATER.get_default_state()).distributed_uniform(0, 128).optional(4));
-    chain.push(LakeFeature::new(LAVA.get_default_state()).distributed(LavaLakeDistrib).optional(8));
-    chain.push(DungeonFeature.distributed_uniform(0, 128).repeated(8));
+    pub fn temp(mut self, temp: f32) -> Self {
+        self.temperature = temp;
+        self
+    }
 
-    chain.push(VeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
-    chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
-    chain.push(VeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
-    chain.push(VeinFeature::new(IRON_ORE.get_default_state(), 8).distributed_uniform(0, 64).repeated(20));
-    chain.push(VeinFeature::new(GOLD_ORE.get_default_state(), 8).distributed_uniform(0, 32).repeated(2));
-    chain.push(VeinFeature::new(REDSTONE_ORE.get_default_state(), 7).distributed_uniform(0, 16).repeated(8));
-    chain.push(VeinFeature::new(DIAMOND_ORE.get_default_state(), 7).distributed_uniform(0, 16));
-    chain.push(VeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));
-
-    chain.push(WaterCircleFeature::new_sand(7).distributed(SurfaceDistrib).repeated(3));
-    chain.push(WaterCircleFeature::new_clay(4).distributed(SurfaceDistrib));
-    chain.push(WaterCircleFeature::new_sand(7).distributed(SurfaceDistrib));
-
-    chain.push(DebugChunkFeature);
-
-    chain
+    pub fn blocks(mut self, top: &'static Block, filler: &'static Block) -> Self {
+        self.top_block = top.get_default_state();
+        self.filler_block = filler.get_default_state();
+        self
+    }
 
 }

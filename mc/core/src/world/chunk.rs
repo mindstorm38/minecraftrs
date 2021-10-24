@@ -135,14 +135,14 @@ impl Chunk {
     }
 
     #[inline]
-    pub fn get_env(&self) -> &LevelEnv {
+    pub fn get_env(&self) -> &Arc<LevelEnv> {
         &self.env
     }
 
-    #[inline]
+    /*#[inline]
     pub fn clone_env(&self) -> Arc<LevelEnv> {
         Arc::clone(&self.env)
-    }
+    }*/
 
     #[inline]
     pub fn get_status(&self) -> ChunkStatus {

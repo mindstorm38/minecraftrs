@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use mc_core::world::chunk::{Chunk, ChunkResult};
 use mc_core::rand::JavaRandom;
 
@@ -7,13 +8,15 @@ pub mod vein;
 pub mod lake;
 pub mod debug;
 pub mod dungeon;
+pub mod tree;
 
 use distrib::{Distrib, DistribFeature, UniformVerticalDistrib, TriangularVerticalDistrib};
-use branch::{RepeatedFeature, OptionalFeature};
+use branch::{RepeatedFeature, OptionalFeature, RepeatCount};
 
 use mc_core::heightmap::HeightmapType;
 use mc_core::block::BlockState;
 use mc_core::biome::Biome;
+use mc_core::world::level::LevelEnv;
 
 
 /// Base trait for level features generators.
@@ -46,21 +49,29 @@ pub trait Feature {
         self.distributed(TriangularVerticalDistrib::new(y_center, y_spread))
     }
 
-    fn repeated(self, count: u16) -> RepeatedFeature<Self>
+    fn repeated<C>(self, count: C) -> RepeatedFeature<Self, C>
     where
-        Self: Sized
+        Self: Sized,
+        C: RepeatCount
     {
         RepeatedFeature::new(self, count)
     }
 
     /// Make the current feature actually generate 1 in a `bound` time.
-    fn optional(self, bound: u16) -> OptionalFeature<Self>
+    fn optional(self, bound: u16) -> OptionalFeature<Self, ()>
     where
         Self: Sized
     {
-        OptionalFeature::new(self, bound)
+        OptionalFeature::new(self, (), bound)
     }
 
+}
+
+
+impl Feature for () {
+    fn generate(&self, _level: &mut dyn LevelView, _rand: &mut JavaRandom, _x: i32, _y: i32, _z: i32) -> bool {
+        false
+    }
 }
 
 
@@ -91,6 +102,8 @@ impl FeatureChain {
 
 /// A local level view used to generate feature in an partial level view.
 pub trait LevelView {
+
+    fn get_env(&self) -> &Arc<LevelEnv>;
 
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()>;
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
