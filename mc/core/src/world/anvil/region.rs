@@ -263,7 +263,7 @@ impl RegionFile {
             for (sector, free) in self.sectors.iter().enumerate() {
                 if free {
                     if first_free_sector.is_none() {
-                        first_free_sector.insert(sector + 2);
+                        first_free_sector = Some(sector + 2);
                     }
                     length += 1;
                     if length == needed_length {
