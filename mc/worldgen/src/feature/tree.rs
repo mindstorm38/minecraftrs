@@ -88,7 +88,7 @@ impl Feature for TreeFeature {
                 let x_diff = (dx - x).abs();
                 for dz in (z - radius)..=(z + radius) {
                     let z_diff = (dz - z).abs();
-                    if x_diff != radius || z_diff != radius || (rand.next_int_bounded(2) != 0 && top_diff != 0) /* && is last block not opaque */ {
+                    if x_diff != radius || z_diff != radius || (rand.next_int_bounded(2) != 0 && top_diff != 0) /* TODO: && is last block not opaque */ {
                         level.set_block_at(dx, dy, dz, self.leaves_block).unwrap();
                     }
                 }
