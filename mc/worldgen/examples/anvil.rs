@@ -1,7 +1,7 @@
 use std::time::Duration;
 use std::sync::Arc;
 
-use mc_core::world::source::{LoadOrGenLevelSource, LevelGeneratorSource};
+use mc_core::world::source::LoadOrGenLevelSource;
 use mc_core::world::anvil::source::AnvilLevelSource;
 use mc_core::world::level::{Level, LevelEnv};
 use mc_core::world::chunk::ChunkHeight;
@@ -46,7 +46,7 @@ fn main() {
 
     loop {
 
-        level.load_chunks_with_callback(|cx, cz, chunk| {
+        level.load_chunks_with_callback(|_cx, _cz, _chunk| {
 
         });
 

@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use mc_core::world::chunk::{Chunk, ChunkResult};
+use mc_core::world::chunk::ChunkResult;
 use mc_core::rand::JavaRandom;
 
 pub mod distrib;

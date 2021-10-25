@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
-use mc_core::world::source::{LevelGenerator, ProtoChunk, LevelGeneratorBuilder};
+use mc_core::world::source::ProtoChunk;
 use mc_core::world::chunk::Chunk;
 use mc_core::biome::Biome;
 use mc_core::rand::JavaRandom;

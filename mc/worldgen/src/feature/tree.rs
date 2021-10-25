@@ -23,7 +23,9 @@ impl TreeFeature {
     pub fn new(log_block: &'static Block, leaves_block: &'static Block, base_height: u16, with_vines: bool) -> Self {
         Self {
             log_block: log_block.get_default_state().with(&PROP_AXIS, Axis::Y).unwrap(),
-            leaves_block: leaves_block.get_default_state(),
+            leaves_block: leaves_block.get_default_state()
+                .with(&PROP_LEAVES_DISTANCE, 1).unwrap()
+                .with(&PROP_PERSISTENT, true).unwrap(),
             base_height,
             with_vines
         }
@@ -79,14 +81,14 @@ impl Feature for TreeFeature {
 
         for dy in (y + height - 3)..=(y + height) {
 
-            let top_diff = dy - y + height;
+            let top_diff = dy - (y + height);
             let radius = 1 - top_diff / 2;
 
             for dx in (x - radius)..=(x + radius) {
                 let x_diff = (dx - x).abs();
                 for dz in (z - radius)..=(z + radius) {
                     let z_diff = (dz - z).abs();
-                    if (x_diff != radius || z_diff != radius || (rand.next_int_bounded(2) != 0 && top_diff != 0)) && true /* is last block not opaque */ {
+                    if x_diff != radius || z_diff != radius || (rand.next_int_bounded(2) != 0 && top_diff != 0) /* && is last block not opaque */ {
                         level.set_block_at(dx, dy, dz, self.leaves_block).unwrap();
                     }
                 }
@@ -133,7 +135,7 @@ impl Feature for TreeFeature {
 
             for dy in (y + height - 3)..=(y + height) {
 
-                let top_diff = dy - y + height;
+                let top_diff = dy - (y + height);
                 let radius = 1 - top_diff / 2;
 
                 for dx in (x - radius)..=(x + radius) {
