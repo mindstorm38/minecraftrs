@@ -22,7 +22,7 @@ impl<T> OpaquePtr<T> {
     }
 
     #[inline]
-    pub const fn inner(self) -> &'static T {
+    pub fn inner(self) -> &'static T {
         unsafe { std::mem::transmute(self.0) }
     }
 
