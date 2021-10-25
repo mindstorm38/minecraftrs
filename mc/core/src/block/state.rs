@@ -198,7 +198,7 @@ impl BlockState {
     }
 
     /// Iterate over representations of each property of this state.
-    /// No iterator is returned if the underlying block as no other state as this one.
+    /// No iterator is returned if the underlying block as no other state other than this one.
     pub fn iter_raw_states<'a>(&'a self) -> Option<impl Iterator<Item = (&'static str, String)> + 'a> {
         self.get_block().get_storage().get_shared_props().map(move |props| {
             props.iter().map(move |(&name, shared)| {
@@ -217,6 +217,8 @@ impl PartialEq for &'static BlockState {
         std::ptr::eq(*self, *other)
     }
 }
+
+impl Eq for &'static BlockState {}
 
 
 impl Debug for BlockState {

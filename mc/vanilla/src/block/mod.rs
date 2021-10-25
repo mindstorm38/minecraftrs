@@ -86,7 +86,7 @@ blocks_properties! {
     pub PROP_CONDITIONAL: bool("conditional");
     pub PROP_DRAG: bool("drag");
     pub PROP_PERSISTENT: bool("persistent");
-    pub PROP_LEAVES_DISTANCE: int("distance", 7);
+    pub PROP_LEAVES_DISTANCE: int("distance", 7); // Real is 1 to 7
     pub PROP_CANDLES: int("candles", 4);  // Real is 1 to 4
     pub PROP_BERRIES: bool("berries");
     pub PROP_LIGHT_LEVEL: int("level", 16);
@@ -1071,11 +1071,6 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     POTTED_FLOWERING_AZALEA "potted_flowering_azalea_bush",
 
 ]);
-
-
-pub fn register_behaviours() {
-    todo!()
-}
 
 
 def_enum_serializable!(BambooLeaves {
