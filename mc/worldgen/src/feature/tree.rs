@@ -246,7 +246,7 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
 
         self.generate_leaves(&leaf_nodes);
         self.generate_trunk(x, y, z, height);
-        self.generate_leaves_branches(&leaf_nodes, base_height);
+        self.generate_leaves_branches(x, y, z, base_height, &leaf_nodes);
 
         true
 
@@ -394,12 +394,12 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
     }
 
     /// Generate additional branches to connect nodes to trunk.
-    fn generate_leaves_branches(&mut self, nodes: &Vec<(i32, i32, i32, i32)>, base_height: u16) {
-        let base_height = base_height as f64;
-        for &(x, y, z, y_start) in nodes {
-            if (y_start - y) as f64 >= base_height {
-                let from = [x, y_start, z];
-                let to = [x, y, z];
+    fn generate_leaves_branches(&mut self, x: i32, y: i32, z: i32, base_height: u16, nodes: &Vec<(i32, i32, i32, i32)>) {
+        let min_height = base_height as f64 * 0.20000000000000001;
+        for &(nx, ny, nz, ty) in nodes {
+            if (ty - y) as f64 >= min_height {
+                let from = [x, ty, z];
+                let to = [nx, ny, nz];
                 self.generate_block_line(from, to, self.feature.log_block);
             }
         }
