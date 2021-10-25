@@ -65,6 +65,14 @@ pub trait Feature {
         OptionalFeature::new(self, (), bound)
     }
 
+    fn optional_or<E>(self, bound: u16, else_feature: E) -> OptionalFeature<Self, E>
+    where
+        Self: Sized,
+        E: Feature
+    {
+        OptionalFeature::new(self, else_feature, bound)
+    }
+
 }
 
 

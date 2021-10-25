@@ -31,7 +31,7 @@ use crate::feature::vein::{WaterCircleFeature, VeinFeature};
 // use crate::feature::debug::DebugChunkFeature;
 use crate::feature::branch::TreeRepeatCount;
 use crate::feature::dungeon::DungeonFeature;
-use crate::feature::tree::TreeFeature;
+use crate::feature::tree::{TreeFeature, BigTreeFeature};
 use crate::feature::lake::LakeFeature;
 
 use super::legacy::{GeneratorProvider, FeatureGenerator, TerrainGenerator, QuadLevelView};
@@ -669,7 +669,11 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                 }
 
                 match config.tree_feature_type {
-                    TreeFeatureType::Default => chain.push(new_tree_feature!(TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false))),
+                    TreeFeatureType::Default => {
+                        let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false);
+                        let big_tree = BigTreeFeature::default();
+                        chain.push(new_tree_feature!(big_tree.optional_or(10, oak_tree)))
+                    },
                     TreeFeatureType::Forest => todo!(),
                     TreeFeatureType::Jungle => todo!(),
                     TreeFeatureType::Swamp => todo!(),
