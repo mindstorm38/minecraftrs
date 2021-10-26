@@ -423,56 +423,6 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
             }
         }
         -1
-        /*let mut diffs = [0; 3];
-        let mut max_diff = 0i32;
-        let mut max_diff_idx = 0;
-
-        for i in 0..3 {
-            let diff = to[i] - from[i];
-            diffs[i] = diff;
-            if diff.abs() > max_diff.abs() {
-                max_diff = diff;
-                max_diff_idx = i;
-            }
-        }
-
-        if max_diff == 0 {
-            return -1;
-        }
-
-        let a = BIG_TREE_COORD_PAIRS[max_diff_idx];
-        let b = BIG_TREE_COORD_PAIRS[max_diff_idx + 3];
-        let c = if max_diff > 0 { 1 } else { -1 };
-
-        let a_factor = diffs[a] as f64 / max_diff as f64;
-        let b_factor = diffs[b] as f64 / max_diff as f64;
-
-        let mut step = 0;
-        let step_limit = max_diff + c;
-
-        let mut coords = [0; 3];
-
-        while step != step_limit {
-
-            coords[max_diff_idx] = from[max_diff_idx] + step;
-            coords[a] = (from[a] as f64 + (step as f64 * a_factor)).floor() as i32;
-            coords[b] = (from[b] as f64 + (step as f64 * b_factor)).floor() as i32;
-
-            let block = self.level.get_block_at(coords[0], coords[1], coords[2]).unwrap().get_block();
-
-            if block != &AIR && !self.env.blocks.has_block_tag(block, &TAG_LEAVES) {
-                break;
-            }
-
-            step += c;
-
-        }
-
-        if step == step_limit {
-            -1
-        } else {
-            step.abs()
-        }*/
     }
 
     fn calc_layer_size(leaf_offset: i32, base_height: u16) -> f32 {
