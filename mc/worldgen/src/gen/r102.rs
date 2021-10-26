@@ -28,7 +28,7 @@ use crate::structure::StructureGenerator;
 use crate::feature::{FeatureChain, Feature, LevelView};
 use crate::feature::distrib::{HeightmapDistrib, LavaLakeDistrib};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
-// use crate::feature::debug::DebugChunkFeature;
+use crate::feature::debug::{DebugChunkFeature, SetBlockFeature};
 use crate::feature::branch::TreeRepeatCount;
 use crate::feature::dungeon::DungeonFeature;
 use crate::feature::tree::{TreeFeature, BigTreeFeature};
@@ -648,9 +648,10 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                 chain.push(LakeFeature::new(WATER.get_default_state()).distributed_uniform(0, 128).optional(4));
                 chain.push(LakeFeature::new(LAVA.get_default_state()).distributed(LavaLakeDistrib).optional(8));
                 chain.push(DungeonFeature.distributed_uniform(0, 128).repeated(8));
+                // chain.push(SetBlockFeature::new(GOLD_BLOCK.get_default_state()).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)));
 
                 chain.push(VeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
-                /*chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
+                chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
                 chain.push(VeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
                 chain.push(VeinFeature::new(IRON_ORE.get_default_state(), 8).distributed_uniform(0, 64).repeated(20));
                 chain.push(VeinFeature::new(GOLD_ORE.get_default_state(), 8).distributed_uniform(0, 32).repeated(2));
@@ -658,11 +659,11 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                 chain.push(VeinFeature::new(DIAMOND_ORE.get_default_state(), 7).distributed_uniform(0, 16));
                 chain.push(VeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));
 
-                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_1));
+                /*chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_1));
                 chain.push(WaterCircleFeature::new_clay(4).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.clay_count));
                 chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_2));*/
 
-                macro_rules! new_tree_feature {
+                /*macro_rules! new_tree_feature {
                     ($feature:expr) => {
                         $feature.distributed(HeightmapDistrib::new(&WORLD_SURFACE)).repeated(TreeRepeatCount(config.tree_count))
                     };
@@ -678,7 +679,7 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                     TreeFeatureType::Jungle => todo!(),
                     TreeFeatureType::Swamp => todo!(),
                     TreeFeatureType::Taiga => todo!(),
-                }
+                }*/
 
                 // chain.push(DebugChunkFeature);
 

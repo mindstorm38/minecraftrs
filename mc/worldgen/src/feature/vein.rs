@@ -86,8 +86,6 @@ impl VeinFeature {
 impl Feature for VeinFeature {
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
 
-        level.set_block_at(x, y, z, GLASS.get_default_state()).unwrap();
-
         let angle = rand.next_float() * JAVA_PI as f32;
         let angle_sin = mc_sin(angle);
         let angle_cos = mc_cos(angle);
@@ -102,7 +100,7 @@ impl Feature for VeinFeature {
         let y_line_start = (y + rand.next_int_bounded(3) - 2) as f64;
         let y_line_end = (y + rand.next_int_bounded(3) - 2) as f64;
 
-        for i in 0..self.count {
+        for i in 0..=self.count {
 
             let x_center = x_line_start + ((x_line_end - x_line_start) * i as f64) / count_f64;
             let y_center = y_line_start + ((y_line_end - y_line_start) * i as f64) / count_f64;
