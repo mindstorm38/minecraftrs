@@ -37,6 +37,7 @@ use crate::feature::lake::LakeFeature;
 use super::legacy::{GeneratorProvider, FeatureGenerator, TerrainGenerator, QuadLevelView};
 use super::biome::{BiomePropertyMap, BiomeProperty};
 
+
 /// Base implementation of `GeneratorProvider` for release 1.2 generation.
 pub struct R102Provider {
     shared: Arc<Shared>
@@ -659,9 +660,9 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                 chain.push(VeinFeature::new(DIAMOND_ORE.get_default_state(), 7).distributed_uniform(0, 16));
                 chain.push(VeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));
 
-                /*chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_1));
-                chain.push(WaterCircleFeature::new_clay(4).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.clay_count));
-                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_2));*/
+                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(config.sand_count_1));
+                chain.push(WaterCircleFeature::new_clay(4).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(config.clay_count));
+                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(config.sand_count_2));
 
                 /*macro_rules! new_tree_feature {
                     ($feature:expr) => {

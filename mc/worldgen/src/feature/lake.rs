@@ -23,6 +23,8 @@ impl Feature for LakeFeature {
 
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
 
+        // level.set_block_at(x, y, z, GOLD_BLOCK.get_default_state()).unwrap();
+
         let x = x - 8;
         let mut y = y;
         let z = z - 8;
@@ -30,6 +32,8 @@ impl Feature for LakeFeature {
         while y > 5 && level.get_block_at(x, y, z).unwrap().is_block(&AIR) {
             y -= 1;
         }
+
+        // level.set_block_at(x, y, z, IRON_BLOCK.get_default_state()).unwrap();
 
         if y <= 4 {
             return false;
