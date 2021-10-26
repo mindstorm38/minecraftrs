@@ -3,6 +3,7 @@ use mc_vanilla::heightmap::WORLD_SURFACE;
 use mc_vanilla::block::*;
 
 use super::{Feature, LevelView};
+use mc_core::block::BlockState;
 
 
 pub struct DebugChunkFeature;
@@ -24,5 +25,23 @@ impl Feature for DebugChunkFeature {
 
         true
 
+    }
+}
+
+
+pub struct SetBlockFeature {
+    block: &'static BlockState
+}
+
+impl SetBlockFeature {
+    pub fn new(block: &'static BlockState) -> Self {
+        Self { block }
+    }
+}
+
+impl Feature for SetBlockFeature {
+    fn generate(&self, level: &mut dyn LevelView, _rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
+        level.set_block_at(x, y, z, self.block).unwrap();
+        true
     }
 }
