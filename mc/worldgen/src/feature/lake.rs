@@ -1,5 +1,7 @@
 use mc_core::block::BlockState;
 use mc_core::rand::JavaRandom;
+
+use mc_vanilla::block::material::{TAG_LIQUID, TAG_NON_SOLID};
 use mc_vanilla::block::*;
 
 use super::{Feature, LevelView};
@@ -72,11 +74,12 @@ impl Feature for LakeFeature {
 
                     if flag {
 
-                        let block = level.get_block_at(x + dx as i32, y + dy as i32, z + dz as i32).unwrap();
+                        let block = level.get_block_at(x + dx as i32, y + dy as i32, z + dz as i32).unwrap().get_block();
 
-                        if dy >= 4 && (block.is_block(&WATER) || block.is_block(&LAVA)) {
+                        let env_blocks = &level.get_env().blocks;
+                        if dy >= 4 && env_blocks.has_block_tag(block, &TAG_LIQUID) {
                             return false;
-                        } else  if dy < 4 && block.is_block(&AIR) /* block is not solid */ && block != self.block {
+                        } else  if dy < 4 && env_blocks.has_block_tag(block, &TAG_NON_SOLID) && block != self.block.get_block() {
                             return false;
                         }
 
@@ -102,7 +105,40 @@ impl Feature for LakeFeature {
             }
         }
 
-        // TODO: Finish lake feature
+        // TODO: Finish mycelium/grass replacement
+
+        if self.block.is_block(&LAVA) {
+
+            let block_stone = STONE.get_default_state();
+
+            for dx in 0..16 {
+                for dz in 0..16 {
+                    for dy in 0..8 {
+
+                        let flag = !flags[(dx * 16 + dz) * 8 + dy] && (
+                            (dx != 15 && flags[((dx + 1) * 16 + dz) * 8 + dy]) ||
+                            (dx != 0 && flags[((dx - 1) * 16 + dz) * 8 + dy]) ||
+                            (dz != 15 && flags[(dx * 16 + (dz + 1)) * 8 + dy]) ||
+                            (dz != 0 && flags[(dx * 16 + (dz - 1)) * 8 + dy]) ||
+                            (dy != 7 && flags[(dx * 16 + dz) * 8 + (dy + 1)]) ||
+                            (dy != 0 && flags[(dx * 16 + dz) * 8 + (dy - 1)])
+                        );
+
+                        if flag && (dy < 4 || rand.next_int_bounded(2) != 0) {
+                            let env_blocks = &level.get_env().blocks;
+                            let block = level.get_block_at(x + dx as i32, y + dy as i32, z + dz as i32).unwrap().get_block();
+                            if !env_blocks.has_block_tag(block, &TAG_NON_SOLID) {
+                                level.set_block_at(x + dx as i32, y + dy as i32, z + dz as i32, block_stone);
+                            }
+                        }
+
+                    }
+                }
+            }
+
+        } else if self.block.is_block(&WATER) {
+            // TODO: Finish water-specific lake features (currently not
+        }
 
         true
 
