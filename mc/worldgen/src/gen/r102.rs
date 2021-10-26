@@ -650,7 +650,7 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                 chain.push(DungeonFeature.distributed_uniform(0, 128).repeated(8));
 
                 chain.push(VeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
-                chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
+                /*chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
                 chain.push(VeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
                 chain.push(VeinFeature::new(IRON_ORE.get_default_state(), 8).distributed_uniform(0, 64).repeated(20));
                 chain.push(VeinFeature::new(GOLD_ORE.get_default_state(), 8).distributed_uniform(0, 32).repeated(2));
@@ -660,7 +660,7 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
 
                 chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_1));
                 chain.push(WaterCircleFeature::new_clay(4).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.clay_count));
-                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_2));
+                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(config.sand_count_2));*/
 
                 macro_rules! new_tree_feature {
                     ($feature:expr) => {

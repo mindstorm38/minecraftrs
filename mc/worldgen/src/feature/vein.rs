@@ -41,6 +41,8 @@ impl WaterCircleFeature {
 impl Feature for WaterCircleFeature {
 
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
+        // level.set_block_at(x, y, z, DIAMOND_BLOCK.get_default_state()).unwrap();
+        // level.set_block_at(x, y + 1, z, self.block).unwrap();
         if level.get_block_at(x, y, z).unwrap().is_block(&WATER) {
             let radius = rand.next_int_bounded(self.radius as i32 - 2) + 2;
             for bx in (x - radius)..=(x + radius) {
@@ -83,6 +85,8 @@ impl VeinFeature {
 
 impl Feature for VeinFeature {
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
+
+        level.set_block_at(x, y, z, GLASS.get_default_state()).unwrap();
 
         let angle = rand.next_float() * JAVA_PI as f32;
         let angle_sin = mc_sin(angle);
