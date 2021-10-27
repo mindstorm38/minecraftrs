@@ -21,19 +21,21 @@ pub struct TreeFeature {
     log_block: &'static BlockState,
     leaves_block: &'static BlockState,
     base_height: u16,
-    with_vines: bool
+    with_vines: bool,
+    forest_mode: bool
 }
 
 impl TreeFeature {
 
-    pub fn new(log_block: &'static Block, leaves_block: &'static Block, base_height: u16, with_vines: bool) -> Self {
+    pub fn new(log_block: &'static Block, leaves_block: &'static Block, base_height: u16, with_vines: bool, forest_mode: bool) -> Self {
         Self {
             log_block: log_block.get_default_state().with(&PROP_AXIS, Axis::Y).unwrap(),
             leaves_block: leaves_block.get_default_state()
                 .with(&PROP_LEAVES_DISTANCE, 1).unwrap()
                 .with(&PROP_PERSISTENT, true).unwrap(),
             base_height,
-            with_vines
+            with_vines,
+            forest_mode
         }
     }
 
@@ -51,6 +53,7 @@ impl Feature for TreeFeature {
 
         let env = Arc::clone(level.get_env());
         let env_blocks = &env.blocks;
+        let block_air = AIR.get_default_state();
 
         for dy in y..=(y + height + 1) {
 
@@ -65,9 +68,13 @@ impl Feature for TreeFeature {
             for dx in (x - radius)..=(x + radius) {
                 for dz in (z - radius)..=(z + radius) {
                     if dy >= 0 && dy < 256 { // This condition seems useless since Y is already checked.
-                        let block = level.get_block_at(dx, dy, dz).unwrap().get_block();
-                        if block != &AIR && block != &DIRT && !env_blocks.has_block_tag(block, &TAG_LEAVES) && !env_blocks.has_block_tag(block, &TAG_LOG) {
-                            return false;
+                        if let Ok(block) = level.get_block_at(dx, dy, dz) {
+                            let block = block.get_block();
+                            if block != &AIR && !env_blocks.has_block_tag(block, &TAG_LEAVES) {
+                                if self.forest_mode || block != &GRASS_BLOCK && block != &DIRT && !env_blocks.has_block_tag(block, &TAG_LOG) {
+                                    return false;
+                                }
+                            }
                         }
                     } else {
                         return false;
@@ -77,13 +84,12 @@ impl Feature for TreeFeature {
 
         }
 
-        let ground_block = level.get_block_at(x, y - 1, z).unwrap().get_block();
-
+        let ground_block = level.get_block_at(x, y - 1, z).unwrap_or(block_air).get_block();
         if ground_block != &GRASS_BLOCK && ground_block != &DIRT || y >= 256 - height - 1 { // Last condition seems redundant.
             return false;
         }
 
-        level.set_block_at(x, y - 1, z, DIRT.get_default_state());
+        level.set_block_at(x, y - 1, z, DIRT.get_default_state()).unwrap();
 
         for dy in (y + height - 3)..=(y + height) {
 
@@ -117,19 +123,19 @@ impl Feature for TreeFeature {
                 if self.with_vines && dy != y {
 
                     if rand.next_int_bounded(3) != 0 && level.get_block_at(x - 1, dy, z).unwrap().is_block(&AIR) {
-                        level.set_block_at(x - 1, dy, z, block_west_vine);
+                        level.set_block_at(x - 1, dy, z, block_west_vine).unwrap();
                     }
 
                     if rand.next_int_bounded(3) != 0 && level.get_block_at(x + 1, dy, z).unwrap().is_block(&AIR) {
-                        level.set_block_at(x + 1, dy, z, block_east_vine);
+                        level.set_block_at(x + 1, dy, z, block_east_vine).unwrap();
                     }
 
                     if rand.next_int_bounded(3) != 0 && level.get_block_at(x, dy, z - 1).unwrap().is_block(&AIR) {
-                        level.set_block_at(x, dy, z - 1, block_south_vine);
+                        level.set_block_at(x, dy, z - 1, block_south_vine).unwrap();
                     }
 
                     if rand.next_int_bounded(3) != 0 && level.get_block_at(x, dy, z + 1).unwrap().is_block(&AIR) {
-                        level.set_block_at(x, dy, z + 1, block_north_vine);
+                        level.set_block_at(x, dy, z + 1, block_north_vine).unwrap();
                     }
 
                 }
@@ -172,6 +178,12 @@ impl Feature for TreeFeature {
 
         }
 
+        level.set_block_at(x, y, z, if self.forest_mode {
+            GOLD_BLOCK.get_default_state()
+        } else {
+            IRON_BLOCK.get_default_state()
+        }).unwrap();
+
         true
 
     }
@@ -191,8 +203,8 @@ pub struct BigTreeFeature {
     leaves_block: &'static BlockState,
 }
 
-impl Default for BigTreeFeature {
-    fn default() -> Self {
+impl BigTreeFeature {
+    pub fn new() -> Self {
         Self {
             height_limit: BigTreeHeight::Random(5, 12),
             height_attenuation: 0.61799999999999999,
@@ -247,7 +259,7 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
         self.generate_leaves(&leaf_nodes);
         self.generate_trunk(x, y, z, height);
         self.generate_leaves_branches(x, y, z, base_height, &leaf_nodes);
-
+        self.level.set_block_at(x, y, z, DIAMOND_BLOCK.get_default_state()).unwrap();
         true
 
     }

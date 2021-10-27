@@ -673,20 +673,27 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
 
                     macro_rules! new_tree_feature {
                         ($feature:expr) => {
-                            $feature.distributed(HeightmapDistrib::new(&WORLD_SURFACE)).repeated(TreeRepeatCount(self.tree_count))
+                            $feature.distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(TreeRepeatCount(self.tree_count))
                         }
                     };
 
-                    match self.tree_feature_type {
-                        TreeFeatureType::Default => {
-                            let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false);
-                            let big_tree = BigTreeFeature::default();
-                            chain.push(new_tree_feature!(big_tree.optional_or(10, oak_tree)))
-                        },
-                        TreeFeatureType::Forest => todo!(),
-                        TreeFeatureType::Jungle => todo!(),
-                        TreeFeatureType::Swamp => todo!(),
-                        TreeFeatureType::Taiga => todo!(),
+                    if self.tree_count != 0 {
+                        match self.tree_feature_type {
+                            TreeFeatureType::Default => {
+                                let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
+                                let big_tree = BigTreeFeature::new();
+                                chain.push(new_tree_feature!(big_tree.optional_or(10, oak_tree)))
+                            },
+                            TreeFeatureType::Forest => {
+                                let birch_tree = TreeFeature::new(&BIRCH_LOG, &BIRCH_LEAVES, 5, false, true);
+                                let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
+                                let big_tree = BigTreeFeature::new();
+                                chain.push(new_tree_feature!(birch_tree.optional_or(5, big_tree.optional_or(10, oak_tree))));
+                            },
+                            TreeFeatureType::Jungle => todo!(),
+                            TreeFeatureType::Swamp => todo!(),
+                            TreeFeatureType::Taiga => todo!(),
+                        }
                     }
 
                     // chain.push(DebugChunkFeature);
@@ -702,7 +709,11 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     let default_config = BiomeConfig::new();
     let plains_config = BiomeConfig::with(|c| c.tree_count = 0);
     let desert_config = BiomeConfig::with(|c| c.tree_count = 0);
-    let forest_config = BiomeConfig::with(|c| c.tree_count = 10);
+    let forest_config = BiomeConfig::with(|c| {
+        c.tree_count = 10;
+        c.grass_count = 2;
+        c.tree_feature_type = TreeFeatureType::Forest;
+    });
     let taiga_config = BiomeConfig::with(|c| c.tree_count = 10);
     let swamp_config = BiomeConfig::with(|c| c.tree_count = 2);
     let beach_config = BiomeConfig::with(|c| c.tree_count = 0);

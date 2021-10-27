@@ -310,6 +310,7 @@ impl Chunk {
     pub fn get_block(&self, x: u8, y: i32, z: u8) -> ChunkResult<&'static BlockState> {
         match self.get_sub_chunk((y >> 4) as i8) {
             None => Err(ChunkError::SubChunkUnloaded),
+            // TODO: None => Ok(self.env.blocks.get_state_from(0).unwrap()),
             Some(sub_chunk) => Ok(sub_chunk.get_block(x, (y & 15) as u8, z))
         }
     }
