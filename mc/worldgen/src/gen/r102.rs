@@ -594,7 +594,7 @@ struct Shared {
 
 static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
 
-    struct PropConfig {
+    struct BiomeConfig {
         sand_count_1: u16,
         sand_count_2: u16,
         clay_count: u16,
@@ -618,100 +618,125 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
         Taiga
     }
 
-    static DEFAULT_PROP_CONFIG: PropConfig = PropConfig {
-        sand_count_1: 3,
-        sand_count_2: 1,
-        clay_count: 1,
-        tree_count: 0,
-        big_mushroom_count: 0,
-        flower_count: 2,
-        grass_count: 1,
-        dead_bush_count: 0,
-        lily_pad_count: 0,
-        mushroom_count: 0,
-        sugar_cane_count: 0,
-        cactus_count: 0,
-        tree_feature_type: TreeFeatureType::Default
-    };
+    impl BiomeConfig {
 
-    fn new_prop(config: Option<&PropConfig>) -> BiomeProperty {
-        BiomeProperty {
-            min_height: 0.1,
-            max_height: 0.3,
-            temperature: 0.5,
-            top_block: GRASS_BLOCK.get_default_state(),
-            filler_block: DIRT.get_default_state(),
-            features: {
-
-                let config = config.unwrap_or(&DEFAULT_PROP_CONFIG);
-
-                let mut chain = FeatureChain::new();
-                chain.push(LakeFeature::new(WATER.get_default_state()).distributed_uniform(0, 128).optional(4));
-                chain.push(LakeFeature::new(LAVA.get_default_state()).distributed(LavaLakeDistrib).optional(8));
-                chain.push(DungeonFeature.distributed_uniform(0, 128).repeated(8));
-                // chain.push(SetBlockFeature::new(GOLD_BLOCK.get_default_state()).distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)));
-
-                chain.push(VeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
-                chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
-                chain.push(VeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
-                chain.push(VeinFeature::new(IRON_ORE.get_default_state(), 8).distributed_uniform(0, 64).repeated(20));
-                chain.push(VeinFeature::new(GOLD_ORE.get_default_state(), 8).distributed_uniform(0, 32).repeated(2));
-                chain.push(VeinFeature::new(REDSTONE_ORE.get_default_state(), 7).distributed_uniform(0, 16).repeated(8));
-                chain.push(VeinFeature::new(DIAMOND_ORE.get_default_state(), 7).distributed_uniform(0, 16));
-                chain.push(VeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));
-
-                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(config.sand_count_1));
-                chain.push(WaterCircleFeature::new_clay(4).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(config.clay_count));
-                chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(config.sand_count_2));
-
-                /*macro_rules! new_tree_feature {
-                    ($feature:expr) => {
-                        $feature.distributed(HeightmapDistrib::new(&WORLD_SURFACE)).repeated(TreeRepeatCount(config.tree_count))
-                    };
-                }
-
-                match config.tree_feature_type {
-                    TreeFeatureType::Default => {
-                        let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false);
-                        let big_tree = BigTreeFeature::default();
-                        chain.push(new_tree_feature!(big_tree.optional_or(10, oak_tree)))
-                    },
-                    TreeFeatureType::Forest => todo!(),
-                    TreeFeatureType::Jungle => todo!(),
-                    TreeFeatureType::Swamp => todo!(),
-                    TreeFeatureType::Taiga => todo!(),
-                }*/
-
-                // chain.push(DebugChunkFeature);
-
-                chain
-
+        pub fn new() -> Self {
+            Self {
+                sand_count_1: 3,
+                sand_count_2: 1,
+                clay_count: 1,
+                tree_count: 0,
+                big_mushroom_count: 0,
+                flower_count: 2,
+                grass_count: 1,
+                dead_bush_count: 0,
+                lily_pad_count: 0,
+                mushroom_count: 0,
+                sugar_cane_count: 0,
+                cactus_count: 0,
+                tree_feature_type: TreeFeatureType::Default
             }
         }
+
+        pub fn with<F: FnOnce(&mut Self)>(cb: F) -> Self {
+            let mut conf = Self::new();
+            cb(&mut conf);
+            conf
+        }
+
+        pub fn build(&self) -> BiomeProperty {
+            BiomeProperty {
+                min_height: 0.1,
+                max_height: 0.3,
+                temperature: 0.5,
+                top_block: GRASS_BLOCK.get_default_state(),
+                filler_block: DIRT.get_default_state(),
+                features: {
+
+                    let mut chain = FeatureChain::new();
+                    chain.push(LakeFeature::new(WATER.get_default_state()).distributed_uniform(0, 128).optional(4));
+                    chain.push(LakeFeature::new(LAVA.get_default_state()).distributed(LavaLakeDistrib).optional(8));
+                    chain.push(DungeonFeature.distributed_uniform(0, 128).repeated(8));
+
+                    chain.push(VeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
+                    chain.push(VeinFeature::new(GRAVEL.get_default_state(), 32).distributed_uniform(0, 128).repeated(10));
+                    chain.push(VeinFeature::new(COAL_ORE.get_default_state(), 16).distributed_uniform(0, 128).repeated(20));
+                    chain.push(VeinFeature::new(IRON_ORE.get_default_state(), 8).distributed_uniform(0, 64).repeated(20));
+                    chain.push(VeinFeature::new(GOLD_ORE.get_default_state(), 8).distributed_uniform(0, 32).repeated(2));
+                    chain.push(VeinFeature::new(REDSTONE_ORE.get_default_state(), 7).distributed_uniform(0, 16).repeated(8));
+                    chain.push(VeinFeature::new(DIAMOND_ORE.get_default_state(), 7).distributed_uniform(0, 16));
+                    chain.push(VeinFeature::new(LAPIS_ORE.get_default_state(), 6).distributed_triangular(16, 16));
+
+                    chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(self.sand_count_1));
+                    chain.push(WaterCircleFeature::new_clay(4).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(self.clay_count));
+                    chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(self.sand_count_2));
+
+                    macro_rules! new_tree_feature {
+                        ($feature:expr) => {
+                            $feature.distributed(HeightmapDistrib::new(&WORLD_SURFACE)).repeated(TreeRepeatCount(self.tree_count))
+                        }
+                    };
+
+                    match self.tree_feature_type {
+                        TreeFeatureType::Default => {
+                            let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false);
+                            let big_tree = BigTreeFeature::default();
+                            chain.push(new_tree_feature!(big_tree.optional_or(10, oak_tree)))
+                        },
+                        TreeFeatureType::Forest => todo!(),
+                        TreeFeatureType::Jungle => todo!(),
+                        TreeFeatureType::Swamp => todo!(),
+                        TreeFeatureType::Taiga => todo!(),
+                    }
+
+                    // chain.push(DebugChunkFeature);
+
+                    chain
+
+                }
+            }
+        }
+
     }
 
+    let default_config = BiomeConfig::new();
+    let plains_config = BiomeConfig::with(|c| c.tree_count = 0);
+    let desert_config = BiomeConfig::with(|c| c.tree_count = 0);
+    let forest_config = BiomeConfig::with(|c| c.tree_count = 10);
+    let taiga_config = BiomeConfig::with(|c| c.tree_count = 10);
+    let swamp_config = BiomeConfig::with(|c| c.tree_count = 2);
+    let beach_config = BiomeConfig::with(|c| c.tree_count = 0);
+    let jungle_config = BiomeConfig::with(|c| c.tree_count = 50);
+    let mushroom_config = BiomeConfig::with(|c| {
+        c.tree_count = 0;
+        c.flower_count = 0;
+        c.grass_count = 0;
+        c.mushroom_count = 1;
+        c.big_mushroom_count = 1;
+    });
+
     let mut map = BiomePropertyMap::new();
-    map.insert(&OCEAN, new_prop(None).height(-1.0, 0.4));
-    map.insert(&PLAINS, new_prop(None).height(0.1, 0.3).temp(0.8));
-    map.insert(&DESERT, new_prop(None).height(0.1, 0.2).temp(2.0).blocks(&SAND, &SAND));
-    map.insert(&MOUNTAINS, new_prop(None).height(0.2, 1.3).temp(0.2));
-    map.insert(&FOREST, new_prop(None).temp(0.7));
-    map.insert(&TAIGA, new_prop(None).height(0.1, 0.4).temp(0.05));
-    map.insert(&SWAMP, new_prop(None).height(-0.2, 0.1).temp(0.8));
-    map.insert(&RIVER, new_prop(None).height(-0.5, 0.0));
-    map.insert(&FROZEN_OCEAN, new_prop(None).height(-1.0, 0.5).temp(0.0));
-    map.insert(&FROZEN_RIVER, new_prop(None).height(-0.5, 0.0).temp(0.0));
-    map.insert(&SNOWY_TUNDRA, new_prop(None).temp(0.0));
-    map.insert(&SNOWY_MOUNTAINS, new_prop(None).height(0.2, 1.2).temp(0.0));
-    map.insert(&MUSHROOM_FIELDS, new_prop(None).height(0.2, 1.0).temp(0.9).blocks(&MYCELIUM, &DIRT));
-    map.insert(&MUSHROOM_FIELD_SHORE, new_prop(None).height(-1.0, 0.1).temp(0.9).blocks(&MYCELIUM, &DIRT));
-    map.insert(&BEACH, new_prop(None).height(0.0, 0.1).temp(0.8).blocks(&SAND, &SAND));
-    map.insert(&DESERT_HILLS, new_prop(None).height(0.2, 0.7).temp(2.0).blocks(&SAND, &SAND));
-    map.insert(&WOODED_HILLS, new_prop(None).height(0.2, 0.6).temp(0.7));
-    map.insert(&TAIGA_HILLS, new_prop(None).height(0.2, 0.7).temp(0.05));
-    map.insert(&MOUNTAIN_EDGE, new_prop(None).height(0.2, 0.8).temp(0.2));
-    map.insert(&JUNGLE, new_prop(None).height(0.2, 0.4).temp(1.2));
-    map.insert(&JUNGLE_HILLS, new_prop(None).height(1.8, 0.2).temp(1.2));
+    map.insert(&OCEAN, default_config.build().height(-1.0, 0.4));
+    map.insert(&PLAINS, plains_config.build().height(0.1, 0.3).temp(0.8));
+    map.insert(&DESERT, desert_config.build().height(0.1, 0.2).temp(2.0).blocks(&SAND, &SAND));
+    map.insert(&MOUNTAINS, default_config.build().height(0.2, 1.3).temp(0.2));
+    map.insert(&FOREST, forest_config.build().temp(0.7));
+    map.insert(&TAIGA, taiga_config.build().height(0.1, 0.4).temp(0.05));
+    map.insert(&SWAMP, swamp_config.build().height(-0.2, 0.1).temp(0.8));
+    map.insert(&RIVER, default_config.build().height(-0.5, 0.0));
+    map.insert(&FROZEN_OCEAN, default_config.build().height(-1.0, 0.5).temp(0.0));
+    map.insert(&FROZEN_RIVER, default_config.build().height(-0.5, 0.0).temp(0.0));
+    map.insert(&SNOWY_TUNDRA, plains_config.build().temp(0.0));
+    map.insert(&SNOWY_MOUNTAINS, default_config.build().height(0.2, 1.2).temp(0.0));
+    map.insert(&MUSHROOM_FIELDS, default_config.build().height(0.2, 1.0).temp(0.9).blocks(&MYCELIUM, &DIRT));
+    map.insert(&MUSHROOM_FIELD_SHORE, default_config.build().height(-1.0, 0.1).temp(0.9).blocks(&MYCELIUM, &DIRT));
+    map.insert(&BEACH, beach_config.build().height(0.0, 0.1).temp(0.8).blocks(&SAND, &SAND));
+    map.insert(&DESERT_HILLS, desert_config.build().height(0.2, 0.7).temp(2.0).blocks(&SAND, &SAND));
+    map.insert(&WOODED_HILLS, forest_config.build().height(0.2, 0.6).temp(0.7));
+    map.insert(&TAIGA_HILLS, taiga_config.build().height(0.2, 0.7).temp(0.05));
+    map.insert(&MOUNTAIN_EDGE, default_config.build().height(0.2, 0.8).temp(0.2));
+    map.insert(&JUNGLE, jungle_config.build().height(0.2, 0.4).temp(1.2));
+    map.insert(&JUNGLE_HILLS, jungle_config.build().height(1.8, 0.2).temp(1.2));
     map
 
 
