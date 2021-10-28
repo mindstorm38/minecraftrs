@@ -57,13 +57,13 @@ impl Feature for TreeFeature {
 
         for dy in y..=(y + height + 1) {
 
-            let radius = if dy == y {
-                0
-            } else if dy >= (y + height -1) {
-                2
-            } else {
-                1
-            };
+            let mut radius = 1;
+            if dy == y {
+                radius = 0;
+            }
+            if dy >= (y + height - 1) {
+                radius = 2;
+            }
 
             for dx in (x - radius)..=(x + radius) {
                 for dz in (z - radius)..=(z + radius) {

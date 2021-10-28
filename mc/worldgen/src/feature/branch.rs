@@ -32,7 +32,8 @@ impl<F: Feature, C: RepeatCount> RepeatedFeature<F, C> {
 
 impl<F: Feature, C: RepeatCount> Feature for RepeatedFeature<F, C> {
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
-        for _ in 0..self.count.get_count(rand) {
+        let count = self.count.get_count(rand);
+        for _ in 0..count {
             self.feature.generate(level, rand, x, y, z);
         }
         true  // TODO
@@ -73,6 +74,6 @@ pub struct TreeRepeatCount(pub u16);
 
 impl RepeatCount for TreeRepeatCount {
     fn get_count(&self, rand: &mut JavaRandom) -> u16 {
-        self.0 + (rand.next_int_bounded(10) == 0) as u16
+        (self.0 + (rand.next_int_bounded(10) == 0) as u16).min(1)
     }
 }

@@ -1,5 +1,21 @@
+//! # Generator for release 1.2
+//! A module implementing world generation for Minecraft 1.2.5.
 //!
-//! Generator for release 1.2
+//! ## Known MC issues
+//! To be as exact as possible, we also need to implement known issues of Minecraft 1.2, these
+//! issues that are well known are that we discovered are listed below:
+//!
+//! ### Heightmap miscalculation
+//! Right after world gen, the whole heightmap of the chunk is refreshed, however the algorithm
+//! is wrong in this version for blocks on the max Y coordinate of a "top filled sub chunk" (this
+//! mean that there is no more initialized sub chunk above it).
+//!
+//! For example, if in a chunk the top most filled chunk is at Y=3 (chunk coords), and if the
+//! block at Y=63 is solid, we expect the heightmap to be set to 64, but the game set 63. This
+//! can be even worse if there is a caveat below this solid block, in this case the height will
+//! be even lower.
+//!
+//! This issue impact `MOTION_BLOCKING` heightmaps but not the `OCEAN_FLOOR` ones
 //!
 
 use std::num::Wrapping;
@@ -677,23 +693,21 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                         }
                     };
 
-                    if self.tree_count != 0 {
-                        match self.tree_feature_type {
-                            TreeFeatureType::Default => {
-                                let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
-                                let big_tree = BigTreeFeature::new();
-                                chain.push(new_tree_feature!(big_tree.optional_or(10, oak_tree)))
-                            },
-                            TreeFeatureType::Forest => {
-                                let birch_tree = TreeFeature::new(&BIRCH_LOG, &BIRCH_LEAVES, 5, false, true);
-                                let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
-                                let big_tree = BigTreeFeature::new();
-                                chain.push(new_tree_feature!(birch_tree.optional_or(5, big_tree.optional_or(10, oak_tree))));
-                            },
-                            TreeFeatureType::Jungle => todo!(),
-                            TreeFeatureType::Swamp => todo!(),
-                            TreeFeatureType::Taiga => todo!(),
-                        }
+                    match self.tree_feature_type {
+                        TreeFeatureType::Default => {
+                            let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
+                            let big_tree = BigTreeFeature::new();
+                            chain.push(new_tree_feature!(big_tree.optional_or(10, oak_tree)))
+                        },
+                        TreeFeatureType::Forest => {
+                            let birch_tree = TreeFeature::new(&BIRCH_LOG, &BIRCH_LEAVES, 5, false, true);
+                            let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
+                            let big_tree = BigTreeFeature::new();
+                            chain.push(new_tree_feature!(birch_tree.optional_or(5, big_tree.optional_or(10, oak_tree))));
+                        },
+                        TreeFeatureType::Jungle => todo!(),
+                        TreeFeatureType::Swamp => todo!(),
+                        TreeFeatureType::Taiga => todo!(),
                     }
 
                     // chain.push(DebugChunkFeature);
@@ -750,27 +764,4 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     map.insert(&JUNGLE_HILLS, jungle_config.build().height(1.8, 0.2).temp(1.2));
     map
 
-
-    /*BiomePropertyMap::new()
-        .insert(&OCEAN).height(-1.0, 0.4).build()
-        .insert(&PLAINS).height(0.1, 0.3).temp(0.8).build()
-        .insert(&DESERT).height(0.1, 0.2).temp(2.0).blocks(&SAND, &SAND).build()
-        .insert(&MOUNTAINS).height(0.2, 1.3).temp(0.2).build()
-        .insert(&FOREST).temp(0.7).build()
-        .insert(&TAIGA).height(0.1, 0.4).temp(0.05).build()
-        .insert(&SWAMP).height(-0.2, 0.1).temp(0.8).build()
-        .insert(&RIVER).height(-0.5, 0.0).build()
-        .insert(&FROZEN_OCEAN).height(-1.0, 0.5).temp(0.0).build()
-        .insert(&FROZEN_RIVER).height(-0.5, 0.0).temp(0.0).build()
-        .insert(&SNOWY_TUNDRA).temp(0.0).build()
-        .insert(&SNOWY_MOUNTAINS).height(0.2, 1.2).temp(0.0).build()
-        .insert(&MUSHROOM_FIELDS).height(0.2, 1.0).temp(0.9).blocks(&MYCELIUM, &DIRT).build()
-        .insert(&MUSHROOM_FIELD_SHORE).height(-1.0, 0.1).temp(0.9).blocks(&MYCELIUM, &DIRT).build()
-        .insert(&BEACH).height(0.0, 0.1).temp(0.8).blocks(&SAND, &SAND).build()
-        .insert(&DESERT_HILLS).height(0.2, 0.7).temp(2.0).blocks(&SAND, &SAND).build()
-        .insert(&WOODED_HILLS).height(0.2, 0.6).temp(0.7).build()
-        .insert(&TAIGA_HILLS).height(0.2, 0.7).temp(0.05).build()
-        .insert(&MOUNTAIN_EDGE).height(0.2, 0.8).temp(0.2).build()
-        .insert(&JUNGLE).height(0.2, 0.4).temp(1.2).build()
-        .insert(&JUNGLE_HILLS).height(1.8, 0.2).temp(1.2).build()*/
 });
