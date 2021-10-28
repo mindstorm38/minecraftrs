@@ -11,7 +11,7 @@ use mc_core::math::JAVA_PI;
 use mc_core::pos::Axis;
 
 use mc_vanilla::block::*;
-use mc_vanilla::block::material::{TAG_LOG, TAG_LEAVES};
+use mc_vanilla::block::material::{TAG_LOG, TAG_LEAVES, TAG_NON_SOLID};
 
 use crate::feature::LevelView;
 use super::Feature;
@@ -100,7 +100,8 @@ impl Feature for TreeFeature {
                 let x_diff = (dx - x).abs();
                 for dz in (z - radius)..=(z + radius) {
                     let z_diff = (dz - z).abs();
-                    if x_diff != radius || z_diff != radius || (rand.next_int_bounded(2) != 0 && top_diff != 0) /* TODO: && is last block not opaque */ {
+                    if (x_diff != radius || z_diff != radius || (rand.next_int_bounded(2) != 0 && top_diff != 0)) &&
+                        env_blocks.has_block_tag(level.get_block_at(dx, dy, dz).unwrap().get_block(), &TAG_NON_SOLID) /* TODO: && is last block not opaque */ {
                         level.set_block_at(dx, dy, dz, self.leaves_block).unwrap();
                     }
                 }
