@@ -4,13 +4,11 @@
 //! `"gen" + <major_version> + <minor_version>` with `minor_version` being padded to 2 digits.
 //!
 
-#[cfg(feature = "release-1-2")]
-pub mod release102;
-
 pub mod legacy;
 pub mod biome;
 
 // pub mod r101;
+#[cfg(feature = "release-1-2")]
 pub mod r102;
 // pub mod r103;
 // pub mod r104;
