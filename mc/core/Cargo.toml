@@ -1,0 +1,21 @@
+[package]
+name = "mc-core"
+version = "0.1.0"
+authors = ["Théo Rozier <contact@theorozier.fr>"]
+edition = "2018"
+repository = "https://github.com/mindstorm38/minecraftrs"
+homepage = "https://github.com/mindstorm38/minecraftrs"
+description = "MinecraftRS - Minimal core implementation of Minecraft backend."
+keywords = ["minecraft", "mc", "core"]
+categories = ["games", "mathematics"]
+license = "Apache-2.0"
+
+[dependencies]
+once_cell = "1.8"
+bit-vec = "0.6"
+flate2 = "1.0"
+named-binary-tag = "0.6"
+crossbeam-channel = "0.5"
+thiserror = "1.0"
+uuid = { version = "0.8", features = ["v4"] }
+hecs = "0.6"

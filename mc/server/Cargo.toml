@@ -1,0 +1,27 @@
+[package]
+name = "mc-server"
+version = "0.1.0"
+authors = ["Théo Rozier <contact@theorozier.fr>"]
+edition = "2018"
+repository = "https://github.com/mindstorm38/minecraftrs"
+homepage = "https://github.com/mindstorm38/minecraftrs"
+description = "MinecraftRS - Implementation of the Minecraft server protocol, for now it's a debug server for other MinecraftRS crates."
+keywords = ["minecraft", "mc", "server"]
+categories = ["games", "mathematics"]
+license = "Apache-2.0"
+
+[dependencies]
+mc-core = { path = "../core" }
+mc-runtime = { path = "../runtime" }
+mc-vanilla = { path = "../vanilla" }
+mc-worldgen = { path = "../worldgen" }
+
+named-binary-tag = "0.6"
+crossbeam-channel = "0.5"
+byteorder = "1.4"
+thiserror = "1.0"
+uuid = { version = "0.8", features = ["v4"] }
+hecs = "0.6"
+
+serde = "1.0"
+serde_json = "1.0"
