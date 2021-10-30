@@ -504,7 +504,7 @@ impl Chunk {
         perf::push("Chunk::recompute_heightmap_column");
         let column_index = calc_heightmap_index(x, z);
         for (idx, heightmap_type) in self.env.heightmaps.iter_heightmap_types().enumerate() {
-            perf::push("column");
+            perf::push("heightmap_type");
             let column_index = idx * 256 + column_index;
             let height = self.recompute_heightmap_column_internal(heightmap_type, x, z, self.get_height().get_max_block());
             self.heightmaps.set(column_index, height);
@@ -521,15 +521,20 @@ impl Chunk {
         while check_y >= min_block_y {
             match self.get_block(x, check_y, z) {
                 Ok(state) => {
+                    perf::push("check_block");
                     if heightmap_type.check_block(state, &self.env.blocks) {
                         new_y = check_y + 1;
+                        perf::pop();
                         break;
                     }
                     check_y -= 1;
+                    perf::pop();
                 },
                 Err(_) => {
+                    perf::push("skip_chunk");
                     // The sub chunk is empty, skip it.
                     check_y -= 16;
+                    perf::pop();
                 }
             }
         }
