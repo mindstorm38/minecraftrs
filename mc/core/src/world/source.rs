@@ -2,6 +2,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock, Mutex};
 use std::time::{Instant, Duration};
 use std::error::Error;
+use std::fmt::{Debug, Formatter};
 
 use crossbeam_channel::{Sender, Receiver, unbounded, bounded};
 use hecs::EntityBuilder;
@@ -39,19 +40,21 @@ pub trait LevelSource {
 
     /// Request loading of the chunk at the given position. If you return an error, you must
     /// return back the given `ChunkInfo` together with the `LevelSourceError`. If you return
-    /// `Ok(())` **you must** give a result later when calling `poll_chunk`.
+    /// `Ok(())` **you must** give a result later when calling `poll_chunk`. **This operation
+    /// must be non-blocking.**
     fn request_chunk_load(&mut self, req: ChunkLoadRequest) -> Result<(), (LevelSourceError, ChunkLoadRequest)> {
         Err((LevelSourceError::UnsupportedChunkLoad, req))
     }
 
     /// Poll the next loaded chunk that is ready to be inserted into the level's chunk storage.
     /// Every requested load chunk `request_chunk_load` method that returned `Ok(())` should
-    /// return some some result here, even if it's an error.
+    /// return some some result here, even if it's an error. **This operation must be
+    /// non-blocking.**
     fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>> {
         None
     }
 
-    /// Request saving of the chunk at the given position.
+    /// Request saving of the chunk at the given position. **This operation must be non-blocking.**
     #[allow(unused_variables)]
     fn request_chunk_save(&mut self, req: ChunkSaveRequest) -> Result<(), LevelSourceError> {
         Err(LevelSourceError::UnsupportedChunkSave)
@@ -62,7 +65,7 @@ pub trait LevelSource {
 
 /// This structure is constructed by levels and passed to `LevelSource` when requesting for
 /// chunk loading, the chunk must be constructed from the given data.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ChunkLoadRequest {
     pub env: Arc<LevelEnv>,
     pub height: ChunkHeight,
@@ -137,6 +140,14 @@ impl Deref for ProtoChunk {
 impl DerefMut for ProtoChunk {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
+    }
+}
+
+impl Debug for ProtoChunk {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProtoChunk")
+            .field("dirty", &self.dirty)
+            .finish_non_exhaustive()
     }
 }
 

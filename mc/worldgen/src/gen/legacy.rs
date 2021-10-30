@@ -148,7 +148,7 @@ impl LevelSource for LegacyGeneratorLevelSource {
     }
 
     fn poll_chunk(&mut self) -> Option<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>> {
-        match self.chunk_receiver.recv() {
+        match self.chunk_receiver.try_recv() {
             Ok(chunk) => {
                 self.loading_chunks.remove(&chunk.get_position());
                 Some(Ok(chunk))
@@ -180,6 +180,7 @@ impl<G: TerrainGenerator> TerrainWorker<G> {
                     self.generator.generate(&mut proto_chunk);
                     self.terrain_sender.send(proto_chunk).unwrap();
                     perf::pop();
+                    perf::debug();
                 },
             }
         }

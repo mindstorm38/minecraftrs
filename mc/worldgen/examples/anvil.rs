@@ -8,19 +8,20 @@ use mc_core::world::chunk::ChunkHeight;
 
 use mc_worldgen::gen::legacy::LegacyGeneratorLevelSource;
 use mc_worldgen::gen::r102::R102Provider;
-// use mc_worldgen::gen::release102::LevelGenRelease102;
 
 use mc_vanilla::ext::WithVanilla;
 
 fn main() {
+
+    unsafe {
+        mc_core::perf::enable();
+    }
 
     let region_dir = std::env::var("REGION_DIR").expect("Missing region dir");
     let anvil_source = AnvilLevelSource::new(region_dir);
 
     let gen_provider = R102Provider::new(3048926232851431861);
     let gen_source = LegacyGeneratorLevelSource::new(gen_provider, 4);
-    // let gen_builder = LevelGenRelease102::builder(3048926232851431861);
-    // let gen_source = LevelGeneratorSource::new(gen_builder, 6);
 
     let load_or_gen_source = LoadOrGenLevelSource::new(
         anvil_source,
@@ -36,7 +37,7 @@ fn main() {
 
     let center_x = -24;
     let center_z = 37;
-    let range = 8;
+    let range = 4;
 
     for cx in (center_x - range)..(center_x + range) {
         for cz in (center_z - range)..(center_z + range) {
@@ -45,13 +46,8 @@ fn main() {
     }
 
     loop {
-
-        level.load_chunks_with_callback(|_cx, _cz, _chunk| {
-
-        });
-
+        level.load_chunks();
         std::thread::sleep(Duration::from_millis(1));
-
     }
 
 }

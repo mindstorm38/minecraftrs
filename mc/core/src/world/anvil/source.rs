@@ -122,6 +122,7 @@ impl Worker {
                     // debug!("Received chunk load request for {}/{}", req.cx, req.cz);
                     let chunk = self.load_chunk(req);
                     if let Err(_) = self.result_sender.send(chunk) {
+                        // debug!("Failed to send result.");
                         break
                     }
                 }
@@ -143,6 +144,7 @@ impl Worker {
         match self.regions.entry((rx, rz)) {
             Entry::Occupied(o) => Ok(o.into_mut().cache_update()),
             Entry::Vacant(v) => {
+                // debug!("Try opening region file at {}/{}", rx, rz);
                 let region = RegionFile::new(self.regions_dir.clone(), rx, rz, create)?;
                 debug!("Region file opened at {}/{}", rx, rz);
                 Ok(v.insert(TimedCache::new(region, REGIONS_CACHE_TIME)))

@@ -1,6 +1,7 @@
 use std::sync::{RwLock, Arc, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
+use std::fmt::{Debug, Formatter};
 
 use hecs::{World as EcsWorld, EntityBuilder, Entity, EntityRef};
 use uuid::Uuid;
@@ -45,6 +46,17 @@ impl LevelEnv {
         }
     }
 
+}
+
+impl Debug for LevelEnv {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LevelEnv")
+            .field("states_count", &self.blocks.states_count())
+            .field("blocks_count", &self.blocks.blocks_count())
+            .field("entity_types_count", &self.entities.entity_types_count())
+            .field("heightmaps_count", &self.heightmaps.heightmaps_count())
+            .finish()
+    }
 }
 
 

@@ -8,6 +8,8 @@ thread_local! {
     static STACK: RefCell<Stack> = RefCell::new(Stack::new());
 }
 
+static mut ENABLED: bool = false;
+
 /*static STACK_LIST: Lazy<RwLock<StackList>> = Lazy::new(|| RwLock::new(StackList {
     stacks: Vec::new()
 }));
@@ -175,32 +177,60 @@ impl Frame {
 
 
 pub fn push(name: &'static str) {
-    STACK.with(move |stack| stack.borrow_mut().push(name));
+    if is_enabled() {
+        STACK.with(move |stack| stack.borrow_mut().push(name));
+    }
 }
 
 pub fn pop() {
-    STACK.with(move |stack| stack.borrow_mut().pop());
+    if is_enabled() {
+        STACK.with(move |stack| stack.borrow_mut().pop());
+    }
 }
 
 pub fn pop_push(name: &'static str) {
-    STACK.with(move |stack| {
-        let mut guard = stack.borrow_mut();
-        guard.pop();
-        guard.push(name);
-    });
+    if is_enabled() {
+        STACK.with(move |stack| {
+            let mut guard = stack.borrow_mut();
+            guard.pop();
+            guard.push(name);
+        });
+    }
 }
 
 pub fn frame<F: FnOnce()>(name: &'static str, func: F) {
-    STACK.with(move |stack| {
-        let mut stack = stack.borrow_mut();
-        stack.push(name);
-        func();
-        stack.pop();
-    });
+    if is_enabled() {
+        STACK.with(move |stack| {
+            let mut stack = stack.borrow_mut();
+            stack.push(name);
+            func();
+            stack.pop();
+        });
+    }
 }
 
+/// Debug the current thread' stack.
 pub fn debug() {
     STACK.with(|stack| {
         stack.borrow().debug();
     });
+}
+
+#[inline]
+fn is_enabled() -> bool {
+    unsafe { ENABLED }
+}
+
+/// Enable performance profiling, this function is unsafe for now because you need to call
+/// it once before any profiling.
+#[inline]
+pub unsafe fn enable() {
+    ENABLED = true;
+}
+
+/// Disable performance profiling, this function is unsafe for now because you need to call
+/// it once before any profiling.
+#[inline]
+pub unsafe fn disable() {
+    ENABLED = false;
 }

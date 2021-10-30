@@ -1,3 +1,4 @@
+use std::ops::{Deref, DerefMut};
 use std::collections::HashSet;
 use std::time::Instant;
 use std::sync::Arc;
@@ -9,9 +10,9 @@ use crate::util::{PackedArray, Palette, Rect, cast_vec_ref_to_ptr};
 use crate::heightmap::HeightmapType;
 use crate::block::BlockState;
 use crate::biome::Biome;
+use crate::perf;
 
 use super::level::LevelEnv;
-use std::ops::{Deref, DerefMut};
 
 
 /// The number of blocks for each direction in sub chunks.
@@ -494,39 +495,26 @@ impl Chunk {
                 if y + 1 == current_y {
                     let height = self.recompute_heightmap_column_internal(heightmap_type, x, z, y - 1);
                     self.heightmaps.set(column_index, height);
-                    /*let mut check_y = y - 1;
-                    let mut new_y = min_block_y;
-                    while check_y >= min_block_y {
-                        match self.get_block(x, check_y, z) {
-                            Ok(state) => {
-                                if heightmap_type.check_block(state) {
-                                    new_y = check_y + 1;
-                                    break;
-                                }
-                                check_y -= 1;
-                            },
-                            Err(_) => {
-                                // The sub chunk is empty, skip it.
-                                check_y -= 16;
-                            }
-                        }
-                    }
-                    self.heightmaps.set(column_index, (new_y - min_block_y) as u64);*/
                 }
             }
         }
     }
 
     pub fn recompute_heightmap_column(&mut self, x: u8, z: u8) {
+        perf::push("Chunk::recompute_heightmap_column");
         let column_index = calc_heightmap_index(x, z);
         for (idx, heightmap_type) in self.env.heightmaps.iter_heightmap_types().enumerate() {
+            perf::push("column");
             let column_index = idx * 256 + column_index;
             let height = self.recompute_heightmap_column_internal(heightmap_type, x, z, self.get_height().get_max_block());
             self.heightmaps.set(column_index, height);
+            perf::pop();
         }
+        perf::pop();
     }
 
     fn recompute_heightmap_column_internal(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8, from_y: i32) -> u64 {
+        perf::push("Chunk::recompute_heightmap_column_internal");
         let min_block_y = self.get_height().get_min_block();
         let mut check_y = from_y;
         let mut new_y = min_block_y;
@@ -545,6 +533,7 @@ impl Chunk {
                 }
             }
         }
+        perf::pop();
         (new_y - min_block_y) as u64
     }
 
