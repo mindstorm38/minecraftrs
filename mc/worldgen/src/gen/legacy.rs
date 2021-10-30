@@ -12,6 +12,8 @@ use mc_core::heightmap::HeightmapType;
 use mc_core::block::BlockState;
 use mc_core::biome::Biome;
 
+use mc_core::perf;
+
 use crate::feature::LevelView;
 
 
@@ -163,7 +165,7 @@ impl LevelSource for LegacyGeneratorLevelSource {
 struct TerrainWorker<G: TerrainGenerator> {
     request_receiver: Receiver<ChunkLoadRequest>,
     terrain_sender: Sender<ProtoChunk>,
-    generator: G
+    generator: G,
 }
 
 impl<G: TerrainGenerator> TerrainWorker<G> {
@@ -173,10 +175,11 @@ impl<G: TerrainGenerator> TerrainWorker<G> {
             match self.request_receiver.recv() {
                 Err(_) => break,
                 Ok(req) => {
-                    // println!("[{}] Generating terrain {}/{}", std::thread::current().name().unwrap(), req.cx, req.cz);
+                    perf::push("gen_terrain");
                     let mut proto_chunk = req.build_proto_chunk();
                     self.generator.generate(&mut proto_chunk);
                     self.terrain_sender.send(proto_chunk).unwrap();
+                    perf::pop();
                 },
             }
         }
@@ -202,6 +205,8 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                 Err(_) => break,
                 Ok(chunk) => {
 
+                    perf::push("gen_feature");
+
                     let (cx, cz) = chunk.get_position();
                     // println!("[{}] Decorating {}/{}", std::thread::current().name().unwrap(), cx, cz);
 
@@ -224,6 +229,8 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                             // let's generate features for this chunk.
                             if count == 9 {
 
+                                perf::push("generating");
+
                                 let order = match (ncx & 1, ncz & 1) {
                                     (0, 0) => [(1, 1), (1, 0), (0, 0), (0, 1)],
                                     (0, 1) => [(1, 0), (1, 1), (0, 1), (0, 0)],
@@ -235,6 +242,8 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                 // println!(" => Ready to be decorated... {}/{} {:?}", ncx, ncz, (ncx & 1, ncz & 1));
 
                                 for (dx, dz) in order {
+
+                                    perf::push("generating_feature");
 
                                     // Chunk coordinates of the chunk with lowest x/z of the 4
                                     // chunks for the QuadLevelView.
@@ -269,6 +278,8 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
 
                                     }
 
+                                    perf::pop();
+
                                 };
 
                                 // When a chunk is decorated, remove it from maps, it should never
@@ -278,33 +289,15 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                 let chunk = self.chunks.remove(&(ncx, ncz)).unwrap().into_inner();
                                 self.chunk_sender.send(chunk).unwrap();
 
+                                perf::pop();
+
                             }
 
                         }
                     }
 
-                    /*print!("    ");
-                    for dcx in (cx - 8)..=(cx + 8) {
-                        print!("{:03} ", dcx);
-                    }
-                    println!();
-                    for dcz in (cz - 8)..=(cz + 8) {
-                        print!("{:03} ", dcz);
-                        for dcx in (cx - 8)..=(cx + 8) {
-                            if let Some(&count) = self.chunks_counters.get(&(dcx, dcz)) {
-                                if dcx == cx && dcz == cz {
-                                    print!(">{}< ", count);
-                                } else if self.chunks.contains_key(&(dcx, dcz)) {
-                                    print!("[{}] ", count);
-                                } else {
-                                    print!(" {}  ", count);
-                                }
-                            } else {
-                                print!("    ");
-                            }
-                        }
-                        println!();
-                    }*/
+                    perf::pop();
+                    // perf::debug();
 
                 }
             }

@@ -28,6 +28,7 @@ use mc_core::world::chunk::Chunk;
 use mc_core::biome::Biome;
 use mc_core::rand::JavaRandom;
 use mc_core::util::Rect;
+use mc_core::perf;
 
 use mc_vanilla::heightmap::*;
 use mc_vanilla::biome::*;
@@ -44,7 +45,6 @@ use crate::structure::StructureGenerator;
 use crate::feature::{FeatureChain, Feature, LevelView};
 use crate::feature::distrib::{HeightmapDistrib, LavaLakeDistrib};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
-use crate::feature::debug::{DebugChunkFeature, SetBlockFeature};
 use crate::feature::branch::TreeRepeatCount;
 use crate::feature::dungeon::DungeonFeature;
 use crate::feature::tree::{TreeFeature, BigTreeFeature};
@@ -110,16 +110,25 @@ pub struct R102TerrainGenerator {
 impl TerrainGenerator for R102TerrainGenerator {
     fn generate(&mut self, chunk: &mut ProtoChunk) {
 
+        perf::push("r102_gen_terrain");
+
         const X_MUL: Wrapping<i64> = Wrapping(0x4f9939f508);
         const Z_MUL: Wrapping<i64> = Wrapping(0x1ef1565bd5);
 
         let (cx, cz) = chunk.get_position();
         let mut rand = JavaRandom::new((Wrapping(cx as i64) * X_MUL + Wrapping(cz as i64) * Z_MUL).0);
 
+        perf::push("init_biomes");
         let biomes = self.initialize_biomes(&mut *chunk);
+        perf::pop_push("terrain");
         self.generate_terrain(&mut *chunk);
+        perf::pop_push("surface");
         self.generate_surface(&mut *chunk, &mut rand, &biomes);
+        perf::pop_push("structures");
         self.generate_structures(&mut *chunk, &biomes);
+        perf::pop();
+
+        perf::pop();
 
     }
 }
