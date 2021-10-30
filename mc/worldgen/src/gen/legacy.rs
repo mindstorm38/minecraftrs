@@ -297,7 +297,6 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                     }
 
                     perf::pop();
-                    // perf::debug();
 
                 }
             }

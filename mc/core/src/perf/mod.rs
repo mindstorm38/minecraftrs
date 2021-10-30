@@ -80,11 +80,11 @@ impl Stack {
 
         let guard = (**frame).borrow();
         for _ in 0..tab {
-            print!(" ");
+            print!("  ");
         }
 
         if guard.duration_count > 0 {
-            println!("- {} (x{}, avg: {:?})", guard.name, guard.duration_count, guard.duration_sum / guard.duration_count);
+            println!("- {} (x{}, total: {:.2?}, avg: {:.2?})", guard.name, guard.duration_count, guard.duration_sum, guard.duration_sum / guard.duration_count);
         } else {
             println!("- {}", guard.name);
         }

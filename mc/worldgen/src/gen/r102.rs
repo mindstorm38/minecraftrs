@@ -470,14 +470,17 @@ impl R102TerrainGenerator {
         let block_sand = SAND.get_default_state();
         let block_sandstone = SANDSTONE.get_default_state();
 
+        perf::push("surface_noise");
         const SCALE: f64 = 0.03125 * 2.0;
         self.shared.noise_surface.generate_3d(&mut self.noise_surface_cache, cx * 16, cz * 16, 0, SCALE, SCALE, SCALE);
-
+        perf::pop_push("loop_over_columns");
         for z in 0..16u8 {
             for x in 0..16u8 {
 
+                perf::push("get_biome_prop");
                 let biome = *biomes.get(x as usize, z as usize);
                 let biome_prop = BIOMES_PROPERTIES.get(biome).unwrap();
+                perf::pop();
 
                 // x/z are inverted
                 let noise_val = (*self.noise_surface_cache.get(x as usize, z as usize, 0) / 3.0 + 3.0 + rand.next_double() * 0.25) as i32;
@@ -490,6 +493,7 @@ impl R102TerrainGenerator {
 
                 let mut depth = -1;
 
+                perf::push("loop_in_column");
                 for cy in (0..8).rev() {
                     if let Some(sub_chunk) = chunk.get_sub_chunk_mut(cy) {
                         for y in (0..16u8).rev() {
@@ -556,10 +560,13 @@ impl R102TerrainGenerator {
                     }
                 }
 
+                perf::pop_push("recompute_heightmap_column");
                 chunk.recompute_heightmap_column(x, z);
+                perf::pop();
 
             }
         }
+        perf::pop();
 
     }
 
