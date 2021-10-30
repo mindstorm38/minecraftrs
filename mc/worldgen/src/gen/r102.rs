@@ -707,7 +707,7 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                         ($feature:expr) => {
                             $feature.distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(TreeRepeatCount(self.tree_count))
                         }
-                    };
+                    }
 
                     match self.tree_feature_type {
                         TreeFeatureType::Default => {

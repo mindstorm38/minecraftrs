@@ -269,7 +269,7 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
     /// returning `Err(())` if it is impossible or `Ok(base_height)`.
     fn is_valid_position(&mut self, x: i32, y: i32, z: i32) -> Result<u16, ()> {
 
-        let mut base_height = match self.feature.height_limit {
+        let base_height = match self.feature.height_limit {
             BigTreeHeight::Const(limit) => limit,
             BigTreeHeight::Random(offset, limit) => {
                 offset + self.rand.next_int_bounded(limit as i32) as u16
@@ -339,8 +339,8 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
                             (dy as f64 - horiz_dist) as i32
                         };
 
-                        let mut branch_from = [dx, branch_dy, dz];
-                        let mut branch_to = [dx, dy, dz];
+                        let branch_from = [dx, branch_dy, dz];
+                        let branch_to = [dx, dy, dz];
 
                         if self.count_block_line(branch_from, branch_to) == -1 {
                             leaf_nodes.push((dx, dy, dz, branch_dy));

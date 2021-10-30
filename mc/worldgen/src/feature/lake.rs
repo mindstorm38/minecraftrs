@@ -132,7 +132,7 @@ impl Feature for LakeFeature {
                             let env_blocks = &level.get_env().blocks;
                             let block = level.get_block_at(x + dx as i32, y + dy as i32, z + dz as i32).unwrap().get_block();
                             if !env_blocks.has_block_tag(block, &TAG_NON_SOLID) {
-                                level.set_block_at(x + dx as i32, y + dy as i32, z + dz as i32, block_stone);
+                                level.set_block_at(x + dx as i32, y + dy as i32, z + dz as i32, block_stone).unwrap();
                             }
                         }
 

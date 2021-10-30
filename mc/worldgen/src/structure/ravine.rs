@@ -205,11 +205,11 @@ fn gen_ravine_worker(
 
                         if state == stone_block || state == dirt_block || state == grass_block {
                             if by < 10 {
-                                chunk.set_block(bx, rby, bz, lava_block);
+                                chunk.set_block(bx, rby, bz, lava_block).unwrap();
                             } else {
-                                chunk.set_block(bx, rby, bz, air_block);
+                                chunk.set_block(bx, rby, bz, air_block).unwrap();
                                 if pierced_ground && chunk.get_block(bx, by, bz).unwrap() == dirt_block {
-                                    chunk.set_block(bx, by, bz, get_biome_top_block(bx, bz));
+                                    chunk.set_block(bx, by, bz, get_biome_top_block(bx, bz)).unwrap();
                                     // TODO: Set block at y=by to the biome top block.
                                 }
                             }
