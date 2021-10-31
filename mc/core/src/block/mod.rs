@@ -318,7 +318,7 @@ impl GlobalBlocks {
 
     /// Get the block state from the given save ID.
     pub fn get_state_from(&self, sid: u32) -> Option<&'static BlockState> {
-        Some(*self.ordered_states.get(sid as usize)?)
+        self.ordered_states.get(sid as usize).copied()
     }
 
     /// Get the default state from the given block name.

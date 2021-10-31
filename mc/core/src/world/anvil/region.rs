@@ -146,8 +146,14 @@ impl RegionFile {
 
     // Metadata //
 
+    #[inline]
+    pub fn get_metadata(&self, cx: i32, cz: i32) -> ChunkMetadata {
+        self.metadata[calc_chunk_index_from_pos(cx, cz)]
+    }
+
+    #[inline]
     pub fn has_chunk(&self, cx: i32, cz: i32) -> bool {
-        self.metadata[calc_chunk_index_from_pos(cx, cz)].length() != 0
+        self.get_metadata(cx, cz).length() != 0
     }
 
     // Reading //
@@ -242,7 +248,7 @@ impl RegionFile {
         let needed_byte_length = data.len() as u64 + 1;
         let mut external = needed_byte_length > MAX_CHUNK_SIZE;
 
-        let mut needed_length = if external {
+        let needed_length = if external {
             1 // If external, only one sector is needed to store chunk header.
         } else {
             // Adding 4 to the byte length to count the 32 bits length of (data.len() + 1).
@@ -283,7 +289,8 @@ impl RegionFile {
                 if let Some(free_sector) = first_free_sector {
                     external = true;
                     offset = free_sector as u64;
-                    needed_length = 1; // Needed length is now 1 because we have switched to external.
+                    // No longer needed but this is virtually the case:
+                    // needed_length = 1;
                     length = 1;
                 } else {
                     // Revert the change to sectors "free state".
@@ -344,28 +351,31 @@ impl RegionFile {
 
 
 #[derive(Copy, Clone, Debug)]
-struct ChunkMetadata {
+pub struct ChunkMetadata {
     location: u32,
     timestamp: u32
 }
 
 impl ChunkMetadata {
 
-    fn offset(&self) -> u64 {
+    #[inline]
+    pub fn offset(&self) -> u64 {
         ((self.location >> 8) & 0xFFFFFF) as u64
     }
 
-    fn length(&self) -> u64 {
+    #[inline]
+    pub fn length(&self) -> u64 {
         (self.location & 0xFF) as u64
     }
 
-    fn set_location(&mut self, offset: u64, length: u64) {
-        self.location = (((offset & 0xFFFFFF) as u32) << 8) | ((length & 0xFF) as u32);
+    #[inline]
+    pub fn timestamp(&self) -> u32 {
+        self.timestamp
     }
 
     #[inline]
-    fn timestamp(&self) -> u32 {
-        self.timestamp
+    fn set_location(&mut self, offset: u64, length: u64) {
+        self.location = (((offset & 0xFFFFFF) as u32) << 8) | ((length & 0xFF) as u32);
     }
 
     #[inline]

@@ -1,4 +1,3 @@
-use std::ops::{Deref, DerefMut};
 use std::collections::HashSet;
 use std::time::Instant;
 use std::sync::Arc;
@@ -140,11 +139,6 @@ impl Chunk {
         &self.env
     }
 
-    /*#[inline]
-    pub fn clone_env(&self) -> Arc<LevelEnv> {
-        Arc::clone(&self.env)
-    }*/
-
     #[inline]
     pub fn get_status(&self) -> ChunkStatus {
         self.status
@@ -175,16 +169,37 @@ impl Chunk {
         self.last_save = Instant::now();
     }
 
+    // Height //
+
+    /// Return the configured height for the level owning this chunk.
     #[inline]
-    pub fn get_guard(&mut self) -> ChunkGuard {
-        ChunkGuard {
-            min_x: self.cx << 4,
-            min_z: self.cz << 4,
-            max_x: (self.cx << 4) + 16,
-            max_z: (self.cz << 4) + 16,
-            chunk: self
+    pub fn get_height(&self) -> ChunkHeight {
+        ChunkHeight {
+            min: self.sub_chunks_offset,
+            max: self.sub_chunks_offset + self.sub_chunks.len() as i8 - 1
         }
     }
+
+    /// Return the linear non-negative offset of the chunk at the given position,
+    /// the position can be negative. None is returned if overflow occurred.
+    ///
+    /// As its name implies, this method only calculate the offset, the returned
+    /// offset might be out of the chunk's height. **It is made for internal use.**
+    fn calc_sub_chunk_offset(&self, cy: i8) -> Option<usize> {
+        cy.checked_sub(self.sub_chunks_offset).map(|v| v as usize)
+    }
+
+    /// Return the linear non-negative offset of the chunk at the given position,
+    /// the position can be negative. None is returned if the chunk position is
+    /// not within the chunk's height.
+    pub fn get_sub_chunk_offset(&self, cy: i8) -> Option<usize> {
+        match self.calc_sub_chunk_offset(cy) {
+            Some(off) if off < self.sub_chunks.len() => Some(off),
+            _ => None
+        }
+    }
+
+    // Sub chunks //
 
     /// Ensure that a sub chunk is existing at a specific chunk-Y coordinate, if this coordinate
     /// is out of the height of the level, `Err(ChunkError::SubChunkOutOfRange)` is returned.
@@ -271,49 +286,34 @@ impl Chunk {
             })
     }
 
-    /// Return the configured height for the level owning this chunk.
-    #[inline]
-    pub fn get_height(&self) -> ChunkHeight {
-        ChunkHeight {
-            min: self.sub_chunks_offset,
-            max: self.sub_chunks_offset + self.sub_chunks.len() as i8 - 1
-        }
-    }
-
-    /// Return the linear non-negative offset of the chunk at the given position,
-    /// the position can be negative. None is returned if overflow occurred.
-    ///
-    /// As its name implies, this method only calculate the offset, the returned
-    /// offset might be out of the chunk's height.
-    fn calc_sub_chunk_offset(&self, cy: i8) -> Option<usize> {
-        cy.checked_sub(self.sub_chunks_offset).map(|v| v as usize)
-    }
-
-    /// Return the linear non-negative offset of the chunk at the given position,
-    /// the position can be negative. None is returned if the chunk position is
-    /// not within the chunk's height.
-    pub fn get_sub_chunk_offset(&self, cy: i8) -> Option<usize> {
-        match self.calc_sub_chunk_offset(cy) {
-            Some(off) if off < self.sub_chunks.len() => Some(off),
-            _ => None
-        }
-    }
-
     // BLOCKS //
 
-    /// Get the actual block at a specific position.
+    /// Get the block at a specific position.
     ///
     /// Returns `Ok(&BlockState)` if the block is found and valid,
-    /// `Err(ChunkError::SubChunkUnloaded)` if no sub chunk is loaded at the given coordinates.
+    /// `Err(ChunkError::SubChunkOutOfRange)` if the given y coordinate is out of the chunk
+    /// height, if the Y coordinate is valid but the sub chunk is yet loaded, the "null-block"
+    /// is returned.
     ///
     /// # Panics (debug-only)
     /// This method panics if either X or Z is higher than 15.
     pub fn get_block(&self, x: u8, y: i32, z: u8) -> ChunkResult<&'static BlockState> {
-        match self.get_sub_chunk((y >> 4) as i8) {
-            None => Err(ChunkError::SubChunkUnloaded),
-            // TODO: None => Ok(self.env.blocks.get_state_from(0).unwrap()),
-            Some(sub_chunk) => Ok(sub_chunk.get_block(x, (y & 15) as u8, z))
+
+        let offset = self.calc_sub_chunk_offset((y >> 4) as i8)
+            .ok_or(ChunkError::SubChunkOutOfRange)?;
+
+        match self.sub_chunks.get(offset) {
+            Some(Some(sub_chunk)) => Ok(sub_chunk.get_block(x, (y & 15) as u8, z)),
+            Some(None) => Ok(self.env.blocks.get_state_from(0).unwrap()),
+            _ => Err(ChunkError::SubChunkOutOfRange)
         }
+
+
+        /*match self.get_sub_chunk((y >> 4) as i8) {
+            None => Err(ChunkError::SubChunkUnloaded),
+            Some(sub_chunk) => Ok(sub_chunk.get_block(x, (y & 15) as u8, z))
+        }*/
+
     }
 
     /// Same description as `get_block` but accept level coordinates instead of relative ones. This
@@ -564,48 +564,6 @@ impl Chunk {
     #[inline]
     pub fn has_entity(&self, entity: Entity) -> bool {
         self.entities.contains(&entity)
-    }
-
-}
-
-
-pub struct ChunkGuard<'a> {
-    chunk: &'a mut Chunk,
-    pub min_x: i32,
-    pub min_z: i32,
-    pub max_x: i32,
-    pub max_z: i32
-}
-
-impl<'a> Deref for ChunkGuard<'a> {
-    type Target = Chunk;
-    fn deref(&self) -> &Self::Target {
-        self.chunk
-    }
-}
-
-impl<'a> DerefMut for ChunkGuard<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.chunk
-    }
-}
-
-impl<'a> ChunkGuard<'a> {
-
-    /// Get block at real level coordinates only if the given coordinates are in this chunk.
-    pub fn get_block_at_safe(&self, x: i32, y: i32, z: i32) -> Option<&'static BlockState> {
-        if x >= self.min_x && x < self.max_x && z >= self.min_z && z < self.max_z {
-            self.chunk.get_block_at(x, y, z).ok()
-        } else {
-            None
-        }
-    }
-
-    /// Set block at real level coordinates and do nothing if given coordinates are out of range.
-    pub fn set_block_at_safe(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) {
-         if x >= self.min_x && x < self.max_x && z >= self.min_z && z < self.max_z {
-             let _ = self.chunk.set_block_at(x, y, z, state);
-         }
     }
 
 }
@@ -1044,7 +1002,7 @@ mod tests {
         VOID "void" 0,
     ]);
 
-    fn heightmap_test(state: &'static BlockState) -> bool {
+    fn heightmap_test(state: &'static BlockState, _blocks: &GlobalBlocks) -> bool {
         state == STONE.get_default_state()
     }
 
@@ -1078,7 +1036,8 @@ mod tests {
         let mut chunk = build_chunk();
         chunk.ensure_sub_chunk(-1).unwrap();
         assert_eq!(chunk.get_block(0, -16, 0).unwrap(), AIR.get_default_state());
-        assert!(matches!(chunk.get_block(0, 0, 0), Err(ChunkError::SubChunkUnloaded)));
+        assert_eq!(chunk.get_block(0, 0, 0).unwrap(), AIR.get_default_state());
+        assert!(matches!(chunk.get_block(0, -17, 0), Err(ChunkError::SubChunkOutOfRange)));
         assert!(matches!(chunk.set_block(0, 0, 0, STONE.get_default_state()), Ok(_)));
         assert_eq!(chunk.get_block(0, 0, 0).unwrap(), STONE.get_default_state());
     }
