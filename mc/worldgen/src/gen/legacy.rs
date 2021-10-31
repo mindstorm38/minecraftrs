@@ -180,7 +180,7 @@ impl<G: TerrainGenerator> TerrainWorker<G> {
                     self.generator.generate(&mut proto_chunk);
                     self.terrain_sender.send(proto_chunk).unwrap();
                     perf::pop();
-                    perf::debug();
+                    // perf::debug();
                 },
             }
         }

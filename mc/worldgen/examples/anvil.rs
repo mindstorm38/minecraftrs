@@ -37,7 +37,7 @@ fn main() {
 
     let center_x = -24;
     let center_z = 37;
-    let range = 4;
+    let range = 8;
 
     for cx in (center_x - range)..(center_x + range) {
         for cz in (center_z - range)..(center_z + range) {
