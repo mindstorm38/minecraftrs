@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crossbeam_channel::{Sender, Receiver, unbounded, bounded};
 
 use mc_core::world::source::{LevelSource, ChunkLoadRequest, LevelSourceError, ProtoChunk};
-use mc_core::world::chunk::{ChunkResult, ChunkError};
+use mc_core::world::chunk::{ChunkResult, ChunkError, ChunkStatus};
 use mc_core::world::level::LevelEnv;
 use mc_core::heightmap::HeightmapType;
 use mc_core::block::BlockState;
@@ -287,7 +287,8 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                 // be queried again because all surrounding chunks have received
                                 // its decoration.
                                 self.chunks_counters.remove(&(ncx, ncz));
-                                let chunk = self.chunks.remove(&(ncx, ncz)).unwrap().into_inner();
+                                let mut chunk = self.chunks.remove(&(ncx, ncz)).unwrap().into_inner();
+                                chunk.set_status(ChunkStatus::Full);
                                 self.chunk_sender.send(chunk).unwrap();
 
                                 perf::pop();

@@ -9,6 +9,7 @@ use hecs::EntityBuilder;
 use thiserror::Error;
 
 use super::chunk::{Chunk, ChunkHeight};
+use crate::world::chunk::ChunkStatus;
 use crate::world::level::LevelEnv;
 use crate::block::BlockState;
 
@@ -402,6 +403,7 @@ impl LevelGenerator for SuperFlatGenerator {
                 }
             }
         }
+        chunk.set_status(ChunkStatus::Full);
         Ok(chunk)
     }
 

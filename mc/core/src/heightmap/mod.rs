@@ -5,6 +5,10 @@ use std::collections::HashMap;
 
 
 /// A structure used to statically define an heightmap type.
+///
+/// The heightmap's predicate must not return true upon "null block", this restriction is needed
+/// at the current state of the crate because the "null block" is currently used to optimize
+/// storage.
 pub struct HeightmapType {
     pub name: &'static str,
     pub predicate: fn(&'static BlockState, &GlobalBlocks) -> bool

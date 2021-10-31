@@ -918,6 +918,7 @@ where
 }
 
 
+/// A little structure that stores the height of a level (and so a chunk).
 #[derive(Debug, Clone, Copy)]
 pub struct ChunkHeight {
     /// Inclusive lower bound.
@@ -950,11 +951,14 @@ impl ChunkHeight {
         return self.min <= cy && cy <= self.max;
     }
 
+    /// Return the number of chunks in this chunk height.
     #[inline]
     pub fn len(self) -> usize {
         (self.max - self.min + 1) as usize
     }
 
+    /// Iterate over all chunk Y coordinates in this chunk height.
+    #[inline]
     pub fn iter(self) -> impl Iterator<Item = i8> {
         self.min..=self.max
     }
