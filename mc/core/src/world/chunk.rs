@@ -22,6 +22,14 @@ pub const BLOCKS_DATA_SIZE: usize = SIZE * SIZE * SIZE;
 pub const BIOMES_DATA_SIZE: usize = 4 * 4 * 4;
 
 
+/// Internal height map used for optimization of the heightmap computation, it allows to ignore
+/// useless null blocks (usually air).
+static HEIGHTMAP_NON_NULL: HeightmapType = HeightmapType {
+    name: "INTERNAL_NON_NULL",
+    predicate: |state, blocks| blocks.get_state_from(0).unwrap() == state
+};
+
+
 /// An error enumeration for all operations related to blocks and biomes on
 /// sub chunks and chunks. Check each variation for specific documentation.
 #[derive(Error, Debug)]
@@ -110,7 +118,8 @@ impl Chunk {
         let biomes_byte_size = PackedArray::calc_min_byte_size(env.biomes.biomes_count() as u64 - 1);
 
         let heightmap_byte_size = PackedArray::calc_min_byte_size((height.len() * 16) as u64);
-        let heightmap_len = env.heightmaps.heightmaps_count() * 256;
+        // Added 256 for the additional internal non null heightmap HEIGHTMAP_NON_NULL.
+        let heightmap_len = env.heightmaps.heightmaps_count() * 256 + 256;
 
         Chunk {
             cx,
@@ -446,9 +455,13 @@ impl Chunk {
     // HEIGHTMAPS //
 
     fn get_heightmap_column_index(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8) -> ChunkResult<usize> {
-        self.env.heightmaps.get_heightmap_index(heightmap_type)
-            .map(move |offset| offset * 256 + calc_heightmap_index(x, z))
-            .ok_or(ChunkError::IllegalHeightmap)
+        if heightmap_type == &HEIGHTMAP_NON_NULL {
+            Ok(calc_heightmap_index(x, z))
+        } else {
+            self.env.heightmaps.get_heightmap_index(heightmap_type)
+                .map(move |offset| 256 + offset * 256 + calc_heightmap_index(x, z))
+                .ok_or(ChunkError::IllegalHeightmap)
+        }
     }
 
     /// Set the value of a specific heightmap at specific coordinates. This is very unsafe to do
@@ -478,6 +491,7 @@ impl Chunk {
     }
 
     /// Efficiently update all heightmaps for a specific column according to a block update.
+    /// If you don't have a state change, you can use `recompute_heightmap_column` instead.
     pub fn update_heightmap_column(&mut self, x: u8, y: i32, z: u8, state: &'static BlockState) {
         let min_block_y = self.get_height().get_min_block();
         let column_index = calc_heightmap_index(x, z);
@@ -500,6 +514,7 @@ impl Chunk {
         }
     }
 
+    /// Public method that you can use to recompute a single column for all heightmaps.
     pub fn recompute_heightmap_column(&mut self, x: u8, z: u8) {
         perf::push("Chunk::recompute_heightmap_column");
         let column_index = calc_heightmap_index(x, z);
@@ -513,6 +528,7 @@ impl Chunk {
         perf::pop();
     }
 
+    /// Internal method that recompute a single column for a specific type of heightmap.
     fn recompute_heightmap_column_internal(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8, from_y: i32) -> u64 {
         perf::push("Chunk::recompute_heightmap_column_internal");
         let min_block_y = self.get_height().get_min_block();
