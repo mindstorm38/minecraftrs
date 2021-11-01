@@ -109,9 +109,17 @@ impl FeatureChain {
 
 
 /// A local level view used to generate feature in an partial level view.
+///
+/// **Note that you can't directly access "chunks" in a level view. However,
+/// you can check if a specific one exists or check its sub chunks.**
 pub trait LevelView {
 
     fn get_env(&self) -> &Arc<LevelEnv>;
+
+    fn has_sub_chunk(&self, cx: i32, cz: i32) -> bool;
+    fn has_sub_chunk_at(&self, x: i32, z: i32) -> bool {
+        self.has_sub_chunk(x >> 4, z >> 4)
+    }
 
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()>;
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
