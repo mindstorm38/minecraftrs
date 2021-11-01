@@ -567,8 +567,8 @@ impl Chunk {
 
             let sub_chunk = loop {
                 match self.sub_chunks[sub_chunk_index] {
-                    Some(ref sub_chunk) => break sub_chunk,
-                    None => {
+                    Some(ref sub_chunk) if sub_chunk.has_non_null_block() => break sub_chunk,
+                    _ => {
                         if sub_chunk_index == 0 {
                             perf::pop();
                             return 0; // If the lowest sub chunk is absent.
@@ -937,12 +937,19 @@ impl SubChunk {
 
     // Meta info //
 
+    #[inline]
     pub fn non_null_blocks_count(&self) -> u16 {
         self.non_null_blocks_count
     }
 
+    #[inline]
     pub fn null_blocks_count(&self) -> u16 {
         4096 - self.non_null_blocks_count
+    }
+
+    #[inline]
+    pub fn has_non_null_block(&self) -> bool {
+        self.non_null_blocks_count != 0
     }
 
 }
