@@ -454,14 +454,12 @@ impl Chunk {
 
     // HEIGHTMAPS //
 
+    /// Internal method that returns the offset of a given heightmap, if the heightmap is not
+    /// known by the environment's heightmaps, `Err(ChunkError::IllegalHeightmap)` is returned.
     fn get_heightmap_column_index(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8) -> ChunkResult<usize> {
-        if heightmap_type == &HEIGHTMAP_NON_NULL {
-            Ok(calc_heightmap_index(x, z))
-        } else {
-            self.env.heightmaps.get_heightmap_index(heightmap_type)
-                .map(move |offset| 256 + offset * 256 + calc_heightmap_index(x, z))
-                .ok_or(ChunkError::IllegalHeightmap)
-        }
+        self.env.heightmaps.get_heightmap_index(heightmap_type)
+            .map(move |offset| 256 + offset * 256 + calc_heightmap_index(x, z))
+            .ok_or(ChunkError::IllegalHeightmap)
     }
 
     /// Set the value of a specific heightmap at specific coordinates. This is very unsafe to do
@@ -495,7 +493,10 @@ impl Chunk {
     pub fn update_heightmap_column(&mut self, x: u8, y: i32, z: u8, state: &'static BlockState) {
         let min_block_y = self.get_height().get_min_block();
         let column_index = calc_heightmap_index(x, z);
-        for (idx, heightmap_type) in self.env.heightmaps.iter_heightmap_types().enumerate() {
+        for (idx, heightmap_type) in std::iter::once(&HEIGHTMAP_NON_NULL)
+            .chain(self.env.heightmaps.iter_heightmap_types())
+            .enumerate()
+        {
             let column_index = idx * 256 + column_index;
             let current_y = self.heightmaps.get(column_index).unwrap() as i32 + min_block_y;
             if heightmap_type.check_block(state, &self.env.blocks) {
@@ -507,7 +508,7 @@ impl Chunk {
                 // For example, if we have `current_y = 2`, `y = 1`, then we recompute.
                 // But if we have `y = 0`, then we do nothing because top block is unchanged.
                 if y + 1 == current_y {
-                    let height = self.recompute_heightmap_column_internal(heightmap_type, x, z, y - 1);
+                    let height = self.recompute_heightmap_column_internal(heightmap_type, x, z, y - 1, min_block_y);
                     self.heightmaps.set(column_index, height);
                 }
             }
@@ -516,41 +517,48 @@ impl Chunk {
 
     /// Public method that you can use to recompute a single column for all heightmaps.
     pub fn recompute_heightmap_column(&mut self, x: u8, z: u8) {
+
         perf::push("Chunk::recompute_heightmap_column");
+
+        let min_block_y = self.get_height().get_min_block();
+        let max_block_y = self.get_height().get_max_block();
         let column_index = calc_heightmap_index(x, z);
+
+        perf::push("non_null_heightmap");
+        let non_null_height = self.recompute_heightmap_column_internal(&HEIGHTMAP_NON_NULL, x, z, max_block_y, min_block_y);
+        self.heightmaps.set(column_index, non_null_height);
+        let non_null_height = non_null_height as i32 + min_block_y;
+        perf::pop();
+
         for (idx, heightmap_type) in self.env.heightmaps.iter_heightmap_types().enumerate() {
             perf::push("heightmap_type");
-            let column_index = idx * 256 + column_index;
-            let height = self.recompute_heightmap_column_internal(heightmap_type, x, z, self.get_height().get_max_block());
+            let column_index = 256 + idx * 256 + column_index;
+            let height = self.recompute_heightmap_column_internal(heightmap_type, x, z, non_null_height, min_block_y);
             self.heightmaps.set(column_index, height);
             perf::pop();
         }
+
         perf::pop();
+
     }
 
     /// Internal method that recompute a single column for a specific type of heightmap.
-    fn recompute_heightmap_column_internal(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8, from_y: i32) -> u64 {
+    fn recompute_heightmap_column_internal(&self, heightmap_type: &'static HeightmapType, x: u8, z: u8, from_y: i32, min_block_y: i32) -> u64 {
         perf::push("Chunk::recompute_heightmap_column_internal");
-        let min_block_y = self.get_height().get_min_block();
         let mut check_y = from_y;
         let mut new_y = min_block_y;
         while check_y >= min_block_y {
             match self.get_block(x, check_y, z) {
                 Ok(state) => {
-                    perf::push("check_block");
                     if heightmap_type.check_block(state, &self.env.blocks) {
                         new_y = check_y + 1;
-                        perf::pop();
                         break;
                     }
                     check_y -= 1;
-                    perf::pop();
                 },
                 Err(_) => {
-                    perf::push("skip_chunk");
                     // The sub chunk is empty, skip it.
                     check_y -= 16;
-                    perf::pop();
                 }
             }
         }
@@ -561,7 +569,7 @@ impl Chunk {
     /// Direct access method to internal packed array, returning each of the 256 values from the
     /// given heightmap type if it exists, ordered by X then Z.
     pub fn iter_heightmap_raw_columns(&self, heightmap_type: &'static HeightmapType) -> Option<(u8, impl Iterator<Item = u64> + '_)> {
-        let offset = self.env.heightmaps.get_heightmap_index(heightmap_type)? * 256;
+        let offset = 256 + self.env.heightmaps.get_heightmap_index(heightmap_type)? * 256;
         Some((self.heightmaps.byte_size(), self.heightmaps.iter().skip(offset).take(256)))
     }
 
