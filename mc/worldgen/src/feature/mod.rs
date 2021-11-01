@@ -1,5 +1,6 @@
 use std::sync::Arc;
-use mc_core::world::chunk::ChunkResult;
+
+use mc_core::world::chunk::{Chunk, ChunkResult};
 use mc_core::rand::JavaRandom;
 
 pub mod distrib;
@@ -116,10 +117,8 @@ pub trait LevelView {
 
     fn get_env(&self) -> &Arc<LevelEnv>;
 
-    fn has_sub_chunk(&self, cx: i32, cz: i32) -> bool;
-    fn has_sub_chunk_at(&self, x: i32, z: i32) -> bool {
-        self.has_sub_chunk(x >> 4, z >> 4)
-    }
+    fn get_chunk(&self, cx: i32, cz: i32) -> Option<&Chunk>;
+    fn get_chunk_mut(&mut self, cx: i32, cz: i32) -> Option<&mut Chunk>;
 
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()>;
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;

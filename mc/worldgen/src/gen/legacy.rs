@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crossbeam_channel::{Sender, Receiver, unbounded, bounded};
 
 use mc_core::world::source::{LevelSource, ChunkLoadRequest, LevelSourceError, ProtoChunk};
-use mc_core::world::chunk::{ChunkResult, ChunkError, ChunkStatus};
+use mc_core::world::chunk::{ChunkResult, ChunkError, ChunkStatus, Chunk};
 use mc_core::world::level::LevelEnv;
 use mc_core::heightmap::HeightmapType;
 use mc_core::block::BlockState;
@@ -271,8 +271,8 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                                 c00.borrow_mut(), c10.borrow_mut(),
                                                 c01.borrow_mut(), c11.borrow_mut()
                                             ],
-                                            x_start: ocx << 4,
-                                            z_start: ocz << 4
+                                            ocx: ocx,
+                                            ocz: ocz
                                         };
 
                                         self.generator.decorate(view, ocx, ocz, block_x, block_z);
@@ -313,21 +313,26 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
 pub struct QuadLevelView<'a> {
     /// Ordering is 0/0 1/0 0/1 1/1 (X then Z)
     chunks: [RefMut<'a, ProtoChunk>; 4],
-    x_start: i32,
-    z_start: i32
+    ocx: i32,
+    ocz: i32
 }
 
 impl<'a> QuadLevelView<'a> {
 
     #[inline]
-    fn get_chunk_index(&self, x: i32, z: i32) -> ChunkResult<usize> {
-        let dx = (x - self.x_start) >> 4;
-        let dz = (z - self.z_start) >> 4;
+    fn get_chunk_index(&self, cx: i32, cz: i32) -> ChunkResult<usize> {
+        let dx = cx - self.ocx;
+        let dz = cz - self.ocz;
         if dx >= 0 && dz >= 0 && dx < 2 && dz < 2 {
             Ok(dx as usize + dz as usize * 2)
         } else {
             Err(ChunkError::ChunkUnloaded)
         }
+    }
+
+    #[inline]
+    fn get_chunk_at_index(&self, x: i32, z: i32) -> ChunkResult<usize> {
+        self.get_chunk_index(x >> 4, z >> 4)
     }
 
 }
@@ -338,20 +343,30 @@ impl<'a> LevelView for QuadLevelView<'a> {
         self.chunks[0].get_env()
     }
 
+    fn get_chunk(&self, cx: i32, cz: i32) -> Option<&Chunk> {
+        self.chunks.get(self.get_chunk_index(cx, cz).ok()?)
+            .map(|proto| &***proto)
+    }
+
+    fn get_chunk_mut(&mut self, cx: i32, cz: i32) -> Option<&mut Chunk> {
+        self.chunks.get_mut(self.get_chunk_index(cx, cz).ok()?)
+            .map(|proto| &mut ***proto)
+    }
+
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()> {
-        self.chunks[self.get_chunk_index(x, z)?].set_block_at(x, y, z, state)
+        self.chunks[self.get_chunk_at_index(x, z)?].set_block_at(x, y, z, state)
     }
 
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState> {
-        self.chunks[self.get_chunk_index(x, z)?].get_block_at(x, y, z)
+        self.chunks[self.get_chunk_at_index(x, z)?].get_block_at(x, y, z)
     }
 
     fn get_biome_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static Biome> {
-        self.chunks[self.get_chunk_index(x, z)?].get_biome_at(x, y, z)
+        self.chunks[self.get_chunk_at_index(x, z)?].get_biome_at(x, y, z)
     }
 
     fn get_heightmap_column_at(&self, heightmap_type: &'static HeightmapType, x: i32, z: i32) -> ChunkResult<i32> {
-        self.chunks[self.get_chunk_index(x, z)?].get_heightmap_column_at(heightmap_type, x, z)
+        self.chunks[self.get_chunk_at_index(x, z)?].get_heightmap_column_at(heightmap_type, x, z)
     }
 
 }
