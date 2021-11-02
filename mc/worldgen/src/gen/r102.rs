@@ -24,9 +24,10 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 
 use mc_core::world::source::ProtoChunk;
+use mc_core::heightmap::HeightmapType;
 use mc_core::world::chunk::Chunk;
-use mc_core::biome::Biome;
 use mc_core::rand::JavaRandom;
+use mc_core::biome::Biome;
 use mc_core::util::Rect;
 use mc_core::perf;
 
@@ -43,7 +44,7 @@ use crate::structure::cave::CaveStructure;
 use crate::structure::StructureGenerator;
 
 use crate::feature::{FeatureChain, Feature, LevelView};
-use crate::feature::distrib::{HeightmapDistrib, LavaLakeDistrib};
+use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
 use crate::feature::branch::TreeRepeatCount;
 use crate::feature::dungeon::DungeonFeature;
@@ -705,7 +706,7 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
 
                     macro_rules! new_tree_feature {
                         ($feature:expr) => {
-                            $feature.distributed(HeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(TreeRepeatCount(self.tree_count))
+                            $feature.distributed(WrongHeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(TreeRepeatCount(self.tree_count))
                         }
                     }
 
@@ -781,3 +782,35 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     map
 
 });
+
+
+/// A special distribution that is wrong to fit the issue described in the module doc.
+struct WrongHeightmapDistrib {
+    heightmap_type: &'static HeightmapType
+}
+
+impl WrongHeightmapDistrib {
+    fn new(heightmap_type: &'static HeightmapType) -> Self {
+        Self {
+            heightmap_type
+        }
+    }
+}
+
+impl Distrib for WrongHeightmapDistrib {
+    fn pick_pos(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, _y: i32, z: i32) -> Option<(i32, i32, i32)> {
+        let rx = x + rand.next_int_bounded(16);
+        let rz = z + rand.next_int_bounded(16);
+        // SAFETY: Unwrapping because +16/+16 should be valid.
+        let chunk = level.get_chunk_at(rx, rz).unwrap();
+        let ry = chunk.get_heightmap_column_at(self.heightmap_type, rx, rz).unwrap();
+        if ry & 15 == 0 {
+            // If the height is currently set to above the top sub chunk block.
+            let highest_ry = ((chunk.get_highest_non_null_sub_chunk() as i32) << 4) + 16;
+            if highest_ry == ry {
+                return Some((rx, ry - 1, rz));
+            }
+        }
+        Some((rx, ry, rz))
+    }
+}

@@ -266,9 +266,10 @@ impl Chunk {
     }
 
     #[inline]
-    pub fn get_sub_chunk_mut_at(&mut self, y: i32) -> Option<&mut SubChunk> {
+    pub fn get_sub_chunk_at_mut(&mut self, y: i32) -> Option<&mut SubChunk> {
         self.get_sub_chunk_mut((y >> 4) as i8)
     }
+
 
     /// Return the number of sub chunks in the height of this chunk.
     pub fn get_sub_chunks_count(&self) -> usize {
@@ -293,6 +294,18 @@ impl Chunk {
             .filter_map(move |(idx, opt)| {
                 opt.as_ref().map(move |sc| (idx as i8 + min_y, sc))
             })
+    }
+
+    /// Return the index of the first sub chunk (starting from the top sub chunk) that is loaded
+    /// AND contains a non null block.
+    pub fn get_highest_non_null_sub_chunk(&self) -> i8 {
+        self.sub_chunks.iter()
+            .rposition(|sc| {
+                match sc {
+                    Some(sc) => sc.has_non_null_block(),
+                    None => false
+                }
+            }).unwrap_or(0) as i8 + self.sub_chunks_offset
     }
 
     // BLOCKS //

@@ -344,13 +344,13 @@ impl<'a> LevelView for QuadLevelView<'a> {
     }
 
     fn get_chunk(&self, cx: i32, cz: i32) -> Option<&Chunk> {
-        self.chunks.get(self.get_chunk_index(cx, cz).ok()?)
-            .map(|proto| &***proto)
+        let idx = self.get_chunk_index(cx, cz).ok()?;
+        self.chunks.get(idx).map(|proto| &***proto)
     }
 
     fn get_chunk_mut(&mut self, cx: i32, cz: i32) -> Option<&mut Chunk> {
-        self.chunks.get_mut(self.get_chunk_index(cx, cz).ok()?)
-            .map(|proto| &mut ***proto)
+        let idx = self.get_chunk_index(cx, cz).ok()?;
+        self.chunks.get_mut(idx).map(|proto| &mut ***proto)
     }
 
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()> {

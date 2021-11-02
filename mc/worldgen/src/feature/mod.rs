@@ -27,6 +27,9 @@ pub trait Feature {
     ///
     /// When called from the biome decorator, `y=0` and x/z are the coordinates of the population
     /// chunk, a.k.a. the chunk with an offset of 8/8 blocks.
+    ///
+    /// The caller must ensure that the given level view provides at least 2 by 2 chunks, with the
+    /// feature chunk being centered on the center of these 4 chunks.
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool;
 
     fn distributed<D: Distrib>(self, distrib: D) -> DistribFeature<Self, D>
@@ -115,10 +118,21 @@ impl FeatureChain {
 /// you can check if a specific one exists or check its sub chunks.**
 pub trait LevelView {
 
+    /// Get a reference to the shared level environment.
     fn get_env(&self) -> &Arc<LevelEnv>;
 
     fn get_chunk(&self, cx: i32, cz: i32) -> Option<&Chunk>;
     fn get_chunk_mut(&mut self, cx: i32, cz: i32) -> Option<&mut Chunk>;
+
+    #[inline]
+    fn get_chunk_at(&self, x: i32, z: i32) -> Option<&Chunk> {
+        self.get_chunk(x >> 4, z >> 4)
+    }
+
+    #[inline]
+    fn get_chunk_at_mut(&mut self, x: i32, z: i32) -> Option<&mut Chunk> {
+        self.get_chunk_mut(x >> 4, z >> 4)
+    }
 
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()>;
     fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
