@@ -184,7 +184,7 @@ impl Level {
 
                     // Now that we have created all our entities, we can set passengers.
                     for (i, (_, passengers)) in proto_entities.into_iter().enumerate() {
-                        if let Some(passengers) = passengers {
+                        if !passengers.is_empty() {
 
                             // Here we don't check is passengers is empty because ProtoChunk only
                             // set 'Some' if there are passengers.

@@ -11,7 +11,7 @@ use mc_core::world::level::LevelEnv;
 use mc_core::heightmap::HeightmapType;
 use mc_core::block::BlockState;
 use mc_core::biome::Biome;
-
+use mc_core::util::Rect;
 use mc_core::perf;
 
 use crate::feature::LevelView;
@@ -19,12 +19,14 @@ use crate::feature::LevelView;
 
 /// Trait for terrain generators.
 pub trait TerrainGenerator {
-    fn generate(&mut self, chunk: &mut ProtoChunk);
+    type Chunk: ProtoChunkAccess;
+    fn generate(&mut self, chunk: ProtoChunk) -> Self::Chunk;
 }
 
 /// Trait for feature generators.
 pub trait FeatureGenerator {
-    fn decorate(&mut self, level: QuadLevelView, cx: i32, cz: i32, x: i32, z: i32);
+    type Chunk: ProtoChunkAccess;
+    fn decorate(&mut self, level: QuadLevelView<Self::Chunk>, cx: i32, cz: i32, x: i32, z: i32);
 }
 
 /// Base trait for a temporary provider of terrain and feature generators. Structures
@@ -40,7 +42,9 @@ pub trait GeneratorProvider {
 }
 
 
-/// A common threaded generator level source that generate legacy terrain.
+/// A common threaded generator level source that generate terrain and features,
+/// this generator works in two major steps, terrain and decoration generation.
+///
 /// This source is a generator that uses multiple terrain workers and a single
 /// feature worker. Proto chunk are created by terrain workers and then
 /// decorated by feature worker and then queued waiting for polling.
@@ -59,20 +63,23 @@ pub trait GeneratorProvider {
 ///   └───────┤ Feature Worker ◄───────────────┘
 ///           └────────────────┘
 /// ```
-pub struct LegacyGeneratorLevelSource {
+pub struct LegacyGenLevelSource {
     request_sender: Sender<ChunkLoadRequest>,
     chunk_receiver: Receiver<ProtoChunk>,
     loading_chunks: HashSet<(i32, i32)>
 }
 
-impl LegacyGeneratorLevelSource {
+impl LegacyGenLevelSource {
 
     /// Construct a new legacy generator with the given number of terrain workers (threads).
     /// For now there is only a single worker for features generation, this might change in
     /// the future.
-    pub fn new<P>(provider: P, terrain_workers: u16) -> Self
+    pub fn new<P, C>(provider: P, terrain_workers: u16) -> Self
     where
-        P: GeneratorProvider + Send + Sync + 'static
+        P: GeneratorProvider + Send + Sync + 'static,
+        C: ProtoChunkAccess + Send + 'static,
+        P::Terrain: TerrainGenerator<Chunk = C>,
+        P::Feature: FeatureGenerator<Chunk = C>,
     {
 
         let (
@@ -129,7 +136,7 @@ impl LegacyGeneratorLevelSource {
 
 }
 
-impl LevelSource for LegacyGeneratorLevelSource {
+impl LevelSource for LegacyGenLevelSource {
 
     fn request_chunk_load(&mut self, req: ChunkLoadRequest) -> Result<(), (LevelSourceError, ChunkLoadRequest)> {
         // We ensure that all surrounding chunk are also loaded.
@@ -164,7 +171,7 @@ impl LevelSource for LegacyGeneratorLevelSource {
 /// process. Another thread is responsible of the features generation.
 struct TerrainWorker<G: TerrainGenerator> {
     request_receiver: Receiver<ChunkLoadRequest>,
-    terrain_sender: Sender<ProtoChunk>,
+    terrain_sender: Sender<G::Chunk>,
     generator: G,
 }
 
@@ -176,8 +183,7 @@ impl<G: TerrainGenerator> TerrainWorker<G> {
                 Err(_) => break,
                 Ok(req) => {
                     perf::push("gen_terrain");
-                    let mut proto_chunk = req.build_proto_chunk();
-                    self.generator.generate(&mut proto_chunk);
+                    let proto_chunk = self.generator.generate(req.build_proto_chunk());
                     self.terrain_sender.send(proto_chunk).unwrap();
                     perf::pop();
                     // perf::debug();
@@ -191,9 +197,9 @@ impl<G: TerrainGenerator> TerrainWorker<G> {
 
 /// Internal thread worker
 struct FeatureWorker<G: FeatureGenerator> {
-    chunks: HashMap<(i32, i32), RefCell<ProtoChunk>>,
+    chunks: HashMap<(i32, i32), RefCell<G::Chunk>>,
     chunks_counters: HashMap<(i32, i32), u8>,
-    terrain_receiver: Receiver<ProtoChunk>,
+    terrain_receiver: Receiver<G::Chunk>,
     chunk_sender: Sender<ProtoChunk>,
     generator: G
 }
@@ -208,7 +214,7 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
 
                     perf::push("gen_feature");
 
-                    let (cx, cz) = chunk.get_position();
+                    let (cx, cz) = chunk.as_chunk_ref().get_position();
                     // println!("[{}] Decorating {}/{}", std::thread::current().name().unwrap(), cx, cz);
 
                     self.chunks.insert((cx, cz), RefCell::new(chunk));
@@ -271,8 +277,8 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                                 c00.borrow_mut(), c10.borrow_mut(),
                                                 c01.borrow_mut(), c11.borrow_mut()
                                             ],
-                                            ocx: ocx,
-                                            ocz: ocz
+                                            ocx,
+                                            ocz
                                         };
 
                                         self.generator.decorate(view, ocx, ocz, block_x, block_z);
@@ -287,9 +293,10 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
                                 // be queried again because all surrounding chunks have received
                                 // its decoration.
                                 self.chunks_counters.remove(&(ncx, ncz));
-                                let mut chunk = self.chunks.remove(&(ncx, ncz)).unwrap().into_inner();
-                                chunk.set_status(ChunkStatus::Full);
-                                self.chunk_sender.send(chunk).unwrap();
+                                let chunk = self.chunks.remove(&(ncx, ncz)).unwrap().into_inner();
+                                let mut proto_chunk = chunk.into_inner();
+                                proto_chunk.set_status(ChunkStatus::Full);
+                                self.chunk_sender.send(proto_chunk).unwrap();
 
                                 perf::pop();
 
@@ -308,16 +315,35 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
 }
 
 
+/// A trait to implement customized proto chunks.
+/// TODO: Move this trait to another common module in order to reuse this in structure mod.
+pub trait ProtoChunkAccess {
+
+    fn into_inner(self) -> ProtoChunk;
+
+    fn as_chunk_ref(&self) -> &Chunk;
+    fn as_chunk_mut(&mut self) -> &mut Chunk;
+
+    fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()>;
+    fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
+
+    fn get_biome_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static Biome>;
+
+    fn get_heightmap_column_at(&self, heightmap_type: &'static HeightmapType, x: i32, z: i32) -> ChunkResult<i32>;
+
+}
+
+
 /// An implementation of `LevelView` (from feature module) that refers to a quad of 4 chunks,
 /// used to generate one feature chunk.
-pub struct QuadLevelView<'a> {
+pub struct QuadLevelView<'a, C: ProtoChunkAccess> {
     /// Ordering is 0/0 1/0 0/1 1/1 (X then Z)
-    chunks: [RefMut<'a, ProtoChunk>; 4],
+    chunks: [RefMut<'a, C>; 4],
     ocx: i32,
     ocz: i32
 }
 
-impl<'a> QuadLevelView<'a> {
+impl<'a, C: ProtoChunkAccess> QuadLevelView<'a, C> {
 
     #[inline]
     fn get_chunk_index(&self, cx: i32, cz: i32) -> ChunkResult<usize> {
@@ -337,20 +363,20 @@ impl<'a> QuadLevelView<'a> {
 
 }
 
-impl<'a> LevelView for QuadLevelView<'a> {
+impl<'a, C: ProtoChunkAccess> LevelView for QuadLevelView<'a, C> {
 
     fn get_env(&self) -> &Arc<LevelEnv> {
-        self.chunks[0].get_env()
+        self.chunks[0].as_chunk_ref().get_env()
     }
 
     fn get_chunk(&self, cx: i32, cz: i32) -> Option<&Chunk> {
         let idx = self.get_chunk_index(cx, cz).ok()?;
-        self.chunks.get(idx).map(|proto| &***proto)
+        self.chunks.get(idx).map(|proto| proto.as_chunk_ref())
     }
 
     fn get_chunk_mut(&mut self, cx: i32, cz: i32) -> Option<&mut Chunk> {
         let idx = self.get_chunk_index(cx, cz).ok()?;
-        self.chunks.get_mut(idx).map(|proto| &mut ***proto)
+        self.chunks.get_mut(idx).map(|proto| proto.as_chunk_mut())
     }
 
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()> {
@@ -367,6 +393,57 @@ impl<'a> LevelView for QuadLevelView<'a> {
 
     fn get_heightmap_column_at(&self, heightmap_type: &'static HeightmapType, x: i32, z: i32) -> ChunkResult<i32> {
         self.chunks[self.get_chunk_at_index(x, z)?].get_heightmap_column_at(heightmap_type, x, z)
+    }
+
+}
+
+
+/// This is an implementation of the trait `ProtoChunkAccess`, this implementation does not
+/// use the chunk's biome methods but uses the `legacy_biomes` field of this structure which
+/// is actually a rectangle of biomes of 16x16 (minimum required size).
+pub struct LegacyProtoChunk {
+    /// The real (modern) proto chunk.
+    pub inner: ProtoChunk,
+    /// The legacy 16x16 biomes rectangle.
+    pub legacy_biomes: Rect<&'static Biome>
+}
+
+impl LegacyProtoChunk {
+
+    pub fn get_legacy_biome(&self, x: u8, z: u8) -> &'static Biome {
+        *self.legacy_biomes.get(x as usize, z as usize)
+    }
+
+}
+
+impl ProtoChunkAccess for LegacyProtoChunk {
+
+    fn into_inner(self) -> ProtoChunk {
+        self.inner
+    }
+
+    fn as_chunk_ref(&self) -> &Chunk {
+        &*self.inner
+    }
+
+    fn as_chunk_mut(&mut self) -> &mut Chunk {
+        &mut *self.inner
+    }
+
+    fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()> {
+        self.inner.set_block_at(x, y, z, state)
+    }
+
+    fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState> {
+        self.inner.get_block_at(x, y, z)
+    }
+
+    fn get_biome_at(&self, x: i32, _y: i32, z: i32) -> ChunkResult<&'static Biome> {
+        Ok(*self.legacy_biomes.get((x & 15) as usize, (z & 15) as usize))
+    }
+
+    fn get_heightmap_column_at(&self, heightmap_type: &'static HeightmapType, x: i32, z: i32) -> ChunkResult<i32> {
+        self.inner.get_heightmap_column_at(heightmap_type, x, z)
     }
 
 }

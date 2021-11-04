@@ -23,13 +23,13 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
-use mc_core::world::source::ProtoChunk;
 use mc_core::heightmap::HeightmapType;
 use mc_core::world::chunk::Chunk;
 use mc_core::rand::JavaRandom;
 use mc_core::biome::Biome;
-use mc_core::util::Rect;
 use mc_core::perf;
+use mc_core::util::Rect;
+use mc_core::world::source::ProtoChunk;
 
 use mc_vanilla::heightmap::*;
 use mc_vanilla::biome::*;
@@ -51,7 +51,7 @@ use crate::feature::dungeon::DungeonFeature;
 use crate::feature::tree::{TreeFeature, BigTreeFeature};
 use crate::feature::lake::LakeFeature;
 
-use super::legacy::{GeneratorProvider, FeatureGenerator, TerrainGenerator, QuadLevelView};
+use super::legacy::{GeneratorProvider, FeatureGenerator, TerrainGenerator, LegacyProtoChunk, QuadLevelView};
 use super::biome::{BiomePropertyMap, BiomeProperty};
 
 
@@ -109,7 +109,8 @@ pub struct R102TerrainGenerator {
 }
 
 impl TerrainGenerator for R102TerrainGenerator {
-    fn generate(&mut self, chunk: &mut ProtoChunk) {
+    type Chunk = LegacyProtoChunk;
+    fn generate(&mut self, mut chunk: ProtoChunk) -> Self::Chunk {
 
         perf::push("r102_gen_terrain");
 
@@ -123,13 +124,22 @@ impl TerrainGenerator for R102TerrainGenerator {
         let biomes = self.initialize_biomes(&mut *chunk);
         perf::pop_push("terrain");
         self.generate_terrain(&mut *chunk);
-        perf::pop_push("surface");
-        self.generate_surface(&mut *chunk, &mut rand, &biomes);
+        perf::pop();
+
+        let mut chunk = LegacyProtoChunk {
+            inner: chunk,
+            legacy_biomes: biomes
+        };
+
+        perf::push("surface");
+        self.generate_surface(&mut chunk, &mut rand/*&mut *chunk, &mut rand, &biomes*/);
         perf::pop_push("structures");
-        self.generate_structures(&mut *chunk, &biomes);
+        self.generate_structures(&mut chunk/*&mut *chunk, &biomes*/);
         perf::pop();
 
         perf::pop();
+
+        chunk
 
     }
 }
@@ -461,9 +471,9 @@ impl R102TerrainGenerator {
 
     }
 
-    fn generate_surface(&mut self, chunk: &mut Chunk, rand: &mut JavaRandom, biomes: &Rect<&'static Biome>) {
+    fn generate_surface(&mut self, chunk: &mut LegacyProtoChunk, rand: &mut JavaRandom/*, biomes: &Rect<&'static Biome>*/) {
 
-        let (cx, cz) = chunk.get_position();
+        let (cx, cz) = chunk.inner.get_position();
 
         let block_air = AIR.get_default_state();
         let block_stone = STONE.get_default_state();
@@ -479,7 +489,7 @@ impl R102TerrainGenerator {
             for x in 0..16u8 {
 
                 perf::push("get_biome_prop");
-                let biome = *biomes.get(x as usize, z as usize);
+                let biome = chunk.get_legacy_biome(x, z);
                 let biome_prop = BIOMES_PROPERTIES.get(biome).unwrap();
                 perf::pop();
 
@@ -496,7 +506,7 @@ impl R102TerrainGenerator {
 
                 perf::push("loop_in_column");
                 for cy in (0..8).rev() {
-                    if let Some(sub_chunk) = chunk.get_sub_chunk_mut(cy) {
+                    if let Some(sub_chunk) = chunk.inner.get_sub_chunk_mut(cy) {
                         for y in (0..16u8).rev() {
 
                             let y_real = (cy as i32) * 16 + y as i32;
@@ -562,7 +572,7 @@ impl R102TerrainGenerator {
                 }
 
                 perf::pop_push("recompute_heightmap_column");
-                chunk.recompute_heightmap_column(x, z);
+                chunk.inner.recompute_heightmap_column(x, z);
                 perf::pop();
 
             }
@@ -571,19 +581,20 @@ impl R102TerrainGenerator {
 
     }
 
-    fn generate_structures(&mut self, chunk: &mut Chunk, biomes: &Rect<&'static Biome>) {
+    fn generate_structures(&mut self, chunk: &mut LegacyProtoChunk/*, biomes: &Rect<&'static Biome>*/) {
 
-        let mut get_biome_top_block = |x: u8, z: u8| {
+        let biomes = &chunk.legacy_biomes;
+        let mut get_biome_top_block = move |x: u8, z: u8| {
             BIOMES_PROPERTIES.get(*biomes.get(x as usize, z as usize)).unwrap().top_block
         };
 
         StructureGenerator::new(8, CaveStructure {
             get_biome_top_block: &mut get_biome_top_block
-        }).generate(self.shared.seed, &mut *chunk);
+        }).generate(self.shared.seed, &mut chunk.inner);
 
         StructureGenerator::new(8, RavineStructure {
             get_biome_top_block: &mut get_biome_top_block
-        }).generate(self.shared.seed, &mut *chunk);
+        }).generate(self.shared.seed, &mut chunk.inner);
 
     }
 
@@ -594,7 +605,8 @@ pub struct R102FeatureGenerator {
 }
 
 impl FeatureGenerator for R102FeatureGenerator {
-    fn decorate(&mut self, mut level: QuadLevelView, cx: i32, cz: i32, x: i32, z: i32) {
+    type Chunk = LegacyProtoChunk;
+    fn decorate(&mut self, mut level: QuadLevelView<Self::Chunk>, cx: i32, cz: i32, x: i32, z: i32) {
         let mut rand = JavaRandom::new(self.shared.seed);
         let a = Wrapping(rand.next_long() / 2 * 2 + 1);
         let b = Wrapping(rand.next_long() / 2 * 2 + 1);

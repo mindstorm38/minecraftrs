@@ -6,7 +6,7 @@ use mc_core::world::anvil::source::AnvilLevelSource;
 use mc_core::world::level::{Level, LevelEnv};
 use mc_core::world::chunk::ChunkHeight;
 
-use mc_worldgen::gen::legacy::LegacyGeneratorLevelSource;
+use mc_worldgen::gen::legacy::LegacyGenLevelSource;
 use mc_worldgen::gen::r102::R102Provider;
 
 use mc_vanilla::ext::WithVanilla;
@@ -21,7 +21,7 @@ fn main() {
     let anvil_source = AnvilLevelSource::new(region_dir);
 
     let gen_provider = R102Provider::new(3048926232851431861);
-    let gen_source = LegacyGeneratorLevelSource::new(gen_provider, 4);
+    let gen_source = LegacyGenLevelSource::new(gen_provider, 4);
 
     let load_or_gen_source = LoadOrGenLevelSource::new(
         anvil_source,

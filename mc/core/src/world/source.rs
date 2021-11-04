@@ -106,8 +106,8 @@ pub struct ProtoChunk {
     /// to be moved and sent between threads.
     pub(super) inner: Box<Chunk>,
     /// Proto entities that will be built and added to the
-    pub(super) proto_entities: Vec<(EntityBuilder, Option<Vec<usize>>)>,
-    /// This boolean indicates when the proto chunk must be saved after added to the level.
+    pub(super) proto_entities: Vec<(EntityBuilder, Vec<usize>)>,
+    /// This boolean indicates when the proto chunk must be saved after being added to the level.
     pub dirty: bool
 }
 
@@ -121,12 +121,12 @@ impl ProtoChunk {
     /// used to add passengers to this entity or make this entity ride another one.
     pub fn add_proto_entity(&mut self, entity_builder: EntityBuilder) -> usize {
         let idx = self.proto_entities.len();
-        self.proto_entities.push((entity_builder, None));
+        self.proto_entities.push((entity_builder, Vec::new()));
         idx
     }
 
     pub fn add_proto_entity_passengers(&mut self, host_index: usize, passenger_index: usize) {
-        self.proto_entities[host_index].1.get_or_insert_with(|| Vec::new()).push(passenger_index);
+        self.proto_entities[host_index].1.push(passenger_index);
     }
 
 }
@@ -148,6 +148,7 @@ impl Debug for ProtoChunk {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ProtoChunk")
             .field("dirty", &self.dirty)
+            .field("proto_entities", &self.proto_entities.len())
             .finish_non_exhaustive()
     }
 }
@@ -260,12 +261,12 @@ pub trait LevelGeneratorBuilder {
 /// A wrapper for `LevelGenerator` that implements `LevelSource` to provide asynchronous level
 /// generation. This wrapper dispatches incoming chunk request into the given number of worker
 /// threads.
-pub struct LevelGeneratorSource {
+pub struct WorkerGenLevelSource {
     request_sender: Sender<ChunkLoadRequest>,
     result_receiver: Receiver<Result<ProtoChunk, (LevelSourceError, ChunkLoadRequest)>>,
 }
 
-impl LevelGeneratorSource {
+impl WorkerGenLevelSource {
 
     pub fn new<B>(generator_builder: B, workers_count: usize) -> Self
     where
@@ -317,7 +318,7 @@ impl LevelGeneratorSource {
 
 }
 
-impl LevelSource for LevelGeneratorSource {
+impl LevelSource for WorkerGenLevelSource {
 
     fn request_chunk_load(&mut self, req: ChunkLoadRequest) -> Result<(), (LevelSourceError, ChunkLoadRequest)> {
         // SAFETY: Unwrap should be safe because the channel is unbounded.

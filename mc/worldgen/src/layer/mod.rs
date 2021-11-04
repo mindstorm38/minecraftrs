@@ -26,6 +26,14 @@ pub trait Layer {
 
     fn next(&mut self, x: i32, z: i32) -> Self::Item;
 
+    fn next_grid_into(&mut self, x: i32, z: i32, rect: &mut Rect<Self::Item>) {
+        for dz in 0..rect.z_size {
+            for dx in 0..rect.x_size {
+                rect.set(dx, dz, self.next(x + dx as i32, z + dz as i32));
+            }
+        }
+    }
+
     fn next_grid(&mut self, x: i32, z: i32, x_size: usize, z_size: usize) -> Rect<Self::Item> {
         let mut data = Vec::with_capacity(x_size * z_size);
         for z in z..(z + z_size as i32) {

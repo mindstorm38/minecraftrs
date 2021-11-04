@@ -1,7 +1,7 @@
 use mc_runtime::world::WorldContext;
 use mc_server::packet::PacketServer;
 
-use mc_core::world::source::{LevelGeneratorSource, SuperFlatGenerator};
+use mc_core::world::source::{WorkerGenLevelSource, SuperFlatGenerator};
 use mc_core::world::level::{Level, LevelEnv};
 use mc_core::world::chunk::ChunkHeight;
 
@@ -18,7 +18,7 @@ fn main() {
     super_flat.add_layer(DIRT.get_default_state(), 1, 3);
     super_flat.add_layer(GRASS.get_default_state(), 4, 1);
 
-    let super_flat_source = LevelGeneratorSource::new(super_flat, 1);
+    let super_flat_source = WorkerGenLevelSource::new(super_flat, 1);
 
     let env = Arc::new(LevelEnv::with_vanilla());
     let mut level = Level::new("minecraft:overworld".to_string(), env, ChunkHeight::new(0, 15), super_flat_source);
