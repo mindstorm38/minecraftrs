@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
+use mc_core::entity::EntityType;
 use mc_core::rand::JavaRandom;
+
 use mc_vanilla::block::material::TAG_NON_SOLID;
+use mc_vanilla::entity::*;
 use mc_vanilla::block::*;
 
 use crate::view::LevelView;
@@ -81,9 +84,94 @@ impl Feature for DungeonFeature {
             }
         }
 
-        // TODO
+        for _ in 0..2 {
+            for _ in 0..3 {
+
+                let x_chest = x + rand.next_int_bounded(x_size * 2 + 1) - x_size;
+                let z_chest = z + rand.next_int_bounded(z_size * 2 + 1) - z_size;
+
+                if level.get_block_at(x_chest, y, z_chest).unwrap() == block_air {
+
+                    let solid_count = [(-1, 0), (1, 0), (0, -1), (0, 1)].iter()
+                        .filter(move |&&(dx, dz)| {
+                            let block = level.get_block_at(x_chest + dx, y, z_chest + dz).unwrap().get_block();
+                            !env_blocks.has_block_tag(block, &TAG_NON_SOLID)
+                        })
+                        .count();
+
+                    if solid_count == 1 {
+
+                        level.set_block_at(x_chest, y, z_chest, CHEST.get_default_state()).unwrap();
+                        // TODO: Create associated tile entity
+
+                        for _ in 0..8 {
+                            // TODO: Pick real loots.
+                            let found_item_stack = pick_chest_loot_item(rand);
+                            if !found_item_stack {
+                                rand.next_blank();
+                            }
+                        }
+
+                        break;
+
+                    }
+
+                }
+
+            }
+        }
+
+        level.set_block_at(x, y, z, SPAWNER.get_default_state()).unwrap();
+
+        // TODO: Set mod to spawner tile entity.
+        let _mob_type = pick_mob(rand);
 
         true
 
+    }
+}
+
+
+fn pick_chest_loot_item(rand: &mut JavaRandom) -> bool {
+
+    // TODO: For now, this function is not complete and not actually returns item stack because
+    //  the item API is not currently done.
+    //  This function is just made to emulate the RNG chaining.
+
+    match rand.next_int_bounded(11) {
+        0 | 2 | 6 | 10 => (),
+        1 | 3 | 4 | 5 => rand.next_blank(),
+        7 => {
+            if rand.next_int_bounded(100) != 0 {
+                return false;
+            }
+        },
+        8 => {
+            if rand.next_int_bounded(2) == 0 {
+                rand.next_blank();
+            } else {
+                return false;
+            }
+        },
+        9 => {
+            if rand.next_int_bounded(10) == 0 {
+                rand.next_blank();
+            } else {
+                return false;
+            }
+        },
+        _ => unreachable!()
+    }
+
+    true
+
+}
+
+fn pick_mob(rand: &mut JavaRandom) -> &'static EntityType {
+    match rand.next_int_bounded(4) {
+        0 => &SKELETON,
+        1 | 2 => &ZOMBIE,
+        3 => &SPIDER,
+        _ => unreachable!()
     }
 }

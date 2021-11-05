@@ -596,13 +596,25 @@ pub struct R102FeatureGenerator {
 impl FeatureGenerator for R102FeatureGenerator {
     type Chunk = LegacyProtoChunk;
     fn decorate(&mut self, mut level: QuadLevelView<Self::Chunk>, cx: i32, cz: i32, x: i32, z: i32) {
+
         let mut rand = JavaRandom::new(self.shared.seed);
         let a = Wrapping(rand.next_long() / 2 * 2 + 1);
         let b = Wrapping(rand.next_long() / 2 * 2 + 1);
         rand.set_seed((Wrapping(cx as i64) * a + Wrapping(cz as i64) * b).0 ^ self.shared.seed);
+
+        {
+            let height = level.get_heightmap_column_at(&WORLD_SURFACE, x + 8, z + 8).unwrap();
+            level.set_block_at(x + 8, height - 1, z + 8, EMERALD_BLOCK.get_default_state()).unwrap();
+            let height = level.get_heightmap_column_at(&WORLD_SURFACE, x, z).unwrap();
+            level.set_block_at(x, height - 1, z, EMERALD_ORE.get_default_state()).unwrap();
+            level.set_block_at(x + 1, height - 1, z, EMERALD_ORE.get_default_state()).unwrap();
+            level.set_block_at(x, height - 1, z + 1, EMERALD_ORE.get_default_state()).unwrap();
+        }
+
         let biome = level.get_biome_at(x + 8, 0, z + 8).unwrap();
         let biome_prop = BIOMES_PROPERTIES.get(biome).unwrap();
         biome_prop.features.generate(&mut level, &mut rand, x, 0, z);
+
     }
 }
 
