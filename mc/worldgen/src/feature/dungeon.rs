@@ -84,20 +84,26 @@ impl Feature for DungeonFeature {
             }
         }
 
-        for _ in 0..2 {
-            for _ in 0..3 {
+        for _ in 0..2 {  // 2 tries for 2 chest maximum.
+            for _ in 0..3 {  // 3 tries for each chest.
 
                 let x_chest = x + rand.next_int_bounded(x_size * 2 + 1) - x_size;
                 let z_chest = z + rand.next_int_bounded(z_size * 2 + 1) - z_size;
 
                 if level.get_block_at(x_chest, y, z_chest).unwrap() == block_air {
 
-                    let solid_count = [(-1, 0), (1, 0), (0, -1), (0, 1)].iter()
-                        .filter(move |&&(dx, dz)| {
-                            let block = level.get_block_at(x_chest + dx, y, z_chest + dz).unwrap().get_block();
-                            !env_blocks.has_block_tag(block, &TAG_NON_SOLID)
-                        })
-                        .count();
+                    // level.set_block_at(x_chest, y - 1, z_chest, EMERALD_BLOCK.get_default_state()).unwrap();
+
+                    let mut solid_count = 0;
+                    for (dx, dz) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                        let block = level.get_block_at(x_chest + dx, y, z_chest + dz).unwrap().get_block();
+                        if !env_blocks.has_block_tag(block, &TAG_NON_SOLID) {
+                            solid_count += 1;
+                            if solid_count > 1 {
+                                break; // Already rejected, so it's useless to continue the loop.
+                            }
+                        }
+                    }
 
                     if solid_count == 1 {
 
@@ -107,7 +113,7 @@ impl Feature for DungeonFeature {
                         for _ in 0..8 {
                             // TODO: Pick real loots.
                             let found_item_stack = pick_chest_loot_item(rand);
-                            if !found_item_stack {
+                            if found_item_stack {
                                 rand.next_blank();
                             }
                         }
