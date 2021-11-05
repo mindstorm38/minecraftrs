@@ -786,6 +786,9 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
 
 
 /// A special distribution that is wrong to fit the issue described in the module doc.
+/// This heightmap distribution returns normal height most of the time but returns one
+/// unit lower only if the height is located at the highest Y of the highest non-null
+/// sub chunk (the highest sub chunk that contains non-null block(s)).
 struct WrongHeightmapDistrib {
     heightmap_type: &'static HeightmapType
 }
