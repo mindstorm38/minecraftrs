@@ -41,15 +41,16 @@ use crate::layer::zoom::VoronoiLayer;
 
 use crate::structure::ravine::RavineStructure;
 use crate::structure::cave::CaveStructure;
-use crate::structure::StructureGenerator;
+use crate::structure::Structure;
 
-use crate::feature::{FeatureChain, Feature, LevelView};
+use crate::feature::{FeatureChain, Feature};
 use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
 use crate::feature::branch::TreeRepeatCount;
 use crate::feature::dungeon::DungeonFeature;
 use crate::feature::tree::{TreeFeature, BigTreeFeature};
 use crate::feature::lake::LakeFeature;
+use crate::view::LevelView;
 
 use super::legacy::{GeneratorProvider, FeatureGenerator, TerrainGenerator, LegacyProtoChunk, QuadLevelView};
 use super::biome::{BiomePropertyMap, BiomeProperty};
@@ -582,20 +583,8 @@ impl R102TerrainGenerator {
     }
 
     fn generate_structures(&mut self, chunk: &mut LegacyProtoChunk/*, biomes: &Rect<&'static Biome>*/) {
-
-        let biomes = &chunk.legacy_biomes;
-        let mut get_biome_top_block = move |x: u8, z: u8| {
-            BIOMES_PROPERTIES.get(*biomes.get(x as usize, z as usize)).unwrap().top_block
-        };
-
-        StructureGenerator::new(8, CaveStructure {
-            get_biome_top_block: &mut get_biome_top_block
-        }).generate(self.shared.seed, &mut chunk.inner);
-
-        StructureGenerator::new(8, RavineStructure {
-            get_biome_top_block: &mut get_biome_top_block
-        }).generate(self.shared.seed, &mut chunk.inner);
-
+        CaveStructure::new(&*BIOMES_PROPERTIES).generate_in(self.shared.seed, chunk, 8);
+        RavineStructure::new(&*BIOMES_PROPERTIES).generate_in(self.shared.seed, chunk, 8);
     }
 
 }

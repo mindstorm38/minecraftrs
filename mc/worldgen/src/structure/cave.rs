@@ -1,22 +1,27 @@
-use mc_core::rand::JavaRandom;
-use mc_core::world::chunk::Chunk;
-use mc_core::block::BlockState;
 use mc_core::math::{mc_cos, mc_sin, JAVA_PI};
+use mc_core::rand::JavaRandom;
 use mc_vanilla::block::*;
 
+use crate::gen::biome::BiomePropertyMap;
+use crate::view::ProtoChunkView;
 use super::Structure;
 
 
-pub struct CaveStructure<'a, F: FnMut(u8, u8) -> &'static BlockState> {
-    pub get_biome_top_block: &'a mut F
+pub struct CaveStructure<'a> {
+    biomes_map: &'a BiomePropertyMap
 }
 
-impl<F> Structure for CaveStructure<'_, F>
-where
-    F: FnMut(u8, u8) -> &'static BlockState
-{
+impl<'a> CaveStructure<'a> {
+    pub fn new(biomes_map: &'a BiomePropertyMap) -> Self {
+        Self {
+            biomes_map
+        }
+    }
+}
 
-    fn generate(&mut self, ccx: i32, ccz: i32, chunk: &mut Chunk, range: i32, rand: &mut JavaRandom) {
+impl<'a> Structure for CaveStructure<'a> {
+
+    fn generate(&mut self, ccx: i32, ccz: i32, chunk: &mut dyn ProtoChunkView, range: i32, rand: &mut JavaRandom) {
 
         let count = {
             let v = rand.next_int_bounded(40);
@@ -38,7 +43,7 @@ where
                 let mut normal_caves_count = 1;
 
                 if rand.next_int_bounded(4) == 0 {
-                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, 1.0 + rand.next_float() * 6.0, 0.0, 0.0, -1, 0, 0.5, self.get_biome_top_block);
+                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, 1.0 + rand.next_float() * 6.0, 0.0, 0.0, -1, 0, 0.5, self.biomes_map);
                     normal_caves_count += rand.next_int_bounded(4);
                 }
 
@@ -52,7 +57,7 @@ where
                         base_width *= rand.next_float() * rand.next_float() * 3.0 + 1.0;
                     }
 
-                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, base_width, angle_yaw, angle_pitch, 0, 0, 1.0, self.get_biome_top_block);
+                    gen_cave_node(rand.next_long(), range, chunk, x, y, z, base_width, angle_yaw, angle_pitch, 0, 0, 1.0, self.biomes_map);
 
                 }
 
@@ -68,7 +73,7 @@ where
 fn gen_cave_node(
     seed: i64,
     range: i32,
-    chunk: &mut Chunk,
+    chunk: &mut dyn ProtoChunkView,
     mut x: f64,
     mut y: f64,
     mut z: f64,
@@ -78,7 +83,7 @@ fn gen_cave_node(
     mut offset: i32,
     mut length: i32,
     height_ratio: f64,
-    get_biome_top_block: &mut impl FnMut(u8, u8) -> &'static BlockState
+    biomes_map: &BiomePropertyMap
 ) {
 
     let mut rand = JavaRandom::new(seed);
@@ -149,7 +154,7 @@ fn gen_cave_node(
                 angle_yaw - (JAVA_PI as f32 / 2.0),
                 angle_pitch / 3.0,
                 offset, length, 1.0,
-                get_biome_top_block
+                biomes_map
             );
 
             gen_cave_node(
@@ -158,7 +163,7 @@ fn gen_cave_node(
                 angle_yaw + (JAVA_PI as f32 / 2.0),
                 angle_pitch / 3.0,
                 offset, length, 1.0,
-                get_biome_top_block
+                biomes_map
             );
 
             break;
@@ -183,12 +188,12 @@ fn gen_cave_node(
         }
 
         // TODO: We should not use clamp but only min/max, as can be seen in the decompilation.
-        let x_start = ((x - width).floor() as i32 - cx * 16 - 1).clamp(0, 16) as u8;
-        let x_end = ((x + width).floor() as i32 - cx * 16 + 1).clamp(0, 16) as u8;
+        let x_start = ((x - width).floor() as i32 - cx * 16 - 1).clamp(0, 16);
+        let x_end = ((x + width).floor() as i32 - cx * 16 + 1).clamp(0, 16);
         let y_start = ((y - height).floor() as i32 - 1).max(1);
         let y_end = ((y + height).floor() as i32 + 1).min(120);
-        let z_start = ((z - width).floor() as i32 - cz * 16 - 1).clamp(0, 16) as u8;
-        let z_end = ((z + width).floor() as i32 - cz * 16 + 1).clamp(0, 16) as u8;
+        let z_start = ((z - width).floor() as i32 - cz * 16 - 1).clamp(0, 16);
+        let z_end = ((z + width).floor() as i32 - cz * 16 + 1).clamp(0, 16);
 
         for bx in x_start..x_end {
             for bz in z_start..z_end {
@@ -196,7 +201,7 @@ fn gen_cave_node(
                 while by >= y_start - 1 {
                     if /*by >= 0 && */by < 128 {
 
-                        if chunk.get_block(bx, by, bz).unwrap() == water_block {
+                        if chunk.get_block_at(bx, by, bz).unwrap() == water_block {
                             continue'length_loop;
                         } else if by != y_start - 1 && bx != x_start && bx != x_end - 1 && bz != z_start && bz != z_end - 1 {
                             by = y_start;
@@ -211,11 +216,11 @@ fn gen_cave_node(
 
         for bx in x_start..x_end {
 
-            let dx = ((cx * 16 + (bx as i32)) as f64 + 0.5 - x) / width;
+            let dx = ((cx * 16 + bx) as f64 + 0.5 - x) / width;
 
             for bz in z_start..z_end {
 
-                let dz = ((cz * 16 + (bz as i32)) as f64 + 0.5 - z) / width;
+                let dz = ((cz * 16 + bz) as f64 + 0.5 - z) / width;
 
                 if dx * dx + dz * dz >= 1.0 {
                     continue;
@@ -234,7 +239,7 @@ fn gen_cave_node(
                         // offset of 1 block to the bottom.
                         let rby = by + 1;
 
-                        let state = chunk.get_block(bx, rby, bz).unwrap();
+                        let state = chunk.get_block_at(bx, rby, bz).unwrap();
 
                         if state == grass_block {
                             pierced_ground = true;
@@ -242,11 +247,14 @@ fn gen_cave_node(
 
                         if state == stone_block || state == dirt_block || state == grass_block {
                             if by < 10 {
-                                chunk.set_block(bx, rby, bz, lava_block).unwrap();
+                                chunk.set_block_at(bx, rby, bz, lava_block).unwrap();
                             } else {
-                                chunk.set_block(bx, rby, bz, air_block).unwrap();
-                                if pierced_ground && chunk.get_block(bx, by, bz).unwrap() == dirt_block {
-                                    chunk.set_block(bx, by, bz, get_biome_top_block(bx, bz)).unwrap();
+                                chunk.set_block_at(bx, rby, bz, air_block).unwrap();
+                                if pierced_ground && chunk.get_block_at(bx, by, bz).unwrap() == dirt_block {
+                                    // SAFETY: This section is safe only if the user ensure that biomes
+                                    // in chunk are valid in the biome map.
+                                    let biome_prop = biomes_map.get(chunk.get_biome_at(bx, by, bz).unwrap()).unwrap();
+                                    chunk.set_block_at(bx, by, bz, biome_prop.top_block).unwrap();
                                 }
                             }
                         }

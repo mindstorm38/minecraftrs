@@ -4,7 +4,8 @@ use mc_core::rand::JavaRandom;
 use mc_vanilla::block::material::{TAG_LIQUID, TAG_NON_SOLID};
 use mc_vanilla::block::*;
 
-use super::{Feature, LevelView};
+use crate::view::LevelView;
+use super::Feature;
 
 
 pub struct LakeFeature {

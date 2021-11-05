@@ -1,9 +1,10 @@
-use mc_core::rand::JavaRandom;
 use mc_vanilla::heightmap::WORLD_SURFACE;
 use mc_vanilla::block::*;
-
-use super::{Feature, LevelView};
 use mc_core::block::BlockState;
+use mc_core::rand::JavaRandom;
+
+use crate::view::LevelView;
+use super::Feature;
 
 
 pub struct DebugChunkFeature;

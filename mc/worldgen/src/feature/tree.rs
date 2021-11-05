@@ -13,7 +13,7 @@ use mc_core::pos::Axis;
 use mc_vanilla::block::*;
 use mc_vanilla::block::material::{TAG_LOG, TAG_LEAVES, TAG_NON_SOLID};
 
-use crate::feature::LevelView;
+use crate::view::LevelView;
 use super::Feature;
 
 

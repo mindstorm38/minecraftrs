@@ -1,7 +1,5 @@
-use std::sync::Arc;
-
-use mc_core::world::chunk::{Chunk, ChunkResult};
 use mc_core::rand::JavaRandom;
+use crate::view::LevelView;
 
 pub mod distrib;
 pub mod branch;
@@ -11,14 +9,8 @@ pub mod debug;
 pub mod dungeon;
 pub mod tree;
 
-use distrib::{Distrib, DistribFeature, UniformVerticalDistrib, TriangularVerticalDistrib};
-use branch::{RepeatedFeature, OptionalFeature, RepeatCount};
-
-use mc_core::heightmap::HeightmapType;
-use mc_core::block::BlockState;
-use mc_core::biome::Biome;
-use mc_core::world::level::LevelEnv;
-
+use distrib::{Distrib, DistribFeature, TriangularVerticalDistrib, UniformVerticalDistrib};
+use branch::{OptionalFeature, RepeatCount, RepeatedFeature};
 
 /// Base trait for level features generators.
 pub trait Feature {
@@ -108,37 +100,5 @@ impl FeatureChain {
             feature.generate(chunk, rand, x, y, z);
         }
     }
-
-}
-
-
-/// A local level view used to generate feature in an partial level view.
-///
-/// **Note that you can't directly access "chunks" in a level view. However,
-/// you can check if a specific one exists or check its sub chunks.**
-pub trait LevelView {
-
-    /// Get a reference to the shared level environment.
-    fn get_env(&self) -> &Arc<LevelEnv>;
-
-    fn get_chunk(&self, cx: i32, cz: i32) -> Option<&Chunk>;
-    fn get_chunk_mut(&mut self, cx: i32, cz: i32) -> Option<&mut Chunk>;
-
-    #[inline]
-    fn get_chunk_at(&self, x: i32, z: i32) -> Option<&Chunk> {
-        self.get_chunk(x >> 4, z >> 4)
-    }
-
-    #[inline]
-    fn get_chunk_at_mut(&mut self, x: i32, z: i32) -> Option<&mut Chunk> {
-        self.get_chunk_mut(x >> 4, z >> 4)
-    }
-
-    fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()>;
-    fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
-
-    fn get_biome_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static Biome>;
-
-    fn get_heightmap_column_at(&self, heightmap_type: &'static HeightmapType, x: i32, z: i32) -> ChunkResult<i32>;
 
 }

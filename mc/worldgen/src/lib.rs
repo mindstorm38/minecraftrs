@@ -1,5 +1,7 @@
 
 pub mod noise;
+pub mod view;
+
 pub mod structure;
 pub mod feature;
 pub mod layer;

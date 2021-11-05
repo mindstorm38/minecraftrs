@@ -3,7 +3,8 @@ use mc_core::block::BlockState;
 use mc_core::math::{mc_cos, mc_sin, JAVA_PI};
 use mc_vanilla::block::*;
 
-use super::{Feature, LevelView};
+use crate::view::LevelView;
+use super::Feature;
 
 
 pub struct WaterCircleFeature {

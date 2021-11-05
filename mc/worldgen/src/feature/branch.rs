@@ -1,6 +1,7 @@
 use mc_core::rand::JavaRandom;
 
-use super::{Feature, LevelView};
+use crate::view::LevelView;
+use super::Feature;
 
 
 /// A trait to implement to types that can be interpreted as a count for the `RepeatedFeature`.

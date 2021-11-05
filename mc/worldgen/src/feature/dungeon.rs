@@ -1,10 +1,11 @@
-use mc_core::rand::JavaRandom;
+use std::sync::Arc;
 
+use mc_core::rand::JavaRandom;
 use mc_vanilla::block::material::TAG_NON_SOLID;
 use mc_vanilla::block::*;
 
-use crate::feature::{Feature, LevelView};
-use std::sync::Arc;
+use crate::view::LevelView;
+use super::Feature;
 
 
 pub struct DungeonFeature;

@@ -14,18 +14,18 @@ use mc_core::biome::Biome;
 use mc_core::util::Rect;
 use mc_core::perf;
 
-use crate::feature::LevelView;
+use crate::view::{LevelView, ProtoChunkView};
 
 
 /// Trait for terrain generators.
 pub trait TerrainGenerator {
-    type Chunk: ProtoChunkAccess;
+    type Chunk: ProtoChunkView;
     fn generate(&mut self, chunk: ProtoChunk) -> Self::Chunk;
 }
 
 /// Trait for feature generators.
 pub trait FeatureGenerator {
-    type Chunk: ProtoChunkAccess;
+    type Chunk: ProtoChunkView;
     fn decorate(&mut self, level: QuadLevelView<Self::Chunk>, cx: i32, cz: i32, x: i32, z: i32);
 }
 
@@ -77,7 +77,7 @@ impl LegacyGenLevelSource {
     pub fn new<P, C>(provider: P, terrain_workers: u16) -> Self
     where
         P: GeneratorProvider + Send + Sync + 'static,
-        C: ProtoChunkAccess + Send + 'static,
+        C: ProtoChunkView + Send + 'static,
         P::Terrain: TerrainGenerator<Chunk = C>,
         P::Feature: FeatureGenerator<Chunk = C>,
     {
@@ -315,35 +315,19 @@ impl<G: FeatureGenerator> FeatureWorker<G> {
 }
 
 
-/// A trait to implement customized proto chunks.
-/// TODO: Move this trait to another common module in order to reuse this in structure mod.
-pub trait ProtoChunkAccess {
 
-    fn into_inner(self) -> ProtoChunk;
-
-    fn as_chunk_ref(&self) -> &Chunk;
-    fn as_chunk_mut(&mut self) -> &mut Chunk;
-
-    fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()>;
-    fn get_block_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static BlockState>;
-
-    fn get_biome_at(&self, x: i32, y: i32, z: i32) -> ChunkResult<&'static Biome>;
-
-    fn get_heightmap_column_at(&self, heightmap_type: &'static HeightmapType, x: i32, z: i32) -> ChunkResult<i32>;
-
-}
 
 
 /// An implementation of `LevelView` (from feature module) that refers to a quad of 4 chunks,
 /// used to generate one feature chunk.
-pub struct QuadLevelView<'a, C: ProtoChunkAccess> {
+pub struct QuadLevelView<'a, C: ProtoChunkView> {
     /// Ordering is 0/0 1/0 0/1 1/1 (X then Z)
     chunks: [RefMut<'a, C>; 4],
     ocx: i32,
     ocz: i32
 }
 
-impl<'a, C: ProtoChunkAccess> QuadLevelView<'a, C> {
+impl<'a, C: ProtoChunkView> QuadLevelView<'a, C> {
 
     #[inline]
     fn get_chunk_index(&self, cx: i32, cz: i32) -> ChunkResult<usize> {
@@ -363,7 +347,7 @@ impl<'a, C: ProtoChunkAccess> QuadLevelView<'a, C> {
 
 }
 
-impl<'a, C: ProtoChunkAccess> LevelView for QuadLevelView<'a, C> {
+impl<'a, C: ProtoChunkView> LevelView for QuadLevelView<'a, C> {
 
     fn get_env(&self) -> &Arc<LevelEnv> {
         self.chunks[0].as_chunk_ref().get_env()
@@ -398,7 +382,7 @@ impl<'a, C: ProtoChunkAccess> LevelView for QuadLevelView<'a, C> {
 }
 
 
-/// This is an implementation of the trait `ProtoChunkAccess`, this implementation does not
+/// This is an implementation of the trait `ProtoChunkView`, this implementation does not
 /// use the chunk's biome methods but uses the `legacy_biomes` field of this structure which
 /// is actually a rectangle of biomes of 16x16 (minimum required size).
 pub struct LegacyProtoChunk {
@@ -416,18 +400,25 @@ impl LegacyProtoChunk {
 
 }
 
-impl ProtoChunkAccess for LegacyProtoChunk {
+impl ProtoChunkView for LegacyProtoChunk {
 
     fn into_inner(self) -> ProtoChunk {
         self.inner
     }
 
+    #[inline]
     fn as_chunk_ref(&self) -> &Chunk {
         &*self.inner
     }
 
+    #[inline]
     fn as_chunk_mut(&mut self) -> &mut Chunk {
         &mut *self.inner
+    }
+
+    #[inline]
+    fn get_position(&self) -> (i32, i32) {
+        self.inner.get_position()
     }
 
     fn set_block_at(&mut self, x: i32, y: i32, z: i32, state: &'static BlockState) -> ChunkResult<()> {

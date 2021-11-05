@@ -1,7 +1,8 @@
 use mc_core::heightmap::HeightmapType;
 use mc_core::rand::JavaRandom;
 
-use super::{Feature, LevelView};
+use crate::view::LevelView;
+use super::Feature;
 
 
 /// A trait to implement on feature distribution structures to use later in composed structures.
