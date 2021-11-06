@@ -1,21 +1,26 @@
+use once_cell::sync::Lazy;
 use mc_core::block::BlockState;
 use mc_core::rand::JavaRandom;
 
 use mc_vanilla::block::material::{TAG_LIQUID, TAG_NON_SOLID};
 use mc_vanilla::block::*;
 
+use crate::gen::biome::BiomePropertyMap;
+
 use crate::view::LevelView;
 use super::Feature;
 
 
 pub struct LakeFeature {
-    block: &'static BlockState
+    block: &'static BlockState,
+    biomes_map: &'static Lazy<BiomePropertyMap>
 }
 
 impl LakeFeature {
-    pub const fn new(block: &'static BlockState) -> Self {
+    pub fn new(block: &'static BlockState, biomes_map: &'static Lazy<BiomePropertyMap>) -> Self {
         Self {
-            block
+            block,
+            biomes_map
         }
     }
 }
@@ -99,18 +104,44 @@ impl Feature for LakeFeature {
         for dx in 0..16 {
             for dz in 0..16 {
                 for dy in 0..8 {
+
                     if flags[(dx * 16 + dz) * 8 + dy] {
-                        level.set_block_at(x + dx as i32, y + dy as i32, z + dz as i32, if dy < 4 {
+
+                        let bx = x + dx as i32;
+                        let by = y + dy as i32;
+                        let bz = z + dz as i32;
+
+                        level.set_block_at(bx, by, bz, if dy < 4 {
                             self.block
                         } else {
                             block_air
                         }).unwrap();
+
+                        if dy >= 4 {
+
+                            // TODO: Also need to check sky light here.
+                            if level.get_block_at(bx, by - 1, bz).unwrap().is_block(&DIRT) {
+
+                                let biome = level.get_biome_at(bx, by, bz).unwrap();
+                                let biome_prop = self.biomes_map.get(biome).unwrap();
+
+                                let top_block = if biome_prop.top_block.is_block(&MYCELIUM) {
+                                    MYCELIUM.get_default_state()
+                                } else {
+                                    GRASS_BLOCK.get_default_state()
+                                };
+
+                                level.set_block_at(bx, by - 1, bz, top_block).unwrap();
+
+                            }
+
+                        }
+
                     }
+
                 }
             }
         }
-
-        // TODO: Finish mycelium/grass replacement
 
         if self.block.is_block(&LAVA) {
 

@@ -46,7 +46,7 @@ use crate::structure::Structure;
 use crate::feature::{FeatureChain, Feature};
 use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
-use crate::feature::branch::TreeRepeatCount;
+use crate::feature::branch::RepeatCount;
 use crate::feature::dungeon::DungeonFeature;
 use crate::feature::tree::{TreeFeature, BigTreeFeature};
 use crate::feature::lake::LakeFeature;
@@ -213,7 +213,7 @@ impl R102TerrainGenerator {
 
         let mut voronoi = LayerBuilder::with_biome_and_river_mix(biome, river)
             .into_box()
-            .then_zoom_voronoi(100)
+            .then_zoom_voronoi(10)
             .build();
 
         voronoi.seed(seed);
@@ -602,14 +602,33 @@ impl FeatureGenerator for R102FeatureGenerator {
         let b = Wrapping(rand.next_long() / 2 * 2 + 1);
         rand.set_seed((Wrapping(cx as i64) * a + Wrapping(cz as i64) * b).0 ^ self.shared.seed);
 
-        {
-            let height = level.get_heightmap_column_at(&WORLD_SURFACE, x + 8, z + 8).unwrap();
+        /*{  // Debug biomes
+            for dx in x..(x + 16) {
+                for dz in z..(z + 16) {
+                    let biome = level.get_biome_at(dx, 0, dz).unwrap();
+                    let block = if biome == &RIVER {
+                        &DEEPSLATE_LAPIS_ORE
+                    } /*else if biome == &FOREST {
+                        &DEEPSLATE_EMERALD_ORE
+                    } else if biome == &PLAINS {
+                        &DEEPSLATE_IRON_ORE
+                    }*/ else {
+                        &AIR
+                    };
+                    let height = level.get_heightmap_column_at(&WORLD_SURFACE, dx, dz).unwrap();
+                    level.set_block_at(dx, height, dz, block.get_default_state()).unwrap();
+                }
+            }
+        }*/
+
+        /*{  // Debug feature chunks pos and biome
+            let height = level.get_heightmap_column_at(&OCEAN_FLOOR, x + 8, z + 8).unwrap();
             level.set_block_at(x + 8, height - 1, z + 8, EMERALD_BLOCK.get_default_state()).unwrap();
-            let height = level.get_heightmap_column_at(&WORLD_SURFACE, x, z).unwrap();
+            let height = level.get_heightmap_column_at(&OCEAN_FLOOR, x, z).unwrap();
             level.set_block_at(x, height - 1, z, EMERALD_ORE.get_default_state()).unwrap();
             level.set_block_at(x + 1, height - 1, z, EMERALD_ORE.get_default_state()).unwrap();
             level.set_block_at(x, height - 1, z + 1, EMERALD_ORE.get_default_state()).unwrap();
-        }
+        }*/
 
         let biome = level.get_biome_at(x + 8, 0, z + 8).unwrap();
         let biome_prop = BIOMES_PROPERTIES.get(biome).unwrap();
@@ -644,7 +663,7 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
         sand_count_1: u16,
         sand_count_2: u16,
         clay_count: u16,
-        tree_count: u16,
+        tree_count: Option<u16>,
         big_mushroom_count: u16,
         flower_count: u16,
         grass_count: u16,
@@ -671,7 +690,7 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                 sand_count_1: 3,
                 sand_count_2: 1,
                 clay_count: 1,
-                tree_count: 0,
+                tree_count: Some(0),
                 big_mushroom_count: 0,
                 flower_count: 2,
                 grass_count: 1,
@@ -700,8 +719,8 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                 features: {
 
                     let mut chain = FeatureChain::new();
-                    chain.push(LakeFeature::new(WATER.get_default_state()).distributed_uniform(0, 128).optional(4));
-                    chain.push(LakeFeature::new(LAVA.get_default_state()).distributed(LavaLakeDistrib).optional(8));
+                    chain.push(LakeFeature::new(WATER.get_default_state(), &BIOMES_PROPERTIES).distributed_uniform(0, 128).optional(4));
+                    chain.push(LakeFeature::new(LAVA.get_default_state(), &BIOMES_PROPERTIES).distributed(LavaLakeDistrib).optional(8));
                     chain.push(DungeonFeature.distributed_uniform(0, 128).repeated(8));
 
                     chain.push(VeinFeature::new(DIRT.get_default_state(), 32).distributed_uniform(0, 128).repeated(20));
@@ -717,27 +736,32 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                     chain.push(WaterCircleFeature::new_clay(4).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(self.clay_count));
                     chain.push(WaterCircleFeature::new_sand(7).distributed(HeightmapDistrib::new(&OCEAN_FLOOR_WG)).repeated(self.sand_count_2));
 
-                    macro_rules! new_tree_feature {
-                        ($feature:expr) => {
-                            $feature.distributed(WrongHeightmapDistrib::new(&MOTION_BLOCKING_NO_LEAVES)).repeated(TreeRepeatCount(self.tree_count))
-                        }
-                    }
+                    if let Some(tree_count) = self.tree_count {
 
-                    match self.tree_feature_type {
-                        TreeFeatureType::Default => {
-                            let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
-                            let big_tree = BigTreeFeature::new();
-                            chain.push(new_tree_feature!(big_tree.optional_or(10, oak_tree)))
-                        },
-                        TreeFeatureType::Forest => {
-                            let birch_tree = TreeFeature::new(&BIRCH_LOG, &BIRCH_LEAVES, 5, false, true);
-                            let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
-                            let big_tree = BigTreeFeature::new();
-                            chain.push(new_tree_feature!(birch_tree.optional_or(5, big_tree.optional_or(10, oak_tree))));
-                        },
-                        TreeFeatureType::Jungle => todo!(),
-                        TreeFeatureType::Swamp => todo!(),
-                        TreeFeatureType::Taiga => todo!(),
+                        fn new_tree_feature<F: Feature>(tree_count: u16, feature: F) -> impl Feature {
+                            // TODO: In real MC 1.2.5 the getHeight method is used and use the block opacity for the heightmap.
+                            feature
+                                .distributed(WrongHeightmapDistrib::new(&MOTION_BLOCKING))
+                                .repeated(TreeRepeatCount(tree_count))
+                        }
+
+                        match self.tree_feature_type {
+                            TreeFeatureType::Default => {
+                                let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
+                                let big_tree = BigTreeFeature::new();
+                                chain.push(new_tree_feature(tree_count, big_tree.optional_or(10, oak_tree)))
+                            },
+                            TreeFeatureType::Forest => {
+                                let birch_tree = TreeFeature::new(&BIRCH_LOG, &BIRCH_LEAVES, 5, false, true);
+                                let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
+                                let big_tree = BigTreeFeature::new();
+                                chain.push(new_tree_feature(tree_count, birch_tree.optional_or(5, big_tree.optional_or(10, oak_tree))));
+                            },
+                            TreeFeatureType::Jungle => todo!(),
+                            TreeFeatureType::Swamp => todo!(),
+                            TreeFeatureType::Taiga => todo!(),
+                        }
+
                     }
 
                     // chain.push(DebugChunkFeature);
@@ -751,19 +775,19 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     }
 
     let default_config = BiomeConfig::new();
-    let plains_config = BiomeConfig::with(|c| c.tree_count = 0);
-    let desert_config = BiomeConfig::with(|c| c.tree_count = 0);
+    let plains_config = BiomeConfig::with(|c| c.tree_count = None);
+    let desert_config = BiomeConfig::with(|c| c.tree_count = None);
     let forest_config = BiomeConfig::with(|c| {
-        c.tree_count = 10;
+        c.tree_count = Some(10);
         c.grass_count = 2;
         c.tree_feature_type = TreeFeatureType::Forest;
     });
-    let taiga_config = BiomeConfig::with(|c| c.tree_count = 10);
-    let swamp_config = BiomeConfig::with(|c| c.tree_count = 2);
-    let beach_config = BiomeConfig::with(|c| c.tree_count = 0);
-    let jungle_config = BiomeConfig::with(|c| c.tree_count = 50);
+    let taiga_config = BiomeConfig::with(|c| c.tree_count = Some(10));
+    let swamp_config = BiomeConfig::with(|c| c.tree_count = Some(2));
+    let beach_config = BiomeConfig::with(|c| c.tree_count = None);
+    let jungle_config = BiomeConfig::with(|c| c.tree_count = Some(50));
     let mushroom_config = BiomeConfig::with(|c| {
-        c.tree_count = 0;
+        c.tree_count = None;
         c.flower_count = 0;
         c.grass_count = 0;
         c.mushroom_count = 1;
@@ -828,5 +852,15 @@ impl Distrib for WrongHeightmapDistrib {
             }
         }
         Some((rx, ry, rz))
+    }
+}
+
+
+/// A count provider for repeating feature specific to trees.
+pub struct TreeRepeatCount(pub u16);
+
+impl RepeatCount for TreeRepeatCount {
+    fn get_count(&self, rand: &mut JavaRandom) -> u16 {
+        (self.0 + (rand.next_int_bounded(10) == 0) as u16).min(4)
     }
 }

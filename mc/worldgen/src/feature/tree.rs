@@ -45,6 +45,12 @@ impl Feature for TreeFeature {
 
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
 
+        /*level.set_block_at(x, y, z, if self.forest_mode {
+            GOLD_BLOCK.get_default_state()
+        } else {
+            IRON_BLOCK.get_default_state()
+        }).unwrap();*/
+
         let height = rand.next_int_bounded(3) + self.base_height as i32;
 
         if y < 1 || y + height + 1 > 256 {
@@ -249,6 +255,8 @@ struct BigTreeBuilder<'a, 'b> {
 impl<'a, 'b> BigTreeBuilder<'a, 'b> {
 
     fn generate(&mut self, x: i32, y: i32, z: i32) -> bool {
+
+        // self.level.set_block_at(x, y, z, DIAMOND_BLOCK.get_default_state()).unwrap();
 
         let base_height = match self.is_valid_position(x, y, z) {
             Ok(v) => v,

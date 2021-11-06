@@ -16,7 +16,7 @@ pub struct WaterCircleFeature {
 
 impl WaterCircleFeature {
 
-    pub const fn new(block: &'static BlockState, replace_grass: bool, depth: u16, radius: u16) -> Self {
+    pub fn new(block: &'static BlockState, replace_grass: bool, depth: u16, radius: u16) -> Self {
         Self {
             block,
             replace_grass,
