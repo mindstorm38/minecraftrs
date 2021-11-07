@@ -17,6 +17,10 @@
 //!
 //! This issue impact `MOTION_BLOCKING` heightmaps but not the `OCEAN_FLOOR` ones
 //!
+//! ### Non-deterministic big trees
+//! The big tree feature is determined by the first big tree generated. There is one big tree
+//! feature instance for each biome, so each biome have a different big tree instance that has
+//! a different base height depending on the first generate big tree for this biome.
 
 use std::num::Wrapping;
 use std::sync::Arc;

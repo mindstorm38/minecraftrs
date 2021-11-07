@@ -254,9 +254,13 @@ struct BigTreeBuilder<'a, 'b> {
 
 impl<'a, 'b> BigTreeBuilder<'a, 'b> {
 
-    fn generate(&mut self, x: i32, y: i32, z: i32) -> bool {
+    fn generate(mut self, x: i32, y: i32, z: i32) -> bool {
 
         // self.level.set_block_at(x, y, z, DIAMOND_BLOCK.get_default_state()).unwrap();
+
+        if x == -339 && z == 647 {
+            println!("debug big tree");
+        }
 
         let base_height = match self.is_valid_position(x, y, z) {
             Ok(v) => v,
@@ -277,6 +281,11 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
     /// returning `Err(())` if it is impossible or `Ok(base_height)`.
     fn is_valid_position(&mut self, x: i32, y: i32, z: i32) -> Result<u16, ()> {
 
+        let ground_block = self.level.get_block_at(x, y - 1, z).unwrap().get_block();
+        if ground_block != &GRASS_BLOCK && ground_block != &DIRT {
+            return Err(());
+        }
+
         let base_height = match self.feature.height_limit {
             BigTreeHeight::Const(limit) => limit,
             BigTreeHeight::Random(offset, limit) => {
@@ -284,9 +293,8 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
             }
         };
 
-        let ground_block = self.level.get_block_at(x, y - 1, z).unwrap().get_block();
-        if ground_block != &GRASS_BLOCK && ground_block != &DIRT {
-            return Err(());
+        if x == -339 && z == 647 {
+            println!("big tree new height limit: {}", base_height);
         }
 
         let trunk_from = [x, y, z];
