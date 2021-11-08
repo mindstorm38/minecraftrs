@@ -45,12 +45,6 @@ impl Feature for TreeFeature {
 
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
 
-        /*level.set_block_at(x, y, z, if self.forest_mode {
-            GOLD_BLOCK.get_default_state()
-        } else {
-            IRON_BLOCK.get_default_state()
-        }).unwrap();*/
-
         let height = rand.next_int_bounded(3) + self.base_height as i32;
 
         if y < 1 || y + height + 1 > 256 {
@@ -185,12 +179,6 @@ impl Feature for TreeFeature {
 
         }
 
-        level.set_block_at(x, y, z, if self.forest_mode {
-            GOLD_BLOCK.get_default_state()
-        } else {
-            IRON_BLOCK.get_default_state()
-        }).unwrap();
-
         true
 
     }
@@ -198,6 +186,10 @@ impl Feature for TreeFeature {
 }
 
 
+/// Big tree feature.
+///
+/// Note that this feature intentionnaly fix the issue in old MC versions were big trees were
+/// inconsistent.
 pub struct BigTreeFeature {
     height_limit: BigTreeHeight,
     height_attenuation: f64,
@@ -238,6 +230,7 @@ impl Feature for BigTreeFeature {
             feature: self,
             env: Arc::clone(level.get_env()),
             level,
+            debug_tree: false
         }.generate(x, y, z)
     }
 }
@@ -245,11 +238,13 @@ impl Feature for BigTreeFeature {
 
 static BIG_TREE_COORD_PAIRS: [usize; 6] = [2, 0, 0, 1, 2, 1];
 
+/// Internal temporary builder structure for big tree.
 struct BigTreeBuilder<'a, 'b> {
     rand: JavaRandom,
     feature: &'a BigTreeFeature,
     env: Arc<LevelEnv>,
     level: &'b mut dyn LevelView,
+    debug_tree: bool
 }
 
 impl<'a, 'b> BigTreeBuilder<'a, 'b> {
@@ -258,8 +253,11 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
 
         // self.level.set_block_at(x, y, z, DIAMOND_BLOCK.get_default_state()).unwrap();
 
-        if x == -339 && z == 647 {
-            println!("debug big tree");
+        // self.debug_tree = x == -343 && z == 607;
+        self.debug_tree = false;
+
+        if self.debug_tree {
+            println!("[SELECTED TREE] generating");
         }
 
         let base_height = match self.is_valid_position(x, y, z) {
@@ -267,12 +265,15 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
             _ => return false
         };
 
+        if self.debug_tree {
+            println!("[SELECTED TREE] final height: {}", base_height);
+        }
+
         let (height, leaf_nodes) = self.generate_leaf_nodes(x, y, z, base_height);
 
         self.generate_leaves(&leaf_nodes);
         self.generate_trunk(x, y, z, height);
         self.generate_leaves_branches(x, y, z, base_height, &leaf_nodes);
-        self.level.set_block_at(x, y, z, DIAMOND_BLOCK.get_default_state()).unwrap();
         true
 
     }
@@ -293,8 +294,8 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
             }
         };
 
-        if x == -339 && z == 647 {
-            println!("big tree new height limit: {}", base_height);
+        if self.debug_tree {
+            println!("[SELECTED TREE] base height: {}", base_height);
         }
 
         let trunk_from = [x, y, z];
@@ -373,6 +374,12 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
 
         }
 
+        if self.debug_tree {
+            for (i, leaf) in leaf_nodes.iter().enumerate() {
+                println!("[SELECTED TREE] leaf #{}: {:?}", i, leaf);
+            }
+        }
+
         (height, leaf_nodes)
 
     }
@@ -386,6 +393,9 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
 
     /// Generate one leaf node, it will generate each leaves layer.
     fn generate_leaf_node(&mut self, x: i32, y: i32, z: i32) {
+        if self.debug_tree {
+            println!("[SELECTED TREE] generate leaf at {}/{}/{}", x, y, z);
+        }
         let y_limit = y + self.feature.leaf_dist_limit as i32;
         for by in y..y_limit {
             let radius = if by != y && by != y_limit - 1 { 3.0 } else { 2.0 };
@@ -396,12 +406,19 @@ impl<'a, 'b> BigTreeBuilder<'a, 'b> {
     /// Generate an horizontal circle of leaves at given position and radius.
     fn generate_leaves_layer(&mut self, x: i32, y: i32, z: i32, radius: f32) {
 
+        /*if self.debug_tree {
+            println!("[SELECTED TREE] generate leaves layer at {}/{}/{} radius: {}", x, y, z, radius);
+        }*/
+
         let radius_f64 = radius as f64;
         let radius_int = (radius_f64 + 0.61799999999999999) as i32;
 
         for dx in -radius_int..=radius_int {
             for dz in -radius_int..=radius_int {
-                let dist = ((dx as f64 + 0.5).powf(2.0) + (dz as f64 + 0.5).powf(2.0)).sqrt();
+                let dist = (((dx as f64).abs() + 0.5).powf(2.0) + ((dz as f64).abs() + 0.5).powf(2.0)).sqrt();
+                /*if self.debug_tree {
+                    println!("[SELECTED TREE]    dist at {}/{} = {}", dx, dz, dist);
+                }*/
                 if dist <= radius_f64 {
                     let bx = x + dx;
                     let bz = z + dz;
