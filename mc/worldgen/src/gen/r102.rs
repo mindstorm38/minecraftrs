@@ -865,6 +865,7 @@ pub struct TreeRepeatCount(pub u16);
 
 impl RepeatCount for TreeRepeatCount {
     fn get_count(&self, rand: &mut JavaRandom) -> u16 {
-        (self.0 + (rand.next_int_bounded(10) == 0) as u16).min(4)
+        // (self.0 + (rand.next_int_bounded(10) == 0) as u16).min(4)
+        self.0 + (rand.next_int_bounded(10) == 0) as u16
     }
 }
