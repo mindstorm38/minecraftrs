@@ -17,62 +17,122 @@ use crate::view::LevelView;
 use super::Feature;
 
 
+/// A kind of tree used for configuration of `TreeFeature` and used for position validation
+/// and leaves shapes.
+pub enum TreeKind {
+    Default,
+    /// Position validation is less strict.
+    Forest,
+    /// Tree crown is wider and position validation include water, also add vines falling of leaves.
+    Swamp,
+    /// Adds vines falling of leaves and on the trunk.
+    Jungle
+}
+
+
 pub struct TreeFeature {
     log_block: &'static BlockState,
     leaves_block: &'static BlockState,
     base_height: u16,
-    with_vines: bool,
-    forest_mode: bool
+    var_height: u16,
+    kind: TreeKind
 }
 
 impl TreeFeature {
 
-    pub fn new(log_block: &'static Block, leaves_block: &'static Block, base_height: u16, with_vines: bool, forest_mode: bool) -> Self {
+    pub fn new(
+        log_block: &'static Block,
+        leaves_block: &'static Block,
+        base_height: u16,
+        var_height: u16,
+        kind: TreeKind
+    ) -> Self {
         Self {
             log_block: log_block.get_default_state().with(&PROP_AXIS, Axis::Y).unwrap(),
             leaves_block: leaves_block.get_default_state()
                 .with(&PROP_LEAVES_DISTANCE, 1).unwrap()
                 .with(&PROP_PERSISTENT, true).unwrap(),
             base_height,
-            with_vines,
-            forest_mode
+            var_height,
+            kind
         }
+    }
+
+    pub fn new_oak() -> Self {
+        Self::new(&OAK_LOG, &OAK_LEAVES, 4, 3, TreeKind::Default)
+    }
+
+    pub fn new_forest_birch() -> Self {
+        Self::new(&BIRCH_LOG, &BIRCH_LEAVES, 5, 3, TreeKind::Forest)
+    }
+
+    pub fn new_swamp() -> Self {
+        Self::new(&OAK_LOG, &OAK_LEAVES, 5, 4, TreeKind::Swamp)
     }
 
 }
 
 impl Feature for TreeFeature {
 
-    fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
+    fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, mut y: i32, z: i32) -> bool {
 
-        let height = rand.next_int_bounded(3) + self.base_height as i32;
+        let height = rand.next_int_bounded(self.var_height as i32) + self.base_height as i32;
+        let block_air = AIR.get_default_state();
 
-        if y < 1 || y + height + 1 > 256 {
+        let is_swamp_kind = matches!(self.kind, TreeKind::Swamp);
+        let mut in_water = false;
+
+        if is_swamp_kind {
+            while level.get_block_at(x, y - 1, z).unwrap_or(block_air).is_block(&WATER) {
+                y -= 1;
+                in_water = true;
+            }
+        }
+
+        let y = y;  // Re-alias to made it non-mut.
+        let max_y = if is_swamp_kind { 128 } else { 256 };
+
+        if y < 1 || y + height + 1 > max_y {
             return false;
         }
 
         let env = Arc::clone(level.get_env());
         let env_blocks = &env.blocks;
-        let block_air = AIR.get_default_state();
 
         for dy in y..=(y + height + 1) {
 
             let mut radius = 1;
+
             if dy == y {
                 radius = 0;
             }
+
             if dy >= (y + height - 1) {
-                radius = 2;
+                radius = if is_swamp_kind { 3 } else { 2 };
             }
 
             for dx in (x - radius)..=(x + radius) {
                 for dz in (z - radius)..=(z + radius) {
-                    if dy >= 0 && dy < 256 { // This condition seems useless since Y is already checked.
+                    if dy >= 0 && dy < max_y { // This condition seems useless since Y is already checked.
                         if let Ok(block) = level.get_block_at(dx, dy, dz) {
                             let block = block.get_block();
                             if block != &AIR && !env_blocks.has_block_tag(block, &TAG_LEAVES) {
-                                if self.forest_mode || block != &GRASS_BLOCK && block != &DIRT && !env_blocks.has_block_tag(block, &TAG_LOG) {
-                                    return false;
+                                match self.kind {
+                                    TreeKind::Default | TreeKind::Jungle => {
+                                        if block != &GRASS_BLOCK && block != &DIRT && !env_blocks.has_block_tag(block, &TAG_LOG) {
+                                            return false;
+                                        }
+                                    },
+                                    TreeKind::Forest => return false,
+                                    TreeKind::Swamp => {
+                                        if block == &WATER {
+                                            if dy > y {
+                                                return false;
+                                            }
+                                        } else {
+                                            return false;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -85,16 +145,19 @@ impl Feature for TreeFeature {
         }
 
         let ground_block = level.get_block_at(x, y - 1, z).unwrap_or(block_air).get_block();
-        if ground_block != &GRASS_BLOCK && ground_block != &DIRT || y >= 256 - height - 1 { // Last condition seems redundant.
+        if (ground_block != &GRASS_BLOCK && ground_block != &DIRT && !in_water) || y >= max_y - height - 1 { // Last condition seems redundant.
             return false;
         }
 
         level.set_block_at(x, y - 1, z, DIRT.get_default_state()).unwrap();
 
+        // Base radius for leaves differs in swamps.
+        let base_radius = if is_swamp_kind { 2 } else { 1 };
+
         for dy in (y + height - 3)..=(y + height) {
 
             let top_diff = dy - (y + height);
-            let radius = 1 - top_diff / 2;
+            let radius = base_radius - top_diff / 2;
 
             for dx in (x - radius)..=(x + radius) {
                 let x_diff = (dx - x).abs();
@@ -117,18 +180,18 @@ impl Feature for TreeFeature {
 
         for dy in y..(y + height) {
             let block = level.get_block_at(x, dy, z).unwrap().get_block();
-            if block == &AIR || env_blocks.has_block_tag(block, &TAG_LEAVES) {
+            if block == &AIR || env_blocks.has_block_tag(block, &TAG_LEAVES) || (is_swamp_kind && block == &WATER) {
 
                 level.set_block_at(x, dy, z, self.log_block).unwrap();
 
-                if self.with_vines && dy != y {
+                if matches!(self.kind, TreeKind::Jungle) && dy != y {
 
                     if rand.next_int_bounded(3) != 0 && level.get_block_at(x - 1, dy, z).unwrap().is_block(&AIR) {
-                        level.set_block_at(x - 1, dy, z, block_west_vine).unwrap();
+                        level.set_block_at(x - 1, dy, z, block_east_vine).unwrap();
                     }
 
                     if rand.next_int_bounded(3) != 0 && level.get_block_at(x + 1, dy, z).unwrap().is_block(&AIR) {
-                        level.set_block_at(x + 1, dy, z, block_east_vine).unwrap();
+                        level.set_block_at(x + 1, dy, z, block_west_vine).unwrap();
                     }
 
                     if rand.next_int_bounded(3) != 0 && level.get_block_at(x, dy, z - 1).unwrap().is_block(&AIR) {
@@ -144,31 +207,31 @@ impl Feature for TreeFeature {
             }
         }
 
-        if self.with_vines {
+        if matches!(self.kind, TreeKind::Swamp | TreeKind::Jungle) {
 
             for dy in (y + height - 3)..=(y + height) {
 
                 let top_diff = dy - (y + height);
-                let radius = 1 - top_diff / 2;
+                let radius = base_radius - top_diff / 2;
 
                 for dx in (x - radius)..=(x + radius) {
                     for dz in (z - radius)..=(z + radius) {
                         if env_blocks.has_block_tag(level.get_block_at(dx, dy, dz).unwrap().get_block(), &TAG_LEAVES) {
 
-                            if rand.next_int_bounded(4) == 0 && level.get_block_at(x - 1, dy, z).unwrap().is_block(&AIR) {
-                                fill_falling_vines(level, x - 1, dy, z, block_west_vine);
+                            if rand.next_int_bounded(4) == 0 && level.get_block_at(dx - 1, dy, dz).unwrap().is_block(&AIR) {
+                                fill_falling_vines(level, dx - 1, dy, dz, block_east_vine);
                             }
 
-                            if rand.next_int_bounded(4) == 0 && level.get_block_at(x + 1, dy, z).unwrap().is_block(&AIR) {
-                                fill_falling_vines(level, x + 1, dy, z, block_east_vine);
+                            if rand.next_int_bounded(4) == 0 && level.get_block_at(dx + 1, dy, dz).unwrap().is_block(&AIR) {
+                                fill_falling_vines(level, dx + 1, dy, dz, block_west_vine);
                             }
 
-                            if rand.next_int_bounded(4) == 0 && level.get_block_at(x, dy, z - 1).unwrap().is_block(&AIR) {
-                                fill_falling_vines(level, x, dy, z - 1, block_south_vine);
+                            if rand.next_int_bounded(4) == 0 && level.get_block_at(dx, dy, dz - 1).unwrap().is_block(&AIR) {
+                                fill_falling_vines(level, dx, dy, dz - 1, block_south_vine);
                             }
 
-                            if rand.next_int_bounded(4) == 0 && level.get_block_at(x, dy, z + 1).unwrap().is_block(&AIR) {
-                                fill_falling_vines(level, x, dy, z + 1, block_north_vine);
+                            if rand.next_int_bounded(4) == 0 && level.get_block_at(dx, dy, dz + 1).unwrap().is_block(&AIR) {
+                                fill_falling_vines(level, dx, dy, dz + 1, block_north_vine);
                             }
 
                         }
@@ -186,9 +249,21 @@ impl Feature for TreeFeature {
 }
 
 
+/// Internal method to add a falling vines column.
+fn fill_falling_vines(level: &mut dyn LevelView, x: i32, mut y: i32, z: i32, state: &'static BlockState) {
+    for _ in 0..5 {
+        level.set_block_at(x, y, z, state).unwrap();
+        y -= 1;
+        if !level.get_block_at(x, y, z).unwrap().is_block(&AIR) {
+            break;
+        }
+    }
+}
+
+
 /// Big tree feature.
 ///
-/// Note that this feature intentionnaly fix the issue in old MC versions were big trees were
+/// Note that this feature intentionally fix the issue in old MC versions were big trees were
 /// inconsistent.
 pub struct BigTreeFeature {
     height_limit: BigTreeHeight,
@@ -575,18 +650,6 @@ impl Iterator for BlockLineIter {
             Some((coords[0], coords[1], coords[2], self.step))
         } else {
             None
-        }
-    }
-}
-
-
-
-fn fill_falling_vines(level: &mut dyn LevelView, x: i32, mut y: i32, z: i32, state: &'static BlockState) {
-    for _ in 0..5 {
-        level.set_block_at(x, y, z, state).unwrap();
-        y -= 1;
-        if !level.get_block_at(x, y, z).unwrap().is_block(&AIR) {
-            break;
         }
     }
 }

@@ -751,18 +751,20 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
 
                         match self.tree_feature_type {
                             TreeFeatureType::Default => {
-                                let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
+                                let oak_tree = TreeFeature::new_oak();
                                 let big_tree = BigTreeFeature::new();
                                 chain.push(new_tree_feature(tree_count, big_tree.optional_or(10, oak_tree)))
                             },
                             TreeFeatureType::Forest => {
-                                let birch_tree = TreeFeature::new(&BIRCH_LOG, &BIRCH_LEAVES, 5, false, true);
-                                let oak_tree = TreeFeature::new(&OAK_LOG, &OAK_LEAVES, 4, false, false);
+                                let birch_tree = TreeFeature::new_forest_birch();
+                                let oak_tree = TreeFeature::new_oak();
                                 let big_tree = BigTreeFeature::new();
                                 chain.push(new_tree_feature(tree_count, birch_tree.optional_or(5, big_tree.optional_or(10, oak_tree))));
                             },
                             TreeFeatureType::Jungle => todo!(),
-                            TreeFeatureType::Swamp => todo!(),
+                            TreeFeatureType::Swamp => {
+                                chain.push(new_tree_feature(tree_count, TreeFeature::new_swamp()));
+                            },
                             TreeFeatureType::Taiga => todo!(),
                         }
 
@@ -787,7 +789,10 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
         c.tree_feature_type = TreeFeatureType::Forest;
     });
     let taiga_config = BiomeConfig::with(|c| c.tree_count = Some(10));
-    let swamp_config = BiomeConfig::with(|c| c.tree_count = Some(2));
+    let swamp_config = BiomeConfig::with(|c| {
+        c.tree_count = Some(2);
+        c.tree_feature_type = TreeFeatureType::Swamp;
+    });
     let beach_config = BiomeConfig::with(|c| c.tree_count = None);
     let jungle_config = BiomeConfig::with(|c| c.tree_count = Some(50));
     let mushroom_config = BiomeConfig::with(|c| {
