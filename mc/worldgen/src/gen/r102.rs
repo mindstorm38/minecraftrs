@@ -52,7 +52,7 @@ use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
 use crate::feature::branch::RepeatCount;
 use crate::feature::dungeon::DungeonFeature;
-use crate::feature::tree::{TreeFeature, BigTreeFeature};
+use crate::feature::tree::{TreeFeature, TaigaTreeFeature, BigTreeFeature};
 use crate::feature::lake::LakeFeature;
 use crate::view::LevelView;
 
@@ -765,7 +765,11 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                             TreeFeatureType::Swamp => {
                                 chain.push(new_tree_feature(tree_count, TreeFeature::new_swamp()));
                             },
-                            TreeFeatureType::Taiga => todo!(),
+                            TreeFeatureType::Taiga => {
+                                let spruce0 = TaigaTreeFeature::new();
+                                let spruce1 = TaigaTreeFeature::new_layered();
+                                chain.push(new_tree_feature(tree_count, spruce0.optional_or(3, spruce1)))
+                            },
                         }
 
                     }
@@ -788,7 +792,10 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
         c.grass_count = 2;
         c.tree_feature_type = TreeFeatureType::Forest;
     });
-    let taiga_config = BiomeConfig::with(|c| c.tree_count = Some(10));
+    let taiga_config = BiomeConfig::with(|c| {
+        c.tree_count = Some(10);
+        c.tree_feature_type = TreeFeatureType::Taiga;
+    });
     let swamp_config = BiomeConfig::with(|c| {
         c.tree_count = Some(2);
         c.tree_feature_type = TreeFeatureType::Swamp;

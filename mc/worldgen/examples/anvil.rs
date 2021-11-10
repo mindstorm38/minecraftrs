@@ -35,8 +35,10 @@ fn main() {
         load_or_gen_source
     );
 
-    let center_x = -24;
-    let center_z = 37;
+    // let center_x = -24;
+    // let center_z = 37;
+    let center_x = 7;
+    let center_z = 36;
     let range = 8;
 
     for cx in (center_x - range)..(center_x + range) {
