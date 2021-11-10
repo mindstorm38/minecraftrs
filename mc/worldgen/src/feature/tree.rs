@@ -48,7 +48,8 @@ impl TreeFeature {
         kind: TreeKind
     ) -> Self {
         Self {
-            log_block: log_block.get_default_state().with(&PROP_AXIS, Axis::Y).unwrap(),
+            log_block: log_block.get_default_state()
+                .with(&PROP_AXIS, Axis::Y).unwrap(),
             leaves_block: leaves_block.get_default_state()
                 .with(&PROP_LEAVES_DISTANCE, 1).unwrap()
                 .with(&PROP_PERSISTENT, true).unwrap(),
@@ -282,23 +283,24 @@ impl Feature for TaigaTreeFeature {
     fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
 
         let height;
+        let crown_offset;
         let crown_height;
         let max_radius;
         let max_y;
 
         if self.layered {
             height = rand.next_int_bounded(4) + 6;
-            crown_height = rand.next_int_bounded(2) + 1;
+            crown_offset = rand.next_int_bounded(2) + 1;
+            crown_height = height - crown_offset;
             max_radius = 2 + rand.next_int_bounded(2);
             max_y = 256;
         } else {
             height = rand.next_int_bounded(5) + 7;
             crown_height = rand.next_int_bounded(2) + 3;
+            crown_offset = height - crown_height;
             max_radius = 1 + rand.next_int_bounded(crown_height + 1);
             max_y = 128;
         }
-
-        let crown_offset = height - crown_height;
 
         if y < 1 || y + height + 1 > max_y {
             return false;
@@ -309,7 +311,7 @@ impl Feature for TaigaTreeFeature {
 
         for dy in y..=(y + height + 1) {
 
-            let radius = if dy - y < crown_offset {
+            let radius = if dy < y + crown_offset {
                 0
             } else {
                 max_radius
@@ -338,8 +340,12 @@ impl Feature for TaigaTreeFeature {
 
         level.set_block_at(x, y - 1, z, DIRT.get_default_state()).unwrap();
 
-        let block_leaves = SPRUCE_LEAVES.get_default_state();
-        let block_log = SPRUCE_LOG.get_default_state();
+        // Spruce leaves and logs.
+        let block_leaves = SPRUCE_LEAVES.get_default_state()
+            .with(&PROP_LEAVES_DISTANCE, 1).unwrap()
+            .with(&PROP_PERSISTENT, true).unwrap();
+        let block_log = SPRUCE_LOG.get_default_state()
+            .with(&PROP_AXIS, Axis::Y).unwrap();
 
         let mut radius = if self.layered {
             rand.next_int_bounded(2)
@@ -395,6 +401,12 @@ impl Feature for TaigaTreeFeature {
                 level.set_block_at(x, dy, z, block_log).unwrap();
             }
         }
+
+        /*level.set_block_at(x, y, z, if self.layered {
+            DIAMOND_BLOCK.get_default_state()
+        } else {
+            GOLD_BLOCK.get_default_state()
+        }).unwrap();*/
 
         true
 
