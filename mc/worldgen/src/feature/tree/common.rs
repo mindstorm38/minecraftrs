@@ -141,7 +141,7 @@ impl<H: TreeHeight> Feature for TreeFeature<H> {
         // FIXME: In the following condition, the !in_water is a trick that was implemented as a
         //  fix for a specific position in a swamp, but this was only caused by decoration order.
         //  Might be removable in the future.
-        if (ground_block != &GRASS_BLOCK && ground_block != &DIRT && !in_water) || y >= max_y - height - 1 { // Last condition seems redundant.
+        if (ground_block != &GRASS_BLOCK && ground_block != &DIRT /*&& !in_water*/) || y >= max_y - height - 1 { // Last condition seems redundant.
             return false;
         }
 

@@ -784,6 +784,9 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
 
                     }
 
+                    // TODO: Add mushroom feature (not actually useful here because its called only
+                    //  for mushrooms.
+
                     // chain.push(DebugChunkFeature);
 
                     chain
@@ -836,8 +839,8 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     map.insert(&FROZEN_RIVER, default_config.build().height(-0.5, 0.0).temp(0.0));
     map.insert(&SNOWY_TUNDRA, plains_config.build().temp(0.0));
     map.insert(&SNOWY_MOUNTAINS, default_config.build().height(0.2, 1.2).temp(0.0));
-    map.insert(&MUSHROOM_FIELDS, default_config.build().height(0.2, 1.0).temp(0.9).blocks(&MYCELIUM, &DIRT));
-    map.insert(&MUSHROOM_FIELD_SHORE, default_config.build().height(-1.0, 0.1).temp(0.9).blocks(&MYCELIUM, &DIRT));
+    map.insert(&MUSHROOM_FIELDS, mushroom_config.build().height(0.2, 1.0).temp(0.9).blocks(&MYCELIUM, &DIRT));
+    map.insert(&MUSHROOM_FIELD_SHORE, mushroom_config.build().height(-1.0, 0.1).temp(0.9).blocks(&MYCELIUM, &DIRT));
     map.insert(&BEACH, beach_config.build().height(0.0, 0.1).temp(0.8).blocks(&SAND, &SAND));
     map.insert(&DESERT_HILLS, desert_config.build().height(0.2, 0.7).temp(2.0).blocks(&SAND, &SAND));
     map.insert(&WOODED_HILLS, forest_config.build().height(0.2, 0.6).temp(0.7));
@@ -890,7 +893,7 @@ pub struct TreeRepeatCount(pub u16);
 
 impl RepeatCount for TreeRepeatCount {
     fn get_count(&self, rand: &mut JavaRandom) -> u16 {
-        // (self.0 + (rand.next_int_bounded(10) == 0) as u16).min(4)
+        // (self.0 + (rand.next_int_bounded(10) == 0) as u16).min(2)
         self.0 + (rand.next_int_bounded(10) == 0) as u16
     }
 }
