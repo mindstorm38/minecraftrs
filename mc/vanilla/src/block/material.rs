@@ -11,6 +11,7 @@ pub static TAG_NON_BLOCKING: TagType = TagType::new_logical("minecraft:rust:non_
 pub static TAG_LIQUID: TagType = TagType::new_logical("minecraft:rust:liquid");
 pub static TAG_LEAVES: TagType = TagType::new_logical("minecraft:rust:leaves");
 pub static TAG_LOG: TagType = TagType::new_logical("minecraft:rust:log");
+pub static TAG_SAPLING: TagType = TagType::new_logical("minecraft:rust:sapling");
 
 
 pub(crate) fn register_tags(blocks: &mut GlobalBlocks) {
@@ -47,6 +48,16 @@ pub(crate) fn register_tags(blocks: &mut GlobalBlocks) {
         &JUNGLE_LOG,
         &ACACIA_LOG,
         &DARK_OAK_LOG,
+    ]).unwrap();
+
+    blocks.register_tag_type(&TAG_SAPLING);
+    blocks.set_blocks_tag(&TAG_SAPLING, true, [
+        &OAK_SAPLING,
+        &SPRUCE_SAPLING,
+        &BIRCH_SAPLING,
+        &JUNGLE_SAPLING,
+        &ACACIA_SAPLING,
+        &DARK_OAK_SAPLING,
     ]).unwrap();
 
 }

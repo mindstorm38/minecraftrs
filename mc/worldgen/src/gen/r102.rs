@@ -27,13 +27,13 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
+use mc_core::world::source::ProtoChunk;
 use mc_core::heightmap::HeightmapType;
 use mc_core::world::chunk::Chunk;
 use mc_core::rand::JavaRandom;
 use mc_core::biome::Biome;
-use mc_core::perf;
 use mc_core::util::Rect;
-use mc_core::world::source::ProtoChunk;
+use mc_core::perf;
 
 use mc_vanilla::heightmap::*;
 use mc_vanilla::biome::*;
@@ -47,12 +47,12 @@ use crate::structure::ravine::RavineStructure;
 use crate::structure::cave::CaveStructure;
 use crate::structure::Structure;
 
-use crate::feature::{FeatureChain, Feature};
+use crate::feature::tree::{TreeFeature, BigTreeFeature, TaigaTreeFeature, ShrubFeature, HugeJungleTreeFeature};
 use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
-use crate::feature::branch::RepeatCount;
+use crate::feature::{FeatureChain, Feature};
 use crate::feature::dungeon::DungeonFeature;
-use crate::feature::tree::{TreeFeature, TaigaTreeFeature, BigTreeFeature};
+use crate::feature::branch::RepeatCount;
 use crate::feature::lake::LakeFeature;
 use crate::view::LevelView;
 
@@ -761,14 +761,24 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                                 let big_tree = BigTreeFeature::new();
                                 chain.push(new_tree_feature(tree_count, birch_tree.optional_or(5, big_tree.optional_or(10, oak_tree))));
                             },
-                            TreeFeatureType::Jungle => todo!(),
+                            TreeFeatureType::Jungle => {
+                                let big_tree = BigTreeFeature::new();
+                                let shrub = ShrubFeature::new_jungle();
+                                let huge_tree = HugeJungleTreeFeature::new_jungle();
+                                let normal_tree = TreeFeature::new_jungle();
+                                chain.push(new_tree_feature(tree_count, big_tree
+                                    .optional_or(10, shrub
+                                        .optional_or(2, huge_tree
+                                            .optional_or(3, normal_tree)))
+                                ));
+                            },
                             TreeFeatureType::Swamp => {
                                 chain.push(new_tree_feature(tree_count, TreeFeature::new_swamp()));
                             },
                             TreeFeatureType::Taiga => {
-                                let spruce0 = TaigaTreeFeature::new();
-                                let spruce1 = TaigaTreeFeature::new_layered();
-                                chain.push(new_tree_feature(tree_count, spruce0.optional_or(3, spruce1)))
+                                let pine = TaigaTreeFeature::new_pine();
+                                let spruce = TaigaTreeFeature::new_spruce();
+                                chain.push(new_tree_feature(tree_count, pine.optional_or(3, spruce)))
                             },
                         }
 
@@ -801,7 +811,10 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
         c.tree_feature_type = TreeFeatureType::Swamp;
     });
     let beach_config = BiomeConfig::with(|c| c.tree_count = None);
-    let jungle_config = BiomeConfig::with(|c| c.tree_count = Some(50));
+    let jungle_config = BiomeConfig::with(|c| {
+        c.tree_count = Some(50);
+        c.tree_feature_type = TreeFeatureType::Jungle;
+    });
     let mushroom_config = BiomeConfig::with(|c| {
         c.tree_count = None;
         c.flower_count = 0;

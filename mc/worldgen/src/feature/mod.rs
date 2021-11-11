@@ -1,4 +1,5 @@
 use mc_core::rand::JavaRandom;
+
 use crate::view::LevelView;
 
 pub mod distrib;
