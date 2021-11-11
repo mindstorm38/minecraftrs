@@ -52,6 +52,7 @@ use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
 use crate::feature::{FeatureChain, Feature};
 use crate::feature::dungeon::DungeonFeature;
+use crate::feature::flower::PlantFeature;
 use crate::feature::branch::RepeatCount;
 use crate::feature::lake::LakeFeature;
 use crate::view::LevelView;
@@ -787,6 +788,39 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                     // TODO: Add mushroom feature (not actually useful here because its called only
                     //  for mushrooms.
 
+                    if self.flower_count > 0 {
+                        chain.push(PlantFeature::new_flower(&DANDELION).distributed_uniform(0, 128)
+                            .chain(PlantFeature::new_flower(&POPPY).distributed_uniform(0, 128).optional(4))
+                            .repeated(self.flower_count));
+                    }
+
+                    if self.grass_count > 0 {
+
+                        fn new_grass_feature<F: Feature>(grass_count: u16, feature: F) -> impl Feature {
+                            feature.distributed_uniform(0, 128).repeated(grass_count)
+                        }
+
+                        let grass = PlantFeature::new_grass(&GRASS);
+                        if let TreeFeatureType::Jungle = self.tree_feature_type {
+                            let fern_or_grass = PlantFeature::new_grass(&FERN)
+                                .optional_or(4, grass);
+                            chain.push(new_grass_feature(self.grass_count, fern_or_grass));
+                        } else {
+                            chain.push(new_grass_feature(self.grass_count, grass));
+                        }
+
+                    }
+
+                    if self.dead_bush_count > 0 {
+                        chain.push(PlantFeature::new_dead_bush()
+                            .distributed_uniform(0, 128)
+                            .repeated(self.dead_bush_count));
+                    }
+
+                    if self.lily_pad_count > 0 {
+                        PlantFeature
+                    }
+
                     // chain.push(DebugChunkFeature);
 
                     chain
@@ -798,8 +832,15 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     }
 
     let default_config = BiomeConfig::new();
-    let plains_config = BiomeConfig::with(|c| c.tree_count = None);
-    let desert_config = BiomeConfig::with(|c| c.tree_count = None);
+    let plains_config = BiomeConfig::with(|c| {
+        c.tree_count = None;
+        c.flower_count = 4;
+        c.grass_count = 10;
+    });
+    let desert_config = BiomeConfig::with(|c| {
+        c.tree_count = None;
+        c.dead_bush_count = 2;
+    });
     let forest_config = BiomeConfig::with(|c| {
         c.tree_count = Some(10);
         c.grass_count = 2;
@@ -808,15 +849,20 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     let taiga_config = BiomeConfig::with(|c| {
         c.tree_count = Some(10);
         c.tree_feature_type = TreeFeatureType::Taiga;
+        c.grass_count = 1;
     });
     let swamp_config = BiomeConfig::with(|c| {
         c.tree_count = Some(2);
         c.tree_feature_type = TreeFeatureType::Swamp;
+        c.flower_count = 0;
+        c.dead_bush_count = 1;
     });
     let beach_config = BiomeConfig::with(|c| c.tree_count = None);
     let jungle_config = BiomeConfig::with(|c| {
         c.tree_count = Some(50);
         c.tree_feature_type = TreeFeatureType::Jungle;
+        c.flower_count = 4;
+        c.grass_count = 25;
     });
     let mushroom_config = BiomeConfig::with(|c| {
         c.tree_count = None;

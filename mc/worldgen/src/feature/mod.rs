@@ -9,9 +9,10 @@ pub mod lake;
 pub mod debug;
 pub mod dungeon;
 pub mod tree;
+pub mod flower;
 
 use distrib::{Distrib, DistribFeature, TriangularVerticalDistrib, UniformVerticalDistrib};
-use branch::{OptionalFeature, RepeatCount, RepeatedFeature};
+use branch::{OptionalFeature, RepeatCount, RepeatedFeature, ChainFeature};
 
 /// Base trait for level features generators.
 pub trait Feature {
@@ -68,6 +69,14 @@ pub trait Feature {
         E: Feature
     {
         OptionalFeature::new(self, else_feature, bound)
+    }
+
+    fn chain<B>(self, b_feature: B) -> ChainFeature<Self, B>
+    where
+        Self: Sized,
+        B: Feature
+    {
+        ChainFeature::new(self, b_feature)
     }
 
 }

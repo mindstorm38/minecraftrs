@@ -39,12 +39,16 @@ impl<F: Feature, D: Distrib> Feature for DistribFeature<F, D> {
 
 pub struct UniformVerticalDistrib {
     min_y: i32,
-    max_y: i32
+    max_y: i32,
+    late_y: bool
 }
 
 impl UniformVerticalDistrib {
     pub fn new(min_y: i32, max_y: i32) -> Self {
-        Self { min_y, max_y }
+        Self { min_y, max_y, late_y: false }
+    }
+    pub fn new_late_y(min_y: i32, max_y: i32) -> Self {
+        Self { min_y, max_y, late_y: true }
     }
 }
 
