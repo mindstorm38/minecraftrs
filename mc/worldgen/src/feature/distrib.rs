@@ -1,5 +1,9 @@
+use mc_core::block::{Block, GlobalBlocks};
 use mc_core::heightmap::HeightmapType;
 use mc_core::rand::JavaRandom;
+
+use mc_vanilla::block::material::TAG_LEAVES;
+use mc_vanilla::block::AIR;
 
 use crate::view::LevelView;
 use super::Feature;
@@ -37,31 +41,41 @@ impl<F: Feature, D: Distrib> Feature for DistribFeature<F, D> {
 }
 
 
-pub struct UniformVerticalDistrib {
+/// A uniform distribution between two vertical points, X and Z and picked randomly.
+pub struct UniformVerticalDistrib<const LATE_Y: bool> {
     min_y: i32,
-    max_y: i32,
-    late_y: bool
+    max_y: i32
 }
 
-impl UniformVerticalDistrib {
+impl UniformVerticalDistrib<false> {
     pub fn new(min_y: i32, max_y: i32) -> Self {
-        Self { min_y, max_y, late_y: false }
-    }
-    pub fn new_late_y(min_y: i32, max_y: i32) -> Self {
-        Self { min_y, max_y, late_y: true }
+        Self { min_y, max_y }
     }
 }
 
-impl Distrib for UniformVerticalDistrib {
+impl UniformVerticalDistrib<true> {
+    pub fn new_with_late_y(min_y: i32, max_y: i32) -> Self {
+        Self { min_y, max_y }
+    }
+}
+
+impl<const LATE_Y: bool> Distrib for UniformVerticalDistrib<LATE_Y> {
     fn pick_pos(&self, _level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, _y: i32, z: i32) -> Option<(i32, i32, i32)> {
         let rx = x + rand.next_int_bounded(16);
-        let ry = rand.next_int_bounded(self.max_y - self.min_y) + self.min_y;
+        let mut ry = 0;
+        if !LATE_Y {
+            ry = rand.next_int_bounded(self.max_y - self.min_y) + self.min_y;
+        }
         let rz = z + rand.next_int_bounded(16);
+        if LATE_Y {
+            ry = rand.next_int_bounded(self.max_y - self.min_y) + self.min_y;
+        }
         Some((rx, ry, rz))
     }
 }
 
 
+/// A triangular distribution with a center and a spread, X and Z are picked randomly.
 pub struct TriangularVerticalDistrib {
     y_center: i32,
     y_spread: i32
@@ -83,6 +97,8 @@ impl Distrib for TriangularVerticalDistrib {
 }
 
 
+/// A distribution that picks random X and Z, and then assign the height (of the given type)
+/// to the Y coordinate (panicking if the heightmap type is not supported).
 pub struct HeightmapDistrib {
     heightmap_type: &'static HeightmapType
 }
@@ -102,6 +118,7 @@ impl Distrib for HeightmapDistrib {
 }
 
 
+/// A distribution specific to lava lake.
 pub struct LavaLakeDistrib;
 
 impl Distrib for LavaLakeDistrib {
@@ -117,5 +134,62 @@ impl Distrib for LavaLakeDistrib {
         } else {
             None
         }
+    }
+}
+
+
+/// A distribution that modifies the Y coordinate by lowering it until the given predicate
+/// returns false for the block a `Y + offset`.
+pub struct OffsetWhileDistrib<P> {
+    min: i32,
+    offset: i32,
+    predicate: P
+}
+
+impl<P> OffsetWhileDistrib<P>
+where
+    P: Fn(&'static Block, &GlobalBlocks) -> bool
+{
+    pub fn new(min: i32, offset: i32, predicate: P) -> Self {
+        Self { min, offset, predicate }
+    }
+}
+
+impl OffsetWhileDistrib<fn(&'static Block, &GlobalBlocks) -> bool> {
+
+    pub fn new_air_or_leaves() -> Self {
+        fn is_air_or_leaves(block: &'static Block, blocks: &GlobalBlocks) -> bool {
+            block == &AIR || blocks.has_block_tag(block, &TAG_LEAVES)
+        }
+        Self::new(0, 0, is_air_or_leaves)
+    }
+
+    pub fn new_air_below() -> Self {
+        fn is_air(block: &'static Block, _blocks: &GlobalBlocks) -> bool {
+            block == &AIR
+        }
+        Self::new(0, -1, is_air)
+    }
+
+}
+
+impl<P> Distrib for OffsetWhileDistrib<P>
+where
+    P: Fn(&'static Block, &GlobalBlocks) -> bool
+{
+    fn pick_pos(&self, level: &mut dyn LevelView, _rand: &mut JavaRandom, x: i32, mut y: i32, z: i32) -> Option<(i32, i32, i32)> {
+        let env_blocks = &level.get_env().blocks;
+        while y > self.min {
+            let valid = match level.get_block_at(x, y + self.offset, z) {
+                Ok(state) => (self.predicate)(state.get_block(), env_blocks),
+                Err(_) => (self.predicate)(&AIR, env_blocks)  // Air by default
+            };
+            if valid {
+                y -= 1;
+            } else {
+                break;
+            }
+        }
+        Some((x, y, z))
     }
 }

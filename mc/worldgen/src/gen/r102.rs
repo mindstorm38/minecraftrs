@@ -48,11 +48,11 @@ use crate::structure::cave::CaveStructure;
 use crate::structure::Structure;
 
 use crate::feature::tree::{TreeFeature, BigTreeFeature, TaigaTreeFeature, ShrubFeature, HugeJungleTreeFeature};
-use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib};
+use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib, OffsetWhileDistrib};
+use crate::feature::flower::{PlantFeature, SugarCaneFeature};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
 use crate::feature::{FeatureChain, Feature};
 use crate::feature::dungeon::DungeonFeature;
-use crate::feature::flower::PlantFeature;
 use crate::feature::branch::RepeatCount;
 use crate::feature::lake::LakeFeature;
 use crate::view::LevelView;
@@ -797,7 +797,10 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                     if self.grass_count > 0 {
 
                         fn new_grass_feature<F: Feature>(grass_count: u16, feature: F) -> impl Feature {
-                            feature.distributed_uniform(0, 128).repeated(grass_count)
+                            feature
+                                .distributed(OffsetWhileDistrib::new_air_or_leaves())
+                                .distributed_uniform(0, 128)
+                                .repeated(grass_count)
                         }
 
                         let grass = PlantFeature::new_grass(&GRASS);
@@ -813,12 +816,40 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
 
                     if self.dead_bush_count > 0 {
                         chain.push(PlantFeature::new_dead_bush()
+                            .distributed(OffsetWhileDistrib::new_air_or_leaves())
                             .distributed_uniform(0, 128)
                             .repeated(self.dead_bush_count));
                     }
 
                     if self.lily_pad_count > 0 {
-                        PlantFeature
+                        chain.push(PlantFeature::new_lily_pad()
+                            .distributed(OffsetWhileDistrib::new_air_below())
+                            .distributed_uniform_with_late_y(0, 128)
+                            .repeated(self.lily_pad_count));
+                    }
+
+                    if self.mushroom_count > 0 {
+                        let brown = PlantFeature::new_flower(&BROWN_MUSHROOM)
+                            .distributed(WrongHeightmapDistrib::new(&MOTION_BLOCKING))
+                            .optional(4);
+                        let red = PlantFeature::new_flower(&RED_MUSHROOM)
+                            .distributed_uniform_with_late_y(0, 128)
+                            .optional(8);
+                        chain.push(brown.chain(red).repeated(self.mushroom_count));
+                    }
+
+                    chain.push(PlantFeature::new_flower(&BROWN_MUSHROOM)
+                        .distributed_uniform(0, 128)
+                        .optional(4));
+
+                    chain.push(PlantFeature::new_flower(&RED_MUSHROOM)
+                        .distributed_uniform(0, 128)
+                        .optional(8));
+
+                    if self.sugar_cane_count > 0 {
+                        chain.push(SugarCaneFeature
+                            .distributed_uniform_with_late_y(0, 128)
+                            .repeated(self.sugar_cane_count));
                     }
 
                     // chain.push(DebugChunkFeature);
@@ -840,6 +871,7 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     let desert_config = BiomeConfig::with(|c| {
         c.tree_count = None;
         c.dead_bush_count = 2;
+        c.sugar_cane_count = 50;
     });
     let forest_config = BiomeConfig::with(|c| {
         c.tree_count = Some(10);
@@ -856,6 +888,9 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
         c.tree_feature_type = TreeFeatureType::Swamp;
         c.flower_count = 0;
         c.dead_bush_count = 1;
+        c.lily_pad_count = 4;
+        c.mushroom_count = 8;
+        c.sugar_cane_count = 10;
     });
     let beach_config = BiomeConfig::with(|c| c.tree_count = None);
     let jungle_config = BiomeConfig::with(|c| {

@@ -33,11 +33,18 @@ pub trait Feature {
         DistribFeature::new(self, distrib)
     }
 
-    fn distributed_uniform(self, min_y: i32, max_y: i32) -> DistribFeature<Self, UniformVerticalDistrib>
+    fn distributed_uniform(self, min_y: i32, max_y: i32) -> DistribFeature<Self, UniformVerticalDistrib<false>>
     where
         Self: Sized
     {
         self.distributed(UniformVerticalDistrib::new(min_y, max_y))
+    }
+
+    fn distributed_uniform_with_late_y(self, min_y: i32, max_y: i32) -> DistribFeature<Self, UniformVerticalDistrib<true>>
+    where
+        Self: Sized
+    {
+        self.distributed(UniformVerticalDistrib::new_with_late_y(min_y, max_y))
     }
 
     fn distributed_triangular(self, y_center: i32, y_spread: i32) -> DistribFeature<Self, TriangularVerticalDistrib>
