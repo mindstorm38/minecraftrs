@@ -1,3 +1,5 @@
+//! A really unsafe module made for internal use in MinecraftRS and its examples.
+
 use std::time::{Duration, Instant};
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
