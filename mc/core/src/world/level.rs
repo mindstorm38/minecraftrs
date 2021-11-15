@@ -228,6 +228,13 @@ impl Level {
         self.load_chunks_with_callback(|_, _, _| {});
     }
 
+    /// Returns the number of chunks being loaded or queued for loading (use `load_chunks` or
+    /// `load_chunks_with_callback` to load actually them.
+    #[inline]
+    pub fn get_loading_chunks_count(&self) -> usize {
+        self.loading_chunks.len()
+    }
+
     // CHUNK SAVING (TO SOURCE) //
 
     pub fn request_chunk_save(&mut self, cx: i32, cz: i32) -> bool {
