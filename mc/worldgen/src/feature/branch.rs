@@ -67,3 +67,23 @@ impl<F: Feature, E: Feature> Feature for OptionalFeature<F, E> {
         }
     }
 }
+
+
+pub struct ChainFeature<A: Feature, B: Feature> {
+    a_feature: A,
+    b_feature: B,
+}
+
+impl<A: Feature, B: Feature> ChainFeature<A, B> {
+    pub fn new(a_feature: A, b_feature: B) -> Self {
+        Self { a_feature, b_feature }
+    }
+}
+
+impl<A: Feature, B: Feature> Feature for ChainFeature<A, B> {
+    fn generate(&self, level: &mut dyn LevelView, rand: &mut JavaRandom, x: i32, y: i32, z: i32) -> bool {
+        let a_success = self.a_feature.generate(level, rand, x, y, z);
+        let b_success = self.b_feature.generate(level, rand, x, y, z);
+        a_success && b_success
+    }
+}

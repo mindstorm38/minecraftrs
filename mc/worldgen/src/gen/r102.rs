@@ -27,13 +27,13 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
+use mc_core::world::source::ProtoChunk;
 use mc_core::heightmap::HeightmapType;
 use mc_core::world::chunk::Chunk;
 use mc_core::rand::JavaRandom;
 use mc_core::biome::Biome;
-use mc_core::perf;
 use mc_core::util::Rect;
-use mc_core::world::source::ProtoChunk;
+use mc_core::perf;
 
 use mc_vanilla::heightmap::*;
 use mc_vanilla::biome::*;
@@ -47,12 +47,13 @@ use crate::structure::ravine::RavineStructure;
 use crate::structure::cave::CaveStructure;
 use crate::structure::Structure;
 
-use crate::feature::{FeatureChain, Feature};
-use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib};
+use crate::feature::tree::{TreeFeature, BigTreeFeature, TaigaTreeFeature, ShrubFeature, HugeJungleTreeFeature};
+use crate::feature::distrib::{Distrib, HeightmapDistrib, LavaLakeDistrib, OffsetWhileDistrib};
+use crate::feature::flower::{PlantFeature, SugarCaneFeature};
 use crate::feature::vein::{WaterCircleFeature, VeinFeature};
-use crate::feature::branch::RepeatCount;
+use crate::feature::{FeatureChain, Feature};
 use crate::feature::dungeon::DungeonFeature;
-use crate::feature::tree::{TreeFeature, TaigaTreeFeature, BigTreeFeature};
+use crate::feature::branch::RepeatCount;
 use crate::feature::lake::LakeFeature;
 use crate::view::LevelView;
 
@@ -761,17 +762,94 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
                                 let big_tree = BigTreeFeature::new();
                                 chain.push(new_tree_feature(tree_count, birch_tree.optional_or(5, big_tree.optional_or(10, oak_tree))));
                             },
-                            TreeFeatureType::Jungle => todo!(),
+                            TreeFeatureType::Jungle => {
+                                let big_tree = BigTreeFeature::new();
+                                let shrub = ShrubFeature::new_jungle();
+                                let huge_tree = HugeJungleTreeFeature::new_jungle();
+                                let normal_tree = TreeFeature::new_jungle();
+                                chain.push(new_tree_feature(tree_count, big_tree
+                                    .optional_or(10, shrub
+                                        .optional_or(2, huge_tree
+                                            .optional_or(3, normal_tree)))
+                                ));
+                            },
                             TreeFeatureType::Swamp => {
                                 chain.push(new_tree_feature(tree_count, TreeFeature::new_swamp()));
                             },
                             TreeFeatureType::Taiga => {
-                                let spruce0 = TaigaTreeFeature::new();
-                                let spruce1 = TaigaTreeFeature::new_layered();
-                                chain.push(new_tree_feature(tree_count, spruce0.optional_or(3, spruce1)))
+                                let pine = TaigaTreeFeature::new_pine();
+                                let spruce = TaigaTreeFeature::new_spruce();
+                                chain.push(new_tree_feature(tree_count, pine.optional_or(3, spruce)))
                             },
                         }
 
+                    }
+
+                    // TODO: Add mushroom feature (not actually useful here because its called only
+                    //  for mushrooms.
+
+                    if self.flower_count > 0 {
+                        chain.push(PlantFeature::new_flower(&DANDELION).distributed_uniform(0, 128)
+                            .chain(PlantFeature::new_flower(&POPPY).distributed_uniform(0, 128).optional(4))
+                            .repeated(self.flower_count));
+                    }
+
+                    if self.grass_count > 0 {
+
+                        fn new_grass_feature<F: Feature>(grass_count: u16, feature: F) -> impl Feature {
+                            feature
+                                .distributed(OffsetWhileDistrib::new_air_or_leaves())
+                                .distributed_uniform(0, 128)
+                                .repeated(grass_count)
+                        }
+
+                        let grass = PlantFeature::new_grass(&GRASS);
+                        if let TreeFeatureType::Jungle = self.tree_feature_type {
+                            let fern_or_grass = PlantFeature::new_grass(&FERN)
+                                .optional_or(4, grass);
+                            chain.push(new_grass_feature(self.grass_count, fern_or_grass));
+                        } else {
+                            chain.push(new_grass_feature(self.grass_count, grass));
+                        }
+
+                    }
+
+                    if self.dead_bush_count > 0 {
+                        chain.push(PlantFeature::new_dead_bush()
+                            .distributed(OffsetWhileDistrib::new_air_or_leaves())
+                            .distributed_uniform(0, 128)
+                            .repeated(self.dead_bush_count));
+                    }
+
+                    if self.lily_pad_count > 0 {
+                        chain.push(PlantFeature::new_lily_pad()
+                            .distributed(OffsetWhileDistrib::new_air_below())
+                            .distributed_uniform_with_late_y(0, 128)
+                            .repeated(self.lily_pad_count));
+                    }
+
+                    if self.mushroom_count > 0 {
+                        let brown = PlantFeature::new_flower(&BROWN_MUSHROOM)
+                            .distributed(WrongHeightmapDistrib::new(&MOTION_BLOCKING))
+                            .optional(4);
+                        let red = PlantFeature::new_flower(&RED_MUSHROOM)
+                            .distributed_uniform_with_late_y(0, 128)
+                            .optional(8);
+                        chain.push(brown.chain(red).repeated(self.mushroom_count));
+                    }
+
+                    chain.push(PlantFeature::new_flower(&BROWN_MUSHROOM)
+                        .distributed_uniform(0, 128)
+                        .optional(4));
+
+                    chain.push(PlantFeature::new_flower(&RED_MUSHROOM)
+                        .distributed_uniform(0, 128)
+                        .optional(8));
+
+                    if self.sugar_cane_count > 0 {
+                        chain.push(SugarCaneFeature
+                            .distributed_uniform_with_late_y(0, 128)
+                            .repeated(self.sugar_cane_count));
                     }
 
                     // chain.push(DebugChunkFeature);
@@ -785,8 +863,16 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     }
 
     let default_config = BiomeConfig::new();
-    let plains_config = BiomeConfig::with(|c| c.tree_count = None);
-    let desert_config = BiomeConfig::with(|c| c.tree_count = None);
+    let plains_config = BiomeConfig::with(|c| {
+        c.tree_count = None;
+        c.flower_count = 4;
+        c.grass_count = 10;
+    });
+    let desert_config = BiomeConfig::with(|c| {
+        c.tree_count = None;
+        c.dead_bush_count = 2;
+        c.sugar_cane_count = 50;
+    });
     let forest_config = BiomeConfig::with(|c| {
         c.tree_count = Some(10);
         c.grass_count = 2;
@@ -795,13 +881,24 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     let taiga_config = BiomeConfig::with(|c| {
         c.tree_count = Some(10);
         c.tree_feature_type = TreeFeatureType::Taiga;
+        c.grass_count = 1;
     });
     let swamp_config = BiomeConfig::with(|c| {
         c.tree_count = Some(2);
         c.tree_feature_type = TreeFeatureType::Swamp;
+        c.flower_count = 0;
+        c.dead_bush_count = 1;
+        c.lily_pad_count = 4;
+        c.mushroom_count = 8;
+        c.sugar_cane_count = 10;
     });
     let beach_config = BiomeConfig::with(|c| c.tree_count = None);
-    let jungle_config = BiomeConfig::with(|c| c.tree_count = Some(50));
+    let jungle_config = BiomeConfig::with(|c| {
+        c.tree_count = Some(50);
+        c.tree_feature_type = TreeFeatureType::Jungle;
+        c.flower_count = 4;
+        c.grass_count = 25;
+    });
     let mushroom_config = BiomeConfig::with(|c| {
         c.tree_count = None;
         c.flower_count = 0;
@@ -823,8 +920,8 @@ static BIOMES_PROPERTIES: Lazy<BiomePropertyMap> = Lazy::new(|| {
     map.insert(&FROZEN_RIVER, default_config.build().height(-0.5, 0.0).temp(0.0));
     map.insert(&SNOWY_TUNDRA, plains_config.build().temp(0.0));
     map.insert(&SNOWY_MOUNTAINS, default_config.build().height(0.2, 1.2).temp(0.0));
-    map.insert(&MUSHROOM_FIELDS, default_config.build().height(0.2, 1.0).temp(0.9).blocks(&MYCELIUM, &DIRT));
-    map.insert(&MUSHROOM_FIELD_SHORE, default_config.build().height(-1.0, 0.1).temp(0.9).blocks(&MYCELIUM, &DIRT));
+    map.insert(&MUSHROOM_FIELDS, mushroom_config.build().height(0.2, 1.0).temp(0.9).blocks(&MYCELIUM, &DIRT));
+    map.insert(&MUSHROOM_FIELD_SHORE, mushroom_config.build().height(-1.0, 0.1).temp(0.9).blocks(&MYCELIUM, &DIRT));
     map.insert(&BEACH, beach_config.build().height(0.0, 0.1).temp(0.8).blocks(&SAND, &SAND));
     map.insert(&DESERT_HILLS, desert_config.build().height(0.2, 0.7).temp(2.0).blocks(&SAND, &SAND));
     map.insert(&WOODED_HILLS, forest_config.build().height(0.2, 0.6).temp(0.7));
@@ -877,7 +974,7 @@ pub struct TreeRepeatCount(pub u16);
 
 impl RepeatCount for TreeRepeatCount {
     fn get_count(&self, rand: &mut JavaRandom) -> u16 {
-        // (self.0 + (rand.next_int_bounded(10) == 0) as u16).min(4)
+        // (self.0 + (rand.next_int_bounded(10) == 0) as u16).min(2)
         self.0 + (rand.next_int_bounded(10) == 0) as u16
     }
 }

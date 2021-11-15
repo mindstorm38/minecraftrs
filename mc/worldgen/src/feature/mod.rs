@@ -1,4 +1,5 @@
 use mc_core::rand::JavaRandom;
+
 use crate::view::LevelView;
 
 pub mod distrib;
@@ -8,9 +9,10 @@ pub mod lake;
 pub mod debug;
 pub mod dungeon;
 pub mod tree;
+pub mod flower;
 
 use distrib::{Distrib, DistribFeature, TriangularVerticalDistrib, UniformVerticalDistrib};
-use branch::{OptionalFeature, RepeatCount, RepeatedFeature};
+use branch::{OptionalFeature, RepeatCount, RepeatedFeature, ChainFeature};
 
 /// Base trait for level features generators.
 pub trait Feature {
@@ -31,11 +33,18 @@ pub trait Feature {
         DistribFeature::new(self, distrib)
     }
 
-    fn distributed_uniform(self, min_y: i32, max_y: i32) -> DistribFeature<Self, UniformVerticalDistrib>
+    fn distributed_uniform(self, min_y: i32, max_y: i32) -> DistribFeature<Self, UniformVerticalDistrib<false>>
     where
         Self: Sized
     {
         self.distributed(UniformVerticalDistrib::new(min_y, max_y))
+    }
+
+    fn distributed_uniform_with_late_y(self, min_y: i32, max_y: i32) -> DistribFeature<Self, UniformVerticalDistrib<true>>
+    where
+        Self: Sized
+    {
+        self.distributed(UniformVerticalDistrib::new_with_late_y(min_y, max_y))
     }
 
     fn distributed_triangular(self, y_center: i32, y_spread: i32) -> DistribFeature<Self, TriangularVerticalDistrib>
@@ -67,6 +76,14 @@ pub trait Feature {
         E: Feature
     {
         OptionalFeature::new(self, else_feature, bound)
+    }
+
+    fn chain<B>(self, b_feature: B) -> ChainFeature<Self, B>
+    where
+        Self: Sized,
+        B: Feature
+    {
+        ChainFeature::new(self, b_feature)
     }
 
 }
