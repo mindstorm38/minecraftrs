@@ -1,23 +1,32 @@
 # Minecraft RS
 
-Rust library for cross-version Minecraft world generation.
+Pure Rust crates for Minecraft data manipulation. This cargo workspace aims to separate to 
+split data structures from actual implementations. The two main crates in this repository
+are [core](mc/core) and [vanilla](mc/vanilla), they are the only available for now on
+[crates.io](https://crates.io).
 
-![](https://raw.githubusercontent.com/mindstorm38/minecraftrs/master/docs/working_generation.png)
-Spot the differences! *(version: 1.2.5, biomes, terrain)*
+Other crate such as [worldgen](mc/worldgen), [runtime](mc/runtime) and [server](mc/server)
+are not actively maintained because the effort to keep these up-to-dates to the latest 
+versions is too big. The worldgen crate is a little more maintained, but it is still a 
+toy crate which currently only implements the 1.2.5 (without generated structures).
 
-## Supported versions
-Currently, the library obviously does not support all, I started with 1.2.5 because I was interested in seed reversing challenge in this version (and I think nothing changed in the generation from 1.2.1, except for jungles maybe). For now, only biomes, terrain, ravines and caves generation works, there are certainly some bugs, but the main API is operational as you can see in the image above.
+## Core crate
+The [core](mc/core) crate define the most important and mandatory data structures used by
+Minecraft, this includes definition of optimized structures for blocks, biomes, heightmaps, 
+entities. The main goal of these tiny structures is to be statically defined, so they don't 
+take time to load at runtime, this also allows really simple equality test using their 
+pointers. They also have a textual identifier in the usual Minecraft format `namespace:key`.
+Once statically defined, they need to be added a runtime registry that associate
+their static pointer to a linear positive integer id that can be used to efficiently 
+serialize and deserialize these structures **internally at runtime**, for the serialization
+in static files, the integer id is mapped to the textual identifier, it's needed because
+integer ids might change between different runs of the crate. 
 
-Before implementing other versions, I plan to support all features of the version 1.2.5. Maybe not structures but definitely features. For the future of this library I'm open to suggestion for supporting more versions and obviously to contributions.
+These global registries are bundled in a "level environment" structure that is used by chunks
+stored inside a level. This crate also provides a way to source chunks for a level, and 
+predefine an anvil chunk source to load world saved by Minecraft in the anvil format.
 
-Supported and tested versions and their working features:
-- 1.2.5, biomes, terrain, ravines, caves ***(NEW)***
-
-## Rendering ?
-I'm not planning to implement any renderer for this library, if it's needed this would be created in another repository.
-
-> For the illustration above I exported the world vertices to a `.obj` file *(check "world" example to understand how)* and then I used "3D Builder" software on Windows.
-
-## Gallery
-![](https://raw.githubusercontent.com/mindstorm38/minecraftrs/master/docs/working_ravines.png)
-![](https://raw.githubusercontent.com/mindstorm38/minecraftrs/master/docs/working_caves.png)
+## Vanilla crate
+The [vanilla](mc/vanilla) provides static instances definition to use with global registries,
+it also provides a trait `WithVanilla` that is implemented on each structure that supports a
+vanilla variants, such as blocks, biomes and level environment.
