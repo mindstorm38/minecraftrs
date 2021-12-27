@@ -101,6 +101,36 @@ impl Property<u8> for IntProperty {
 }
 
 
+/// An unsigned 8-bits integer block property with offset for first value.
+pub struct RangeProperty(pub &'static str, pub u8, pub u8);
+
+impl UntypedProperty for RangeProperty {
+
+    fn name(&self) -> &'static str { self.0 }
+    fn len(&self) -> u8 { self.2 }
+
+    fn prop_to_string(&self, index: u8) -> Option<String> {
+        if index < self.2 { Some((self.1 + index).to_string()) } else { None }
+    }
+
+    fn prop_from_string(&self, value: &str) -> Option<u8> {
+        let value = u8::from_str(value).ok()?.wrapping_sub(self.1);
+        if value < self.2 { Some(value) } else { None }
+    }
+
+}
+
+impl Property<u8> for RangeProperty {
+    fn encode(&self, value: u8) -> Option<u8> {
+        let value = value.wrapping_sub(self.1);
+        if value < self.2 { Some(value) } else { None }
+    }
+    fn decode(&self, index: u8) -> Option<u8> {
+        if index < self.2 { Some(index + self.1) } else { None }
+    }
+}
+
+
 /// An enum block property, this property use an external statically defined array of values.
 pub struct EnumProperty<T: PropertySerializable + Eq>(pub &'static str, pub &'static [T]);
 
@@ -190,6 +220,9 @@ macro_rules! blocks_properties {
 macro_rules! _blocks_properties_prop {
     ($v:vis $id:ident: int($name:literal, $count:literal)) => {
         $v static $id: $crate::block::IntProperty = $crate::block::IntProperty($name, $count);
+    };
+    ($v:vis $id:ident: range($name:literal, $offset:literal, $count:literal)) => {
+        $v static $id: $crate::block::RangeProperty = $crate::block::RangeProperty($name, $offset, $count);
     };
     ($v:vis $id:ident: bool($name:literal)) => {
         $v static $id: $crate::block::BoolProperty = $crate::block::BoolProperty($name);
