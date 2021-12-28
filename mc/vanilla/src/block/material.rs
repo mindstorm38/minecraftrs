@@ -75,7 +75,7 @@ static NON_SOLID_BLOCKS: &[&'static Block] = &[
     &END_GATEWAY,
 
     // Cloth
-    &CARPET,
+    // &CARPET, TODO
 
     // Plants
     &OAK_SAPLING,
@@ -138,9 +138,9 @@ static NON_SOLID_BLOCKS: &[&'static Block] = &[
     // Water plants
     &KELP,
     &KELP_PLANT,
-    &CORAL,
-    &CORAL_FAN,
-    &CORAL_WALL_FAN,
+    // &CORAL, TODO
+    // &CORAL_FAN, TODO
+    // &CORAL_WALL_FAN, TODO
     &SEA_PICKLE,
 
     // Replaceable plants
@@ -257,7 +257,7 @@ static NON_SOLID_BLOCKS: &[&'static Block] = &[
     &WARPED_BUTTON,
     &POLISHED_BLACKSTONE_BUTTON,
     &CANDLE,
-    &COLORED_CANDLE,
+    // &COLORED_CANDLE, TODO
 
     // Powder snow
     &POWDER_SNOW,

@@ -101,6 +101,7 @@ blocks_properties! {
     pub PROP_BOTTOM: bool("bottom");
 
     pub PROP_HORIZONTAL_FACING: enum("facing", Direction, [East, North, South, West]);
+    pub PROP_HOPPER_FACING: enum("facing", Direction, [Down, East, North, South, West]);
     pub PROP_VERTICAL_DIRECTION: enum("vertical_direction", Direction, [Up, Down]);
     pub PROP_FACING: enum("facing", Direction, [Down, East, North, South, Up, West]);
 
@@ -191,6 +192,8 @@ blocks_properties! {
     pub PROP_CHEST_TYPE: enum("type", ChestType, [Single, Left, Right]);
     pub PROP_SLAB_TYPE: enum("type", SlabType, [Top, Bottom, Double]);
 
+    pub PROP_PISTON_TYPE: enum("type", PistonType, [Normal, Sticky]);
+
     /*pub PROP_COMMAND_BLOCK_TYPE: enum("type", CommandBlockType, [
         Impulse, Repeating, Chain
     ]);*/
@@ -228,12 +231,12 @@ blocks_properties! {
         Cooldown
     ]);
 
-    pub PROP_OXYDATION_STATE: enum("oxydation_state", OxydationState, [
+    /*pub PROP_OXYDATION_STATE: enum("oxydation_state", OxydationState, [
         Unaffected,
         Exposed,
         Weathered,
         Oxidized
-    ]);
+    ]);*/
 
     pub PROP_DRIPSTONE_THICKNESS: enum("thickness", DripstoneThickness, [
         TipMerge,
@@ -261,9 +264,9 @@ blocks_specs! {
     pub SPEC_SNOW: [PROP_SNOW_LAYERS];
     pub SPEC_SAPLING: [PROP_SAPLING_STAGE];
     pub SPEC_VINE: [PROP_UP, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
-    pub SPEC_CORAL_BLOCK: [PROP_CORAL_TYPE];
-    pub SPEC_CORAL: [PROP_WATERLOGGED, PROP_CORAL_TYPE];
-    pub SPEC_CORAL_WALL: [PROP_WATERLOGGED, PROP_FACING, PROP_CORAL_TYPE];
+    // pub SPEC_CORAL_BLOCK: [PROP_CORAL_TYPE];
+    // pub SPEC_CORAL: [PROP_WATERLOGGED, PROP_CORAL_TYPE];
+    // pub SPEC_CORAL_WALL: [PROP_WATERLOGGED, PROP_FACING, PROP_CORAL_TYPE];
     pub SPEC_SEA_PICKLE: [PROP_PICKLES, PROP_WATERLOGGED];
     pub SPEC_BAMBOO: [PROP_BAMBOO_AGE, PROP_BAMBOO_LEAVES, PROP_BAMBOO_STAGE];
     pub SPEC_BIG_DRIPLEAF: [PROP_WATERLOGGED, PROP_HORIZONTAL_FACING, PROP_DRIPLEAF_TILT];
@@ -280,8 +283,8 @@ blocks_specs! {
     pub SPEC_KELP: [PROP_AGE_26];
     pub SPEC_NETHER_VINE: [PROP_AGE_26];
     pub SPEC_SWEET_BERRY_BUSH: [PROP_AGE_4];
-    pub SPEC_CAVE_VINES: [PROP_BERRIES];
-    pub SPEC_CAVE_VINES_PLANT: [PROP_BERRIES, PROP_AGE_26];
+    pub SPEC_CAVE_VINES: [PROP_BERRIES, PROP_AGE_26];
+    pub SPEC_CAVE_VINES_PLANT: [PROP_BERRIES];
     pub SPEC_SMALL_DRIPLEAF: [PROP_DOUBLE_BLOCK_HALF, PROP_WATERLOGGED, PROP_HORIZONTAL_FACING];
 
     pub SPEC_LIQUID: [PROP_LIQUID_LEVEL];
@@ -292,7 +295,7 @@ blocks_specs! {
     pub SPEC_FURNACE_LIKE: [PROP_HORIZONTAL_FACING, PROP_LIT];
     pub SPEC_BARREL: [PROP_FACING, PROP_OPEN];
     pub SPEC_NOTE_BLOCK: [PROP_INSTRUMENT, PROP_NOTE, PROP_POWERED];
-    pub SPEC_BED: [PROP_COLOR, PROP_HORIZONTAL_FACING, PROP_BED_PART, PROP_OCCUPIED];
+    pub SPEC_BED: [/*PROP_COLOR,*/ PROP_HORIZONTAL_FACING, PROP_BED_PART, PROP_OCCUPIED];
     pub SPEC_BREWING_STAND: [PROP_HAS_BOTTLE_0, PROP_HAS_BOTTLE_1, PROP_HAS_BOTTLE_2];
     pub SPEC_BUTTON: [PROP_HORIZONTAL_FACING, PROP_POWERED, PROP_FACE];
     pub SPEC_CHEST: [PROP_HORIZONTAL_FACING, PROP_CHEST_TYPE, PROP_WATERLOGGED];
@@ -311,9 +314,9 @@ blocks_specs! {
     pub SPEC_COMMAND_BLOCK: [PROP_FACING, PROP_CONDITIONAL];
     pub SPEC_COMPARATOR: [PROP_HORIZONTAL_FACING, PROP_COMPARATOR_MODE, PROP_POWERED];
     pub SPEC_DAYLIGHT_DETECTOR: [PROP_INVERTED, PROP_REDSTONE_POWER];
-    pub SPEC_HOPPER: [PROP_HORIZONTAL_FACING, PROP_ENABLED];
+    pub SPEC_HOPPER: [PROP_HOPPER_FACING, PROP_ENABLED];
     pub SPEC_SHULKER_BOX: [PROP_FACING];
-    pub SPEC_COLORED_SHULKER_BOX: [PROP_FACING, PROP_COLOR];
+    // pub SPEC_COLORED_SHULKER_BOX: [PROP_FACING, PROP_COLOR];
     pub SPEC_TURTLE_EGG: [PROP_EGGS, PROP_HATCH];
     pub SPEC_GRINDSTONE: [PROP_FACE, PROP_HORIZONTAL_FACING];
     pub SPEC_LECTERN: [PROP_HORIZONTAL_FACING, PROP_HAS_BOOK, PROP_POWERED];
@@ -327,9 +330,9 @@ blocks_specs! {
     pub SPEC_RAIL_SPECIAL: [PROP_RAIL_SHAPE_SPECIAL, PROP_POWERED, PROP_WATERLOGGED];
     pub SPEC_RAIL: [PROP_RAIL_SHAPE, PROP_WATERLOGGED];
 
-    pub SPEC_PISTON: [PROP_STICKY, PROP_FACING, PROP_EXTENDED];
-    pub SPEC_PISTON_HEAD: [PROP_FACING, PROP_STICKY, PROP_SHORT];
-    pub SPEC_MOVING_PISTON: [PROP_FACING, PROP_STICKY];
+    pub SPEC_PISTON: [PROP_FACING, PROP_EXTENDED];
+    pub SPEC_PISTON_HEAD: [PROP_FACING, PROP_SHORT, PROP_PISTON_TYPE];
+    pub SPEC_MOVING_PISTON: [PROP_FACING, PROP_PISTON_TYPE];
 
     pub SPEC_TNT: [PROP_UNSTABLE];
     pub SPEC_WALL_TORCH: [PROP_HORIZONTAL_FACING];
@@ -342,33 +345,33 @@ blocks_specs! {
     pub SPEC_NETHER_PORTAL: [PROP_HORIZONTAL_AXIS];
     pub SPEC_CAKE: [PROP_CAKE_BITES];
     pub SPEC_BARS: [PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
-    pub SPEC_COLORED_BARS: [PROP_COLOR, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
+    // pub SPEC_COLORED_BARS: [PROP_COLOR, PROP_NORTH, PROP_EAST, PROP_WEST, PROP_SOUTH, PROP_WATERLOGGED];
     pub SPEC_WALL: [PROP_UP, PROP_WALL_EAST, PROP_WALL_NORTH, PROP_WALL_SOUTH, PROP_WALL_WEST, PROP_WATERLOGGED];
     pub SPEC_FENCE_GATE: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_POWERED, PROP_IN_WALL];
     pub SPEC_END_PORTAL: [PROP_END_PORTAL_EYE, PROP_HORIZONTAL_FACING];
     pub SPEC_SKULL: [PROP_ROTATION];
     pub SPEC_WALL_SKULL: [PROP_HORIZONTAL_FACING];
-    pub SPEC_BANNER: [PROP_ROTATION, PROP_COLOR];
-    pub SPEC_WALL_BANNER: [PROP_HORIZONTAL_FACING, PROP_COLOR];
+    pub SPEC_BANNER: [PROP_ROTATION/*, PROP_COLOR*/];
+    pub SPEC_WALL_BANNER: [PROP_HORIZONTAL_FACING/*, PROP_COLOR*/];
     pub SPEC_FROSTED_ICE: [PROP_AGE_4];
     pub SPEC_BUBBLE_COLUMN: [PROP_DRAG];
     pub SPEC_SCAFFOLDING: [PROP_BOTTOM, PROP_SCAFFOLDING_DISTANCE, PROP_WATERLOGGED];
     pub SPEC_LANTERN: [PROP_HANGING, PROP_WATERLOGGED];
     pub SPEC_CAMPFIRE: [PROP_HORIZONTAL_FACING, PROP_LIT, PROP_SIGNAL_FIRE, PROP_WATERLOGGED];
     pub SPEC_BEEHIVE: [PROP_HORIZONTAL_FACING, PROP_HONEY_LEVEL];
-    pub SPEC_GLAZED_TERRACOTA: [PROP_COLOR, PROP_HORIZONTAL_FACING];
+    // pub SPEC_GLAZED_TERRACOTA: [/*PROP_COLOR, */PROP_HORIZONTAL_FACING];
     pub SPEC_CANDLE: [PROP_CANDLES, PROP_LIT, PROP_WATERLOGGED];
-    pub SPEC_COLORED_CANDLE: [PROP_COLOR, PROP_CANDLES, PROP_LIT, PROP_WATERLOGGED];
+    // pub SPEC_COLORED_CANDLE: [PROP_COLOR, PROP_CANDLES, PROP_LIT, PROP_WATERLOGGED];
     pub SPEC_SCULK_SENSOR: [PROP_SCULK_SENSOR_PHASE, PROP_REDSTONE_POWER, PROP_WATERLOGGED];
     pub SPEC_LIGHTNING_ROD: [PROP_FACING, PROP_POWERED, PROP_WATERLOGGED];
     pub SPEC_POINTED_DRIPSTONE: [PROP_VERTICAL_DIRECTION, PROP_DRIPSTONE_THICKNESS, PROP_WATERLOGGED];
 
-    pub SPEC_COPPER_BLOCK: [PROP_OXYDATION_STATE];
-    pub SPEC_COPPER_STAIRS: [PROP_OXYDATION_STATE, PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
-    pub SPEC_COPPER_SLAB: [PROP_OXYDATION_STATE, PROP_SLAB_TYPE];
+    // pub SPEC_COPPER_BLOCK: [PROP_OXYDATION_STATE];
+    // pub SPEC_COPPER_STAIRS: [PROP_OXYDATION_STATE, PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
+    // pub SPEC_COPPER_SLAB: [PROP_OXYDATION_STATE, PROP_SLAB_TYPE];
 
     pub SPEC_WATERLOGGED: [PROP_WATERLOGGED];
-    pub SPEC_COLORED: [PROP_COLOR];
+    // pub SPEC_COLORED: [PROP_COLOR];
     pub SPEC_AXIS: [PROP_AXIS];
     pub SPEC_AXIS_WATERLOGGED: [PROP_WATERLOGGED, PROP_AXIS];
     pub SPEC_HORIZONTAL_FACING: [PROP_HORIZONTAL_FACING];
@@ -376,7 +379,7 @@ blocks_specs! {
     pub SPEC_FACING_WATERLOGGED: [PROP_WATERLOGGED, PROP_FACING];
     pub SPEC_HORIZONTAL_FACING_WATERLOGGED: [PROP_WATERLOGGED, PROP_HORIZONTAL_FACING];
     pub SPEC_LIT: [PROP_LIT];
-    pub SPEC_COLORED_LIT: [PROP_LIT, PROP_COLOR];
+    // pub SPEC_COLORED_LIT: [PROP_LIT, PROP_COLOR];
     pub SPEC_REDSTONE_POWER: [PROP_REDSTONE_POWER];
     pub SPEC_MULTIFACE: [PROP_UP, PROP_DOWN, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
 
@@ -480,19 +483,58 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     CHISELED_SANDSTONE "chiseled_sandstone",
     CUT_SANDSTONE "cut_sandstone",
     NOTE_BLOCK "note_block" SPEC_NOTE_BLOCK,
-    BED "bed" SPEC_BED,
+
+    // BED "bed" SPEC_BED,
+    WHITE_BED "white_bed" SPEC_BED,
+    ORANGE_BED "orange_bed" SPEC_BED,
+    MAGENTA_BED "magenta_bed" SPEC_BED,
+    LIGHT_BLUE_BED "light_blue_bed" SPEC_BED,
+    YELLOW_BED "yellow_bed" SPEC_BED,
+    LIME_BED "lime_bed" SPEC_BED,
+    PINK_BED "pink_bed" SPEC_BED,
+    GRAY_BED "gray_bed" SPEC_BED,
+    LIGHT_GRAY_BED "light_gray_bed" SPEC_BED,
+    CYAN_BED "cyan_bed" SPEC_BED,
+    PURPLE_BED "purple_bed" SPEC_BED,
+    BLUE_BED "blue_bed" SPEC_BED,
+    BROWN_BED "brown_bed" SPEC_BED,
+    GREEN_BED "green_bed" SPEC_BED,
+    RED_BED "red_bed" SPEC_BED,
+    BLACK_BED "black_bed" SPEC_BED,
+
     POWERED_RAIL "powered_rail" SPEC_RAIL_SPECIAL,
     DETECTOR_RAIL "detector_rail" SPEC_RAIL_SPECIAL,
-    PISTON "piston" SPEC_PISTON, // Merged the two piston type into one using a property "sticky".
-    PISTON_HEAD "piston_head" SPEC_PISTON_HEAD, // 'sticky' property instead of 'type'
-    MOVING_PISTON "moving_piston" SPEC_MOVING_PISTON, // 'sticky' property instead of 'type'
+
+    PISTON "piston" SPEC_PISTON,
+    STICKY_PISTON "sticky_piston" SPEC_PISTON,
+    PISTON_HEAD "piston_head" SPEC_PISTON_HEAD,
+    MOVING_PISTON "moving_piston" SPEC_MOVING_PISTON,
+
     COBWEB "cobweb",
     GRASS "grass",
     FERN "fern",
     DEAD_BUSH "dead_bush",
     SEAGRASS "seagrass",
     TALL_SEAGRASS "tall_seagrass" SPEC_DOUBLE_PLANT,
-    WOOL "wool" SPEC_COLORED,
+
+    // WOOL "wool" SPEC_COLORED,
+    WHITE_WOOL "white_wool",
+    ORANGE_WOOL "orange_wool",
+    MAGENTA_WOOL "magenta_wool",
+    LIGHT_BLUE_WOOL "light_blue_wool",
+    YELLOW_WOOL "yellow_wool",
+    LIME_WOOL "lime_wool",
+    PINK_WOOL "pink_wool",
+    GRAY_WOOL "gray_wool",
+    LIGHT_GRAY_WOOL "light_gray_wool",
+    CYAN_WOOL "cyan_wool",
+    PURPLE_WOOL "purple_wool",
+    BLUE_WOOL "blue_wool",
+    BROWN_WOOL "brown_wool",
+    GREEN_WOOL "green_wool",
+    RED_WOOL "red_wool",
+    BLACK_WOOL "black_wool",
+
     DANDELION "dandelion",
     POPPY "poppy",
     BLUE_ORCHID "blue_orchid",
@@ -518,7 +560,7 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     TORCH "torch",
     WALL_TORCH "wall_torch" SPEC_WALL_TORCH,
     FIRE "fire" SPEC_FIRE,
-    SOUL_FIRE "fire" SPEC_FIRE,
+    SOUL_FIRE "soul_fire" SPEC_FIRE,
     SPAWNER "spawner",
 
     OAK_STAIRS "oak_stairs" SPEC_STAIRS,
@@ -593,7 +635,24 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     JACK_O_LANTERN "jack_o_lantern" SPEC_HORIZONTAL_FACING,
     CAKE "cake" SPEC_CAKE,
     REPEATER "repeater" SPEC_REPEATER,
-    STAINED_GLASS "stained_glass" SPEC_COLORED,
+
+    // STAINED_GLASS "stained_glass" SPEC_COLORED,
+    WHITE_STAINED_GLASS "white_stained_glass",
+    ORANGE_STAINED_GLASS "orange_stained_glass",
+    MAGENTA_STAINED_GLASS "magenta_stained_glass",
+    LIGHT_BLUE_STAINED_GLASS "light_blue_stained_glass",
+    YELLOW_STAINED_GLASS "yellow_stained_glass",
+    LIME_STAINED_GLASS "lime_stained_glass",
+    PINK_STAINED_GLASS "pink_stained_glass",
+    GRAY_STAINED_GLASS "gray_stained_glass",
+    LIGHT_GRAY_STAINED_GLASS "light_gray_stained_glass",
+    CYAN_STAINED_GLASS "cyan_stained_glass",
+    PURPLE_STAINED_GLASS "purple_stained_glass",
+    BLUE_STAINED_GLASS "blue_stained_glass",
+    BROWN_STAINED_GLASS "brown_stained_glass",
+    GREEN_STAINED_GLASS "green_stained_glass",
+    RED_STAINED_GLASS "red_stained_glass",
+    BLACK_STAINED_GLASS "black_stained_glass",
 
     OAK_TRAPDOOR "oak_trapdoor" SPEC_TRAPDOOR,
     SPRUCE_TRAPDOOR "spruce_trapdoor" SPEC_TRAPDOOR,
@@ -731,8 +790,43 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     ACTIVATOR_RAIL "activator_rail" SPEC_RAIL_SPECIAL,
     DROPPER "dropper" SPEC_DROPPER,
     TERRACOTTA "terracotta",
-    COLORED_TERRACOTTA "colored_terracotta" SPEC_COLORED, // Merged
-    STAINED_GLASS_PANE "stained_glass_pane" SPEC_COLORED_BARS, // Merged
+
+    // COLORED_TERRACOTTA "colored_terracotta" SPEC_COLORED, // Merged
+    WHITE_TERRACOTTA "white_terracotta",
+    ORANGE_TERRACOTTA "orange_terracotta",
+    MAGENTA_TERRACOTTA "magenta_terracotta",
+    LIGTH_BLUE_TERRACOTTA "light_blue_terracotta",
+    YELLOW_TERRACOTTA "yellow_terracotta",
+    LIME_TERRACOTTA "lime_terracotta",
+    PINK_TERRACOTTA "pink_terracotta",
+    GRAY_TERRACOTTA "gray_terracotta",
+    LIGHT_GRAY_TERRACOTTA "light_gray_terracotta",
+    CYAN_TERRACOTTA "cyan_terracotta",
+    PURPLE_TERRACOTTA "purple_terracotta",
+    BLUE_TERRACOTTA "blue_terracotta",
+    BROWN_TERRACOTTA "brown_terracotta",
+    GREEN_TERRACOTTA "green_terracotta",
+    RED_TERRACOTTA "red_terracotta",
+    BLACK_TERRACOTTA "black_terracotta",
+
+    // STAINED_GLASS_PANE "stained_glass_pane" SPEC_COLORED_BARS, // Merged
+    WHITE_STAINED_GLASS_PANE "white_stained_glass_pane" SPEC_BARS,
+    ORANGE_STAINED_GLASS_PANE "orange_stained_glass_pane" SPEC_BARS,
+    MAGENTA_STAINED_GLASS_PANE "magenta_stained_glass_pane" SPEC_BARS,
+    LIGHT_BLUE_STAINED_GLASS_PANE "light_blue_stained_glass_pane" SPEC_BARS,
+    YELLOW_STAINED_GLASS_PANE "yellow_stained_glass_pane" SPEC_BARS,
+    LIME_STAINED_GLASS_PANE "lime_stained_glass_pane" SPEC_BARS,
+    PINK_STAINED_GLASS_PANE "pink_stained_glass_pane" SPEC_BARS,
+    GRAY_STAINED_GLASS_PANE "gray_stained_glass_pane" SPEC_BARS,
+    LIGHT_GRAY_STAINED_GLASS_PANE "light_gray_stained_glass_pane" SPEC_BARS,
+    CYAN_STAINED_GLASS_PANE "cyan_stained_glass_pane" SPEC_BARS,
+    PURPLE_STAINED_GLASS_PANE "purple_stained_glass_pane" SPEC_BARS,
+    BLUE_STAINED_GLASS_PANE "blue_stained_glass_pane" SPEC_BARS,
+    BROWN_STAINED_GLASS_PANE "brown_stained_glass_pane" SPEC_BARS,
+    GREEN_STAINED_GLASS_PANE "green_stained_glass_pane" SPEC_BARS,
+    RED_STAINED_GLASS_PANE "red_stained_glass_pane" SPEC_BARS,
+    BLACK_STAINED_GLASS_PANE "black_stained_glass_pane" SPEC_BARS,
+
     SLIME_BLOCK "slime_block",
     BARRIER "barrier",
     LIGHT "light" SPEC_LIGHT,
@@ -748,7 +842,25 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     DARK_PRISMARINE_SLAB "dark_prismarine_slab" SPEC_SLAB,
     SEA_LANTERN "sea_lantern",
     HAY_BLOCK "hay_block" SPEC_AXIS,
-    CARPET "carpet" SPEC_COLORED, // Merged
+
+    // CARPET "carpet" SPEC_COLORED, // Merged
+    WHITE_CARPET "white_carpet",
+    ORANGE_CARPET "orange_carpet",
+    MAGENTA_CARPET "magenta_carpet",
+    LIGHT_BLUE_CARPET "light_blue_carpet",
+    YELLOW_CARPET "yellow_carpet",
+    LIME_CARPET "lime_carpet",
+    PINK_CARPET "pink_carpet",
+    GRAY_CARPET "gray_carpet",
+    LIGHT_GRAY_CARPET "light_gray_carpet",
+    CYAN_CARPET "cyan_carpet",
+    PURPLE_CARPET "purple_carpet",
+    BLUE_CARPET "blue_carpet",
+    BROWN_CARPET "brown_carpet",
+    GREEN_CARPET "green_carpet",
+    RED_CARPET "red_carpet",
+    BLACK_CARPET "black_carpet",
+
     COAL_BLOCK "coal_block",
     PACKED_ICE "packed_ice",
     SUNFLOWER "sunflower" SPEC_DOUBLE_PLANT,
@@ -757,8 +869,43 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     PEONY "peony" SPEC_DOUBLE_PLANT,
     TALL_GRASS "tall_grass" SPEC_DOUBLE_PLANT,
     LARGE_FERN "large_fern" SPEC_DOUBLE_PLANT,
-    BANNER "banner" SPEC_BANNER, // Merged
-    WALL_BANNER "wall_banner" SPEC_WALL_BANNER, // Merged
+
+    // BANNER "banner" SPEC_BANNER, // Merged
+    WHITE_BANNER "white_banner" SPEC_BANNER,
+    ORANGE_BANNER "orange_banner" SPEC_BANNER,
+    MAGENTA_BANNER "magenta_banner" SPEC_BANNER,
+    LIGHT_BLUE_BANNER "light_blue_banner" SPEC_BANNER,
+    YELLOW_BANNER "yellow_banner" SPEC_BANNER,
+    LIME_BANNER "lime_banner" SPEC_BANNER,
+    PINK_BANNER "pink_banner" SPEC_BANNER,
+    GRAY_BANNER "gray_banner" SPEC_BANNER,
+    LIGHT_GRAY_BANNER "light_gray_banner" SPEC_BANNER,
+    CYAN_BANNER "cyan_banner" SPEC_BANNER,
+    PURPLE_BANNER "purple_banner" SPEC_BANNER,
+    BLUE_BANNER "blue_banner" SPEC_BANNER,
+    BROWN_BANNER "brown_banner" SPEC_BANNER,
+    GREEN_BANNER "green_banner" SPEC_BANNER,
+    RED_BANNER "red_banner" SPEC_BANNER,
+    BLACK_BANNER "black_banner" SPEC_BANNER,
+
+    // WALL_BANNER "wall_banner" SPEC_WALL_BANNER, // Merged
+    WHITE_WALL_BANNER "white_wall_banner" SPEC_WALL_BANNER,
+    ORANGE_WALL_BANNER "orange_wall_banner" SPEC_WALL_BANNER,
+    MAGENTA_WALL_BANNER "magenta_wall_banner" SPEC_WALL_BANNER,
+    LIGHT_BLUE_WALL_BANNER "light_blue_wall_banner" SPEC_WALL_BANNER,
+    YELLOW_WALL_BANNER "yellow_wall_banner" SPEC_WALL_BANNER,
+    LIME_WALL_BANNER "lime_wall_banner" SPEC_WALL_BANNER,
+    PINK_WALL_BANNER "pink_wall_banner" SPEC_WALL_BANNER,
+    GRAY_WALL_BANNER "gray_wall_banner" SPEC_WALL_BANNER,
+    LIGHT_GRAY_WALL_BANNER "light_gray_wall_banner" SPEC_WALL_BANNER,
+    CYAN_WALL_BANNER "cyan_wall_banner" SPEC_WALL_BANNER,
+    PURPLE_WALL_BANNER "purple_wall_banner" SPEC_WALL_BANNER,
+    BLUE_WALL_BANNER "blue_wall_banner" SPEC_WALL_BANNER,
+    BROWN_WALL_BANNER "brown_wall_banner" SPEC_WALL_BANNER,
+    GREEN_WALL_BANNER "green_wall_banner" SPEC_WALL_BANNER,
+    RED_WALL_BANNER "red_wall_banner" SPEC_WALL_BANNER,
+    BLACK_WALL_BANNER "black_wall_banner" SPEC_WALL_BANNER,
+
     RED_SANDSTONE "red_sandstone",
     CHISELED_RED_SANDSTONE "chiseled_red_sandstone",
     CUT_RED_SANDSTONE "cut_red_sandstone",
@@ -791,10 +938,10 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
 
     OAK_FENCE_GATE "oak_fence_gate" SPEC_FENCE_GATE,
     SPRUCE_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
-    BIRCH_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
-    JUNGLE_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
-    ACACIA_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
-    DARK_OAK_FENCE_GATE "spruce_fence_gate" SPEC_FENCE_GATE,
+    BIRCH_FENCE_GATE "birch_fence_gate" SPEC_FENCE_GATE,
+    JUNGLE_FENCE_GATE "jungle_fence_gate" SPEC_FENCE_GATE,
+    ACACIA_FENCE_GATE "acacia_fence_gate" SPEC_FENCE_GATE,
+    DARK_OAK_FENCE_GATE "dark_oak_fence_gate" SPEC_FENCE_GATE,
 
     OAK_FENCE "oak_fence" SPEC_BARS,
     SPRUCE_FENCE "spruce_fence" SPEC_BARS,
@@ -827,23 +974,141 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     BONE_BLOCK "bone_block" SPEC_AXIS,
     STRUCTURE_VOID "structure_void",
     OBSERVER "observer" SPEC_OBSERVER,
+
     SHULKER_BOX "shulker_box" SPEC_SHULKER_BOX,
-    COLORED_SHULKER_BOX "colored_shulker_box" SPEC_COLORED_SHULKER_BOX, // Merged
-    GLAZED_TERRACOTTA "glazed_terracotta" SPEC_GLAZED_TERRACOTA,
-    CONCRETE "concrete" SPEC_COLORED,
-    CONCRETE_POWDER "concrete_powder" SPEC_COLORED,
+    // COLORED_SHULKER_BOX "colored_shulker_box" SPEC_COLORED_SHULKER_BOX, // Merged
+    WHITE_SHULKER_BOX "white_shulker_box" SPEC_SHULKER_BOX,
+    ORANGE_SHULKER_BOX "orange_shulker_box" SPEC_SHULKER_BOX,
+    MAGENTA_SHULKER_BOX "magenta_shulker_box" SPEC_SHULKER_BOX,
+    LIGHT_BLUE_SHULKER_BOX "light_blue_shulker_box" SPEC_SHULKER_BOX,
+    YELLOW_SHULKER_BOX "yellow_shulker_box" SPEC_SHULKER_BOX,
+    LIME_SHULKER_BOX "lime_shulker_box" SPEC_SHULKER_BOX,
+    PINK_SHULKER_BOX "pink_shulker_box" SPEC_SHULKER_BOX,
+    GRAY_SHULKER_BOX "gray_shulker_box" SPEC_SHULKER_BOX,
+    LIGHT_GRAY_SHULKER_BOX "light_gray_shulker_box" SPEC_SHULKER_BOX,
+    CYAN_SHULKER_BOX "cyan_shulker_box" SPEC_SHULKER_BOX,
+    PURPLE_SHULKER_BOX "purple_shulker_box" SPEC_SHULKER_BOX,
+    BLUE_SHULKER_BOX "blue_shulker_box" SPEC_SHULKER_BOX,
+    BROWN_SHULKER_BOX "brown_shulker_box" SPEC_SHULKER_BOX,
+    GREEN_SHULKER_BOX "green_shulker_box" SPEC_SHULKER_BOX,
+    RED_SHULKER_BOX "red_shulker_box" SPEC_SHULKER_BOX,
+    BLACK_SHULKER_BOX "black_shulker_box" SPEC_SHULKER_BOX,
+
+    // GLAZED_TERRACOTTA "glazed_terracotta" SPEC_GLAZED_TERRACOTA,
+    WHITE_GLAZED_TERRACOTTA "white_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    ORANGE_GLAZED_TERRACOTTA "orange_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    MAGENTA_GLAZED_TERRACOTTA "magenta_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    LIGHT_BLUE_GLAZED_TERRACOTTA "light_blue_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    YELLOW_GLAZED_TERRACOTTA "yellow_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    LIME_GLAZED_TERRACOTTA "lime_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    PINK_GLAZED_TERRACOTTA "pink_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    GRAY_GLAZED_TERRACOTTA "gray_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    LIGHT_GRAY_GLAZED_TERRACOTTA "light_gray_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    CYAN_GLAZED_TERRACOTTA "cyan_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    PURPLE_GLAZED_TERRACOTTA "purple_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    BLUE_GLAZED_TERRACOTTA "blue_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    BROWN_GLAZED_TERRACOTTA "brown_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    GREEN_GLAZED_TERRACOTTA "green_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    RED_GLAZED_TERRACOTTA "red_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+    BLACK_GLAZED_TERRACOTTA "black_glazed_terracotta" SPEC_HORIZONTAL_FACING,
+
+    // CONCRETE "concrete" SPEC_COLORED,
+    WHITE_CONCRETE "white_concrete",
+    ORANGE_CONCRETE "orange_concrete",
+    MAGENTA_CONCRETE "magenta_concrete",
+    LIGHT_BLUE_CONCRETE "light_blue_concrete",
+    YELLOW_CONCRETE "yellow_concrete",
+    LIME_CONCRETE "lime_concrete",
+    PINK_CONCRETE "pink_concrete",
+    GRAY_CONCRETE "gray_concrete",
+    LIGHT_GRAY_CONCRETE "light_gray_concrete",
+    CYAN_CONCRETE "cyan_concrete",
+    PURPLE_CONCRETE "purple_concrete",
+    BLUE_CONCRETE "blue_concrete",
+    BROWN_CONCRETE "brown_concrete",
+    GREEN_CONCRETE "green_concrete",
+    RED_CONCRETE "red_concrete",
+    BLACK_CONCRETE "black_concrete",
+
+    // CONCRETE_POWDER "concrete_powder" SPEC_COLORED,
+    WHITE_CONCRETE_POWDER "white_concrete_powder",
+    ORANGE_CONCRETE_POWDER "orange_concrete_powder",
+    MAGENTA_CONCRETE_POWDER "magenta_concrete_powder",
+    LIGHT_BLUE_CONCRETE_POWDER "light_blue_concrete_powder",
+    YELLOW_CONCRETE_POWDER "yellow_concrete_powder",
+    LIME_CONCRETE_POWDER "lime_concrete_powder",
+    PINK_CONCRETE_POWDER "pink_concrete_powder",
+    GRAY_CONCRETE_POWDER "gray_concrete_powder",
+    LIGHT_GRAY_CONCRETE_POWDER "light_gray_concrete_powder",
+    CYAN_CONCRETE_POWDER "cyan_concrete_powder",
+    PURPLE_CONCRETE_POWDER "purple_concrete_powder",
+    BLUE_CONCRETE_POWDER "blue_concrete_powder",
+    BROWN_CONCRETE_POWDER "brown_concrete_powder",
+    GREEN_CONCRETE_POWDER "green_concrete_powder",
+    RED_CONCRETE_POWDER "red_concrete_powder",
+    BLACK_CONCRETE_POWDER "black_concrete_powder",
+
     KELP "kelp" SPEC_KELP,
     KELP_PLANT "kelp_plant",
     DRIED_KELP_BLOCK "dried_kelp_block",
     TURTLE_EGG "turtle_egg" SPEC_TURTLE_EGG,
-    CORAL_BLOCK "coral_block" SPEC_CORAL_BLOCK, // Merged
-    DEAD_CORAL_BLOCK "dead_coral_block" SPEC_CORAL_BLOCK, // Merged
-    CORAL "coral" SPEC_CORAL, // Merged
-    DEAD_CORAL "dead_coral" SPEC_CORAL, // Merged
-    CORAL_FAN "coral_fan" SPEC_CORAL, // Merged
-    DEAD_CORAL_FAN "dead_coral_fan" SPEC_CORAL, // Merged
-    CORAL_WALL_FAN "coral_wall_fan" SPEC_CORAL_WALL, // Merged
-    DEAD_CORAL_WALL_FAN "dead_coral_wall_fan" SPEC_CORAL_WALL, // Merged
+
+    // CORAL_BLOCK "coral_block" SPEC_CORAL_BLOCK, // Merged
+    TUBE_CORAL_BLOCK "tube_coral_block",
+    BRAIN_CORAL_BLOCK "brain_coral_block",
+    BUBBLE_CORAL_BLOCK "bubble_coral_block",
+    FIRE_CORAL_BLOCK "fire_coral_block",
+    HORN_CORAL_BLOCK "horn_coral_block",
+
+    // DEAD_CORAL_BLOCK "dead_coral_block" SPEC_CORAL_BLOCK, // Merged
+    DEAD_TUBE_CORAL_BLOCK "dead_tube_coral_block",
+    DEAD_BRAIN_CORAL_BLOCK "dead_brain_coral_block",
+    DEAD_BUBBLE_CORAL_BLOCK "dead_bubble_coral_block",
+    DEAD_FIRE_CORAL_BLOCK "dead_fire_coral_block",
+    DEAD_HORN_CORAL_BLOCK "dead_horn_coral_block",
+
+    // CORAL "coral" SPEC_CORAL, // Merged
+    TUBE_CORAL "tube_coral" SPEC_WATERLOGGED,
+    BRAIN_CORAL "brain_coral" SPEC_WATERLOGGED,
+    BUBBLE_CORAL "bubble_coral" SPEC_WATERLOGGED,
+    FIRE_CORAL "fire_coral" SPEC_WATERLOGGED,
+    HORN_CORAL "horn_coral" SPEC_WATERLOGGED,
+
+    // DEAD_CORAL "dead_coral" SPEC_CORAL, // Merged
+    DEAD_TUBE_CORAL "dead_tube_coral" SPEC_WATERLOGGED,
+    DEAD_BRAIN_CORAL "dead_brain_coral" SPEC_WATERLOGGED,
+    DEAD_BUBBLE_CORAL "dead_bubble_coral" SPEC_WATERLOGGED,
+    DEAD_FIRE_CORAL "dead_fire_coral" SPEC_WATERLOGGED,
+    DEAD_HORN_CORAL "dead_horn_coral" SPEC_WATERLOGGED,
+
+    // CORAL_FAN "coral_fan" SPEC_CORAL, // Merged
+    TUBE_CORAL_FAN "tube_coral_fan" SPEC_WATERLOGGED,
+    BRAIN_CORAL_FAN "brain_coral_fan" SPEC_WATERLOGGED,
+    BUBBLE_CORAL_FAN "bubble_coral_fan" SPEC_WATERLOGGED,
+    FIRE_CORAL_FAN "fire_coral_fan" SPEC_WATERLOGGED,
+    HORN_CORAL_FAN "horn_coral_fan" SPEC_WATERLOGGED,
+
+    // DEAD_CORAL_FAN "dead_coral_fan" SPEC_CORAL, // Merged
+    DEAD_TUBE_CORAL_FAN "dead_tube_coral_fan" SPEC_WATERLOGGED,
+    DEAD_BRAIN_CORAL_FAN "dead_brain_coral_fan" SPEC_WATERLOGGED,
+    DEAD_BUBBLE_CORAL_FAN "dead_bubble_coral_fan" SPEC_WATERLOGGED,
+    DEAD_FIRE_CORAL_FAN "dead_fire_coral_fan" SPEC_WATERLOGGED,
+    DEAD_HORN_CORAL_FAN "dead_horn_coral_fan" SPEC_WATERLOGGED,
+
+    // CORAL_WALL_FAN "coral_wall_fan" SPEC_CORAL_WALL, // Merged
+    TUBE_CORAL_WALL_FAN "tube_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+    BRAIN_CORAL_WALL_FAN "brain_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+    BUBBLE_CORAL_WALL_FAN "bubble_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+    FIRE_CORAL_WALL_FAN "fire_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+    HORN_CORAL_WALL_FAN "horn_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+
+    // DEAD_CORAL_WALL_FAN "dead_coral_wall_fan" SPEC_CORAL_WALL, // Merged
+    DEAD_TUBE_CORAL_WALL_FAN "dead_tube_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+    DEAD_BRAIN_CORAL_WALL_FAN "dead_brain_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+    DEAD_BUBBLE_CORAL_WALL_FAN "dead_bubble_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+    DEAD_FIRE_CORAL_WALL_FAN "dead_fire_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+    DEAD_HORN_CORAL_WALL_FAN "dead_horn_coral_wall_fan" SPEC_FACING_WATERLOGGED,
+
     SEA_PICKLE "sea_pickle" SPEC_SEA_PICKLE,
     BLUE_ICE "blue_ice",
     CONDUIT "conduit" SPEC_WATERLOGGED,
@@ -852,7 +1117,8 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     BAMBOO "bamboo" SPEC_BAMBOO,
     POTTED_BAMBOO "potted_bamboo",
 
-    // TODO: VOID_AIR, CAVE_AIR (skip them?)
+    VOID_AIR "void_air",
+    CAVE_AIR "cave_air",
 
     BUBBLE_COLUMN "bubble_column" SPEC_BUBBLE_COLUMN,
     POLISHED_GRANITE_STAIRS "polished_granite_stairs" SPEC_STAIRS,
@@ -1000,9 +1266,42 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     QUARTZ_BRICKS "quartz_bricks",
 
     CANDLE "candle" SPEC_CANDLE,
-    COLORED_CANDLE "candle" SPEC_COLORED_CANDLE,  // Merged
+    // COLORED_CANDLE "candle" SPEC_COLORED_CANDLE,  // Merged
+    WHITE_CANDLE "white_candle" SPEC_CANDLE,
+    ORANGE_CANDLE "orange_candle" SPEC_CANDLE,
+    MAGENTA_CANDLE "magenta_candle" SPEC_CANDLE,
+    LIGHT_BLUE_CANDLE "light_blue_candle" SPEC_CANDLE,
+    YELLOW_CANDLE "yellow_candle" SPEC_CANDLE,
+    LIME_CANDLE "lime_candle" SPEC_CANDLE,
+    PINK_CANDLE "pink_candle" SPEC_CANDLE,
+    GRAY_CANDLE "gray_candle" SPEC_CANDLE,
+    LIGHT_GRAY_CANDLE "light_gray_candle" SPEC_CANDLE,
+    CYAN_CANDLE "cyan_candle" SPEC_CANDLE,
+    PURPLE_CANDLE "purple_candle" SPEC_CANDLE,
+    BLUE_CANDLE "blue_candle" SPEC_CANDLE,
+    BROWN_CANDLE "brown_candle" SPEC_CANDLE,
+    GREEN_CANDLE "green_candle" SPEC_CANDLE,
+    RED_CANDLE "red_candle" SPEC_CANDLE,
+    BLACK_CANDLE "black_candle" SPEC_CANDLE,
+
     CANDLE_CAKE "candle_cake" SPEC_LIT,
-    COLORED_CANDLE_CAKE "candle_cake" SPEC_COLORED_LIT,  // Merged
+    // COLORED_CANDLE_CAKE "candle_cake" SPEC_COLORED_LIT,  // Merged
+    WHITE_CANDLE_CAKE "white_candle_cake" SPEC_LIT,
+    ORANGE_CANDLE_CAKE "orange_candle_cake" SPEC_LIT,
+    MAGENTA_CANDLE_CAKE "magenta_candle_cake" SPEC_LIT,
+    LIGHT_BLUE_CANDLE_CAKE "light_blue_candle_cake" SPEC_LIT,
+    YELLOW_CANDLE_CAKE "yellow_candle_cake" SPEC_LIT,
+    LIME_CANDLE_CAKE "lime_candle_cake" SPEC_LIT,
+    PINK_CANDLE_CAKE "pink_candle_cake" SPEC_LIT,
+    GRAY_CANDLE_CAKE "gray_candle_cake" SPEC_LIT,
+    LIGHT_GRAY_CANDLE_CAKE "light_gray_candle_cake" SPEC_LIT,
+    CYAN_CANDLE_CAKE "cyan_candle_cake" SPEC_LIT,
+    PURPLE_CANDLE_CAKE "purple_candle_cake" SPEC_LIT,
+    BLUE_CANDLE_CAKE "blue_candle_cake" SPEC_LIT,
+    BROWN_CANDLE_CAKE "brown_candle_cake" SPEC_LIT,
+    GREEN_CANDLE_CAKE "green_candle_cake" SPEC_LIT,
+    RED_CANDLE_CAKE "red_candle_cake" SPEC_LIT,
+    BLACK_CANDLE_CAKE "black_candle_cake" SPEC_LIT,
 
     AMETHYST_BLOCK "amethyst_block",
     BUDDING_AMETHYST "budding_amethyst",
@@ -1017,16 +1316,48 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     POWDER_SNOW "powder_snow",
     SCULK_SENSOR "sculk_sensor" SPEC_SCULK_SENSOR,
 
-    COPPER_BLOCK "copper_block" SPEC_COPPER_BLOCK,  // Merged
     COPPER_ORE "copper_ore",
     DEEPSLATE_COPPER_ORE "deepslate_copper_ore",
-    CUT_COPPER "cut_copper" SPEC_COPPER_BLOCK,  // Merged
-    CUT_COPPER_STAIRS "cut_copper_stairs" SPEC_COPPER_STAIRS,  // Merged
-    CUT_COPPER_SLAB "cut_copper_slab" SPEC_COPPER_SLAB,  // Merged
-    WAXED_COPPER_BLOCK "copper_block" SPEC_COPPER_BLOCK,  // Merged
-    WAXED_CUT_COPPER "cut_copper" SPEC_COPPER_BLOCK,  // Merged
-    WAXED_CUT_COPPER_STAIRS "cut_copper_stairs" SPEC_COPPER_STAIRS,  // Merged
-    WAXED_CUT_COPPER_SLAB "cut_copper_slab" SPEC_COPPER_SLAB,  // Merged
+
+    COPPER_BLOCK "copper_block", // SPEC_COPPER_BLOCK,  // Merged
+    EXPOSED_COPPER_BLOCK "exposed_copper",
+    WEATHERED_COPPER_BLOCK "weathered_copper",
+    OXIDIZED_COPPER_BLOCK "oxidized_copper",
+
+    CUT_COPPER "cut_copper", // SPEC_COPPER_BLOCK,  // Merged
+    EXPOSED_CUT_COPPER "exposed_cut_copper",
+    WEATHERED_CUT_COPPER "weathered_cut_copper",
+    OXIDIZED_CUT_COPPER "oxidized_cut_copper",
+
+    CUT_COPPER_STAIRS "cut_copper_stairs" SPEC_STAIRS, // SPEC_COPPER_STAIRS,  // Merged
+    EXPOSED_CUT_COPPER_STAIRS "exposed_cut_copper_stairs" SPEC_STAIRS,
+    WEATHERED_CUT_COPPER_STAIRS "weathered_cut_copper_stairs" SPEC_STAIRS,
+    OXIDIZED_CUT_COPPER_STAIRS "oxidized_cut_copper_stairs" SPEC_STAIRS,
+
+    CUT_COPPER_SLAB "cut_copper_slab" SPEC_SLAB, // SPEC_COPPER_SLAB,  // Merged
+    EXPOSED_CUT_COPPER_SLAB "exposed_cut_copper_slab" SPEC_SLAB,
+    WEATHERED_CUT_COPPER_SLAB "weathered_cut_copper_slab" SPEC_SLAB,
+    OXIDIZED_CUT_COPPER_SLAB "oxidized_cut_copper_slab" SPEC_SLAB,
+
+    WAXED_COPPER_BLOCK "waxed_copper_block", // SPEC_COPPER_BLOCK,  // Merged
+    WAXED_EXPOSED_COPPER_BLOCK "waxed_exposed_copper",
+    WAXED_WEATHERED_COPPER_BLOCK "waxed_weathered_copper",
+    WAXED_OXIDIZED_COPPER_BLOCK "waxed_oxidized_copper",
+
+    WAXED_CUT_COPPER "waxed_cut_copper", // SPEC_COPPER_BLOCK,  // Merged
+    WAXED_EXPOSED_CUT_COPPER "waxed_exposed_cut_copper",
+    WAXED_WEATHERED_CUT_COPPER "waxed_weathered_cut_copper",
+    WAXED_OXIDIZED_CUT_COPPER "waxed_oxidized_cut_copper",
+
+    WAXED_CUT_COPPER_STAIRS "waxed_cut_copper_stairs" SPEC_STAIRS, // SPEC_COPPER_STAIRS,  // Merged
+    WAXED_EXPOSED_CUT_COPPER_STAIRS "waxed_exposed_cut_copper_stairs" SPEC_STAIRS,
+    WAXED_WEATHERED_CUT_COPPER_STAIRS "waxed_weathered_cut_copper_stairs" SPEC_STAIRS,
+    WAXED_OXIDIZED_CUT_COPPER_STAIRS "waxed_oxidized_cut_copper_stairs" SPEC_STAIRS,
+
+    WAXED_CUT_COPPER_SLAB "waxed_cut_copper_slab" SPEC_SLAB, // SPEC_COPPER_SLAB,  // Merged
+    WAXED_EXPOSED_CUT_COPPER_SLAB "waxed_exposed_cut_copper_slab" SPEC_SLAB,
+    WAXED_WEATHERED_CUT_COPPER_SLAB "waxed_weathered_cut_copper_slab" SPEC_SLAB,
+    WAXED_OXIDIZED_CUT_COPPER_SLAB "waxed_oxidized_cut_copper_slab" SPEC_SLAB,
 
     LIGHTNING_ROD "lightning_rod" SPEC_LIGHTNING_ROD,
 
@@ -1182,6 +1513,11 @@ def_enum_serializable!(SlabType {
     Double: "double"
 });
 
+def_enum_serializable!(PistonType {
+    Normal: "normal",
+    Sticky: "sticky"
+});
+
 /*def_enum_serializable!(CommandBlockType {
     Impulse: "impulse",
     Repeating: "repeating",
@@ -1224,12 +1560,12 @@ def_enum_serializable!(SculkSensorPhase {
     Cooldown: "cooldown"
 });
 
-def_enum_serializable!(OxydationState {
+/*def_enum_serializable!(OxydationState {
     Unaffected: "unaffected",
     Exposed: "exposed",
     Weathered: "weathered",
     Oxidized: "oxidized"
-});
+});*/
 
 def_enum_serializable!(DripstoneThickness {
     TipMerge: "tip_merge",
