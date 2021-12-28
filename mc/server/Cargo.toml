@@ -9,6 +9,7 @@ description = "MinecraftRS - Implementation of the Minecraft server protocol, fo
 keywords = ["minecraft", "mc", "server"]
 categories = ["games", "mathematics"]
 license = "Apache-2.0"
+publish = false
 
 [dependencies]
 mc-core = { path = "../core" }

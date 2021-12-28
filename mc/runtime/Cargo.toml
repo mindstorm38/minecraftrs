@@ -9,6 +9,7 @@ description = "MinecraftRS - Backend Minecraft runtime implementation, made to a
 keywords = ["minecraft", "mc", "runtime"]
 categories = ["games", "mathematics"]
 license = "Apache-2.0"
+publish = false
 
 [dependencies]
 mc-core = { path = "../core" }
