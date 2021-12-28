@@ -11,6 +11,8 @@ versions is too big. The worldgen crate is a little more maintained, but it is s
 toy crate which currently only implements the 1.2.5 (without generated structures).
 
 ## Core crate
+![Crates.io](https://img.shields.io/crates/v/mc-core?style=flat-square) &nbsp;![Crates.io](https://img.shields.io/crates/d/mc-core?style=flat-square)
+
 The [core](mc/core) crate define the most important and mandatory data structures used by
 Minecraft, this includes definition of optimized structures for blocks, biomes, heightmaps, 
 entities. The main goal of these tiny structures is to be statically defined, so they don't 
@@ -27,6 +29,8 @@ stored inside a level. This crate also provides a way to source chunks for a lev
 predefine an anvil chunk source to load world saved by Minecraft in the anvil format.
 
 ## Vanilla crate
+![Crates.io](https://img.shields.io/crates/v/mc-vanilla?style=flat-square) &nbsp;![Crates.io](https://img.shields.io/crates/d/mc-vanilla?style=flat-square)
+
 The [vanilla](mc/vanilla) provides static instances definition to use with global registries,
 it also provides a trait `WithVanilla` that is implemented on each structure that supports a
 vanilla variants, such as blocks, biomes and level environment.

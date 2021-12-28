@@ -9,6 +9,7 @@ description = "MinecraftRS - Implementation of vanilla features for Minecraft, t
 keywords = ["minecraft", "mc", "vanilla"]
 categories = ["games", "mathematics"]
 license = "Apache-2.0"
+readme = "../../README.md"
 
 [dependencies]
 mc-core = { path = "../core", version = "0.1.0" }
