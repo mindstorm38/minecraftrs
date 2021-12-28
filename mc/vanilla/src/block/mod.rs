@@ -39,6 +39,7 @@ blocks_properties! {
     pub PROP_AGE_6: int("age", 6);
     pub PROP_AGE_4: int("age", 4);
     pub PROP_AGE_3: int("age", 3);
+    pub PROP_SAPLING_STAGE: int("stage", 2);
     pub PROP_BAMBOO_AGE: int("age", 2);
     pub PROP_BAMBOO_STAGE: int("stage", 2);
     pub PROP_HAS_BOTTLE_0: bool("has_bottle_0");
@@ -56,7 +57,7 @@ blocks_properties! {
     pub PROP_SIGNAL_FIRE: bool("signal_fire");
     pub PROP_WATERLOGGED: bool("waterlogged");
     pub PROP_CAKE_BITES: int("bites", 7);
-    pub PROP_CAULDRON_LEVEL: int("level", 4);
+    pub PROP_CAULDRON_LEVEL: range("level", 1, 3);
     pub PROP_COMPOSTER_LEVEL: int("level", 9);
     pub PROP_REDSTONE_POWER: int("power", 16);
     pub PROP_END_PORTAL_EYE: bool("eye");
@@ -70,15 +71,15 @@ blocks_properties! {
     pub PROP_EXTENDED: bool("extended");
     pub PROP_SHORT: bool("short");
     pub PROP_LOCKED: bool("locked");
-    pub PROP_REPEATER_DELAY: int("delay", 4); // Real is 1 to 4
+    pub PROP_REPEATER_DELAY: range("delay", 1, 4); // Real is 1 to 4
     pub PROP_CHARGES: int("charges", 5);
     pub PROP_SCAFFOLDING_DISTANCE: int("distance", 8);
-    pub PROP_PICKLES: int("pickles", 4);  // Real is 1 to 4
-    pub PROP_SNOW_LAYERS: int("layers", 8);  // Real is 1 to 8
+    pub PROP_PICKLES: range("pickles", 1, 4);  // Real is 1 to 4
+    pub PROP_SNOW_LAYERS: range("layers", 1, 8);  // Real is 1 to 8
     pub PROP_UNSTABLE: bool("unstable");
     pub PROP_ATTACHED: bool("attached");
     pub PROP_DISARMED: bool("disarmed");
-    pub PROP_EGGS: int("eggs", 4);  // Real is 1 to 4
+    pub PROP_EGGS: range("eggs", 1, 4);  // Real is 1 to 4
     pub PROP_HATCH: int("hatch", 3);
     pub PROP_LIQUID_LEVEL: int("level", 16);  // Internally split by minecraft, static/moving.
     // pub PROP_LIQUID_FALLING: bool("falling");
@@ -86,8 +87,8 @@ blocks_properties! {
     pub PROP_CONDITIONAL: bool("conditional");
     pub PROP_DRAG: bool("drag");
     pub PROP_PERSISTENT: bool("persistent");
-    pub PROP_LEAVES_DISTANCE: int("distance", 7); // Real is 1 to 7
-    pub PROP_CANDLES: int("candles", 4);  // Real is 1 to 4
+    pub PROP_LEAVES_DISTANCE: range("distance", 1, 7); // Real is 1 to 7
+    pub PROP_CANDLES: range("candles", 1, 4);  // Real is 1 to 4
     pub PROP_BERRIES: bool("berries");
     pub PROP_LIGHT_LEVEL: int("level", 16);
 
@@ -190,9 +191,9 @@ blocks_properties! {
     pub PROP_CHEST_TYPE: enum("type", ChestType, [Single, Left, Right]);
     pub PROP_SLAB_TYPE: enum("type", SlabType, [Top, Bottom, Double]);
 
-    pub PROP_COMMAND_BLOCK_TYPE: enum("type", CommandBlockType, [
+    /*pub PROP_COMMAND_BLOCK_TYPE: enum("type", CommandBlockType, [
         Impulse, Repeating, Chain
-    ]);
+    ]);*/
 
     pub PROP_STRUCTURE_MODE: enum("mode", StructureMode, [
         Save, Load, Corner, Data
@@ -258,6 +259,7 @@ blocks_specs! {
     pub SPEC_LEAVES: [PROP_LEAVES_DISTANCE, PROP_PERSISTENT];
     pub SPEC_FARMLAND: [PROP_FARMLAND_MOISTURE];
     pub SPEC_SNOW: [PROP_SNOW_LAYERS];
+    pub SPEC_SAPLING: [PROP_SAPLING_STAGE];
     pub SPEC_VINE: [PROP_UP, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST];
     pub SPEC_CORAL_BLOCK: [PROP_CORAL_TYPE];
     pub SPEC_CORAL: [PROP_WATERLOGGED, PROP_CORAL_TYPE];
@@ -303,10 +305,10 @@ blocks_specs! {
     pub SPEC_JUKEBOX: [PROP_HAS_RECORD];
     pub SPEC_REPEATER: [PROP_REPEATER_DELAY, PROP_HORIZONTAL_FACING, PROP_LOCKED, PROP_POWERED];
     pub SPEC_TRAPDOOR: [PROP_HORIZONTAL_FACING, PROP_OPEN, PROP_HALF, PROP_POWERED, PROP_WATERLOGGED];
-    pub SPEC_WATER_CAULDRON: [PROP_CAULDRON_LEVEL];
+    pub SPEC_CAULDRON_LEVEL: [PROP_CAULDRON_LEVEL];
     pub SPEC_TRIPWIRE_HOOK: [PROP_ATTACHED, PROP_HORIZONTAL_FACING, PROP_POWERED];
     pub SPEC_TRIPWIRE: [PROP_ATTACHED, PROP_DISARMED, PROP_EAST, PROP_NORTH, PROP_SOUTH, PROP_WEST, PROP_POWERED];
-    pub SPEC_COMMAND_BLOCK: [PROP_COMMAND_BLOCK_TYPE, PROP_HORIZONTAL_FACING, PROP_CONDITIONAL];
+    pub SPEC_COMMAND_BLOCK: [PROP_FACING, PROP_CONDITIONAL];
     pub SPEC_COMPARATOR: [PROP_HORIZONTAL_FACING, PROP_COMPARATOR_MODE, PROP_POWERED];
     pub SPEC_DAYLIGHT_DETECTOR: [PROP_INVERTED, PROP_REDSTONE_POWER];
     pub SPEC_HOPPER: [PROP_HORIZONTAL_FACING, PROP_ENABLED];
@@ -333,7 +335,7 @@ blocks_specs! {
     pub SPEC_WALL_TORCH: [PROP_HORIZONTAL_FACING];
     pub SPEC_FIRE: [PROP_AGE_16, PROP_NORTH, PROP_EAST, PROP_SOUTH, PROP_WEST, PROP_UP];
     pub SPEC_STAIRS: [PROP_HORIZONTAL_FACING, PROP_HALF, PROP_STAIRS_SHAPE, PROP_WATERLOGGED];
-    pub SPEC_SLAB: [PROP_SLAB_TYPE];
+    pub SPEC_SLAB: [PROP_SLAB_TYPE, PROP_WATERLOGGED];
     pub SPEC_SIGN: [PROP_ROTATION, PROP_WATERLOGGED];
     pub SPEC_WALL_SIGN: [PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
     pub SPEC_LADDER: [PROP_HORIZONTAL_FACING, PROP_WATERLOGGED];
@@ -351,7 +353,7 @@ blocks_specs! {
     pub SPEC_FROSTED_ICE: [PROP_AGE_4];
     pub SPEC_BUBBLE_COLUMN: [PROP_DRAG];
     pub SPEC_SCAFFOLDING: [PROP_BOTTOM, PROP_SCAFFOLDING_DISTANCE, PROP_WATERLOGGED];
-    pub SPEC_LANTERN: [PROP_HANGING];
+    pub SPEC_LANTERN: [PROP_HANGING, PROP_WATERLOGGED];
     pub SPEC_CAMPFIRE: [PROP_HORIZONTAL_FACING, PROP_LIT, PROP_SIGNAL_FIRE, PROP_WATERLOGGED];
     pub SPEC_BEEHIVE: [PROP_HORIZONTAL_FACING, PROP_HONEY_LEVEL];
     pub SPEC_GLAZED_TERRACOTA: [PROP_COLOR, PROP_HORIZONTAL_FACING];
@@ -409,12 +411,12 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     ACACIA_PLANKS "acacia_planks",
     DARK_OAK_PLANKS "dark_oak_planks",
 
-    OAK_SAPLING "oak_sapling",
-    SPRUCE_SAPLING "spruce_sapling",
-    BIRCH_SAPLING "birch_sapling",
-    JUNGLE_SAPLING "jungle_sapling",
-    ACACIA_SAPLING "acacia_sapling",
-    DARK_OAK_SAPLING "dark_oak_sapling",
+    OAK_SAPLING "oak_sapling" SPEC_SAPLING,
+    SPRUCE_SAPLING "spruce_sapling" SPEC_SAPLING,
+    BIRCH_SAPLING "birch_sapling" SPEC_SAPLING,
+    JUNGLE_SAPLING "jungle_sapling" SPEC_SAPLING,
+    ACACIA_SAPLING "acacia_sapling" SPEC_SAPLING,
+    DARK_OAK_SAPLING "dark_oak_sapling" SPEC_SAPLING,
 
     BEDROCK "bedrock",
     WATER "water" SPEC_LIQUID,
@@ -636,8 +638,9 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     BREWING_STAND "brewing_stand" SPEC_BREWING_STAND,
 
     CAULDRON "cauldron",
-    WATER_CAULDRON "water_cauldron" SPEC_WATER_CAULDRON,
+    WATER_CAULDRON "water_cauldron" SPEC_CAULDRON_LEVEL,
     LAVA_CAULDRON "lava_cauldron",
+    POWDER_SNOW_CAULDRON "powder_snow_cauldron" SPEC_CAULDRON_LEVEL,
 
     END_PORTAL "end_portal",
     END_PORTAL_FRAME "end_portal_frame" SPEC_END_PORTAL,
@@ -653,7 +656,9 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     TRIPWIRE_HOOK "tripwire_hook" SPEC_TRIPWIRE_HOOK,
     TRIPWIRE "tripwire" SPEC_TRIPWIRE,
     EMERALD_BLOCK "emerald_block",
-    COMMAND_BLOCK "command_block" SPEC_COMMAND_BLOCK, // Merged
+    COMMAND_BLOCK "command_block" SPEC_COMMAND_BLOCK,
+    CHAIN_COMMAND_BLOCK "chain_command_block" SPEC_COMMAND_BLOCK,
+    REPEATING_COMMAND_BLOCK "repeating_command_block" SPEC_COMMAND_BLOCK,
     BEACON "beacon",
     COBBLESTONE_WALL "cobblestone_wall" SPEC_WALL,
     MOSSY_COBBLESTONE_WALL "mossy_cobblestone_wall" SPEC_WALL,
@@ -902,8 +907,9 @@ blocks!(pub VANILLA_BLOCKS "minecraft" [
     STONECUTTER "stonecutter" SPEC_HORIZONTAL_FACING,
     BELL "bell" SPEC_BELL,
     LANTERN "lantern" SPEC_LANTERN,
-    SOUL_LANTERN "lantern" SPEC_LANTERN,
+    SOUL_LANTERN "soul_lantern" SPEC_LANTERN,
     CAMPFIRE "campfire" SPEC_CAMPFIRE,
+    SOUL_CAMPFIRE "soul_campfire" SPEC_CAMPFIRE,
     SWEET_BERRY_BUSH "sweet_berry_bush" SPEC_SWEET_BERRY_BUSH,
 
     WARPED_STEM "warped_stem" SPEC_AXIS,
@@ -1176,11 +1182,11 @@ def_enum_serializable!(SlabType {
     Double: "double"
 });
 
-def_enum_serializable!(CommandBlockType {
+/*def_enum_serializable!(CommandBlockType {
     Impulse: "impulse",
     Repeating: "repeating",
     Chain: "chain"
-});
+});*/
 
 def_enum_serializable!(CoralType {
     Tube: "tube",

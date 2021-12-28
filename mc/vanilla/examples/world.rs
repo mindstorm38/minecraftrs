@@ -8,6 +8,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 
+/// This example can be run to test which block states or properties are not properly decoded
+/// from a debug world. This example currently supports 1.17.1 and before. Debug worlds in 1.18+
+/// requires a different chunk height so you can change it in the function to debug 1.18 block
+/// states, even if they are identical to 1.17.1.
+///
+/// Put the path to the directory of the world into the 'MCRS_LEVEL_DIR' environment variable.
 fn main() {
 
     println!("===== MEMORY USAGE =====");
@@ -23,8 +29,9 @@ fn main() {
 
     println!("====== ANVIL TEST ======");
 
+    let level_dir = std::env::var("MCRS_LEVEL_DIR").unwrap();
     let env = Arc::new(LevelEnv::with_vanilla());
-    let source = AnvilLevelSource::new(r"C:\Users\Theo\AppData\Roaming\.minecraft\saves\Amplified Test");
+    let source = AnvilLevelSource::new(level_dir);
     let height = ChunkHeight {
         min: 0,
         max: 15
@@ -34,8 +41,8 @@ fn main() {
 
     println!("Level height: {:?}", level.get_height());
 
-    for cx in 0..2 {
-        for cz in 0..2 {
+    for cx in 0..=17 {
+        for cz in 0..=17 {
             level.request_chunk_load(cx, cz);
         }
     }
