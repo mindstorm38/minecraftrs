@@ -2,6 +2,7 @@ use std::sync::{RwLock, Arc, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Formatter};
+use std::time::Duration;
 
 use hecs::{World as EcsWorld, EntityBuilder, Entity, EntityRef};
 use uuid::Uuid;
@@ -233,6 +234,15 @@ impl Level {
     #[inline]
     pub fn get_loading_chunks_count(&self) -> usize {
         self.loading_chunks.len()
+    }
+
+    /// A simple spin-waiting loop that wait until all chunks requested by `request_chunk_load`
+    /// are loaded.
+    pub fn load_chunks_blocking(&mut self) {
+        while !self.loading_chunks.is_empty() {
+            self.load_chunks();
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 
     // CHUNK SAVING (TO SOURCE) //
