@@ -684,6 +684,12 @@ unsafe impl Send for SubChunkBlocks {}
 unsafe impl Sync for SubChunkBlocks {}
 
 
+pub enum Light {
+    Block = 0,
+    Sky = 1
+}
+
+
 /// A sub chunk, 16x16x16 blocks.
 pub struct SubChunk {
     /// A local shared pointer to the level environment.
@@ -692,6 +698,8 @@ pub struct SubChunk {
     blocks_palette: SubChunkBlocks,
     /// Cube blocks array.
     blocks: PackedArray,
+    /// Both block and sky lights combined, 4 bits per block.
+    lights: PackedArray,
     /// Non-null blocks count. "Null block" is a shorthand for the block state at save ID 0 in the
     /// global palette, likely to be an 'air' block state for example in vanilla. This number must
     /// be between 0 (inclusive) and 4096 (exclusive), other values are unsafe.
@@ -704,6 +712,9 @@ const BLOCKS_PALETTE_CAPACITY: usize = 128;
 
 // Minimum size (in bits) of bytes representing block indices to local or global palette.
 const BLOCKS_ARRAY_MIN_BYTE_SIZE: u8 = 4;
+
+// Fixed size of bytes representing a single block light.
+const LIGHTS_ARRAY_BYTE_SIZE: u8 = 4;
 
 
 impl SubChunk {
@@ -726,6 +737,7 @@ impl SubChunk {
                 null_block_sid: 0
             },
             blocks: PackedArray::new(BLOCKS_DATA_SIZE, BLOCKS_ARRAY_MIN_BYTE_SIZE, None),
+            lights: PackedArray::new(BLOCKS_DATA_SIZE * 2, LIGHTS_ARRAY_BYTE_SIZE, None),
             non_null_blocks_count: 0,
         }
 
@@ -871,6 +883,19 @@ impl SubChunk {
 
         Ok(())
 
+    }
+
+    // Lights //
+
+    pub fn get_light(&self, x: u8, y: u8, z: u8, typ: Light) -> u8 {
+        let light_idx = calc_block_index(x, y, z) + typ as usize * BLOCKS_DATA_SIZE;
+        self.lights.get(light_idx).unwrap() as u8
+    }
+
+    pub fn set_light(&mut self, x: u8, y: u8, z: u8, typ: Light, level: u8) {
+        assert!(level < 16, "Maximum light level is 15.");
+        let light_idx = calc_block_index(x, y, z) + typ as usize * BLOCKS_DATA_SIZE;
+        self.lights.set(light_idx, level as u64);
     }
 
     // Raw manipulations //
