@@ -457,6 +457,33 @@ impl Chunk {
         Ok(())
     }
 
+    /// Set biomes efficiently from a given palette and an indices iterator. You can change the
+    /// offset from which you want to change internal biomes, there are 64 biomes for each sub
+    /// chunk. **Values before the offset and after the iterator exhausted are kept the same.**
+    ///
+    /// # Safety:
+    /// You must ensure that the given palette contains only valid biomes for this chunk's level's
+    /// environment.
+    ///
+    /// The biomes iterator must return only valid indices for the given palette.
+    pub unsafe fn set_biomes_raw<I>(&mut self, offset: usize, palette: Vec<&'static Biome>, mut biomes: I)
+    where
+        I: Iterator<Item = usize>
+    {
+        let env_biomes = &self.env.biomes;
+        self.biomes.replace(move |i, old| {
+            if i >= offset {
+                if let Some(biome_idx) = biomes.next() {
+                    env_biomes.get_sid_from(palette[biome_idx]).unwrap() as u64
+                } else {
+                    old
+                }
+            } else {
+                old
+            }
+        });
+    }
+
     pub fn get_biomes_count(&self) -> usize {
         self.biomes.len()
     }

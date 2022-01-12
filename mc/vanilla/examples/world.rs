@@ -33,8 +33,8 @@ fn main() {
     let env = Arc::new(LevelEnv::with_vanilla());
     let source = AnvilLevelSource::new(level_dir);
     let height = ChunkHeight {
-        min: 0,
-        max: 15
+        min: -4,
+        max: 19
     };
 
     let mut level = Level::new("overworld".to_string(), env, height, source);
@@ -47,9 +47,6 @@ fn main() {
         }
     }
 
-    loop {
-        level.load_chunks();
-        std::thread::sleep(Duration::from_secs(1));
-    }
+    level.load_chunks_blocking();
 
 }

@@ -11,17 +11,24 @@ use crate::world::source::ProtoChunk;
 use crate::world::chunk::ChunkStatus;
 use crate::entity::GlobalEntities;
 use crate::block::BlockState;
-use crate::util::{Rect, NbtExt, PackedIterator};
+use crate::biome::Biome;
+use crate::util::{NbtExt, PackedIterator};
+
+
+/// The only supported data version. Current is `1.18.1`.
+pub const DATA_VERSION: i32 = 2865;
 
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
+    #[error("Data version {0} is not supported.")]
+    UnsupportedDataVersion(i32),
     #[error("Unknown block state '{0}' in the palette for the chunk environments.")]
     UnknownBlockState(String),
     #[error("Unknown property value: {0}")]
     UnknownBlockProperty(String),
     #[error("Unknown biome ID: {0}")]
-    UnknownBiome(i32),
+    UnknownBiome(String),
     #[error("Unknown entity type: {0}")]
     UnknownEntityType(String),
     #[error("Malformed entity: {0}")]
@@ -47,15 +54,20 @@ pub fn decode_chunk_from_reader(reader: &mut impl Read, chunk: &mut ProtoChunk) 
 /// Decode a chunk from its NBT data.
 pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<(), DecodeError> {
 
-    // TODO: Use data version to apply data fixers
-    let _data_version = tag_root.get_i32("DataVersion")?;
-    let tag_level = tag_root.get_compound_tag("Level")?;
+    let data_version = tag_root.get_i32("DataVersion")?;
+    if data_version != DATA_VERSION {
+        return Err(DecodeError::UnsupportedDataVersion(data_version));
+    }
 
-    let cx = tag_level.get_i32("xPos")?;
-    let cz = tag_level.get_i32("zPos")?;
+    // Removed in 1.18 data version
+    // let tag_level = tag_root.get_compound_tag("Level")?;
+
+    let cx = tag_root.get_i32("xPos")?;
+    let lower_cy = tag_root.get_i32("yPos")?;
+    let cz = tag_root.get_i32("zPos")?;
     check_position(chunk, cx, cz)?;
 
-    chunk.set_status(match tag_level.get_str("Status")? {
+    chunk.set_status(match tag_root.get_str("Status")? {
         "empty" => ChunkStatus::Empty,
         "structure_starts" => ChunkStatus::StructureStarts,
         "structure_references" => ChunkStatus::StructureReferences,
@@ -78,85 +90,113 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
     let env = Arc::clone(chunk.get_env());
     let height = chunk.get_height();
 
-    if let Ok(raw_biomes) = tag_level.get_i32_vec("Biomes") {
-
-        if raw_biomes.len() == 256 {
-
-            let mut biomes = Vec::with_capacity(256);
-
-            for raw_biome_id in raw_biomes {
-                match env.biomes.get_biome_from_id(*raw_biome_id) {
-                    Some(biome) => biomes.push(biome),
-                    None => return Err(DecodeError::UnknownBiome(*raw_biome_id))
-                }
-            }
-
-            chunk.set_biomes_2d(&Rect::from_raw(biomes, 16, 16)).unwrap();
-
-        } else if raw_biomes.len() == height.len() * 64 {
-
-            let mut vec = Vec::with_capacity(raw_biomes.len());
-
-            for id in raw_biomes {
-                match env.biomes.get_biome_from_id(*id) {
-                    Some(biome) => vec.push(biome),
-                    None => return Err(DecodeError::UnknownBiome(*id))
-                }
-            }
-
-            chunk.set_biomes_3d(&vec[..]).unwrap();
-
-        } else {
-            return Err(DecodeError::Malformed(format!("Malformed biomes array of length {}.", raw_biomes.len())));
-        }
-
-    }
+    /*if height.min != lower_cy {
+        return Err(DecodeError::Malformed(
+            format!("The environment's height minimum Y ({}) is not valid for decoding chunk with minimum Y if {}.", height.min, lower_cy)
+        ));
+    }*/
 
     // Sections
-    for tag_section in tag_level.get_compound_tag_vec("Sections")? {
+    let tag_sections = tag_root.get_compound_tag_vec("sections")?;
+    for tag_section in tag_sections {
 
+        // Sub chunk height
         let cy = tag_section.get_i8("Y")?;
 
-        if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy) {
+        if cy < height.min || cy > height.max {
+            return Err(DecodeError::Malformed(format!("Invalid section at Y {}, supported height is {:?}", cy, height)));
+        }
 
-            // let mut sub_chunk = SubChunk::new(Arc::clone(&env));
+        if let Ok(tag_biomes) = tag_section.get_compound_tag("biomes") {
 
-            if let Ok(tag_packed_blocks) = tag_section.get_i64_vec("BlockStates") {
-                if let Ok(tag_blocks_palette) = tag_section.get_compound_tag_vec("Palette") {
+            let tag_palette = tag_biomes.get_str_vec("palette")?;
 
-                    let mut blocks_palette = Vec::new();
-                    for tag_block in tag_blocks_palette {
-                        blocks_palette.push(decode_block_state(tag_block, &env)?);
+            let mut biomes_palette = Vec::new();
+            for tag_biome in tag_palette {
+                biomes_palette.push(decode_biome(tag_biome, &env)?);
+            }
+
+            let biomes_offset = (cy - height.min) as usize * 64;
+
+            if let Ok(tag_data) = tag_biomes.get_i64_vec("data") {
+
+                let bits = tag_data.len() as u8; // Simplified the (len * 64 / 64)
+                let unpacked_biomes = tag_data.iter()
+                    .map(|&v| v as u64)
+                    .unpack_aligned(bits)
+                    .take(64)
+                    .map(|v| v as usize);
+
+                unsafe {
+                    chunk.set_biomes_raw(biomes_offset, biomes_palette, unpacked_biomes);
+                }
+
+            } else {
+
+                // If only one biome is present, and no data, we must apply this biome to the whole
+                // sub chunk.
+                if biomes_palette.len() == 1 {
+                    unsafe {
+                        chunk.set_biomes_raw(biomes_offset, biomes_palette, std::iter::repeat(0).take(64))
                     }
+                }
 
-                    let bits = (tag_packed_blocks.len() * 64 / 4096).max(4) as u8;
+            }
 
-                    let unpacked_blocks = tag_packed_blocks.iter()
-                        .map(|&v| v as u64)
-                        .unpack_aligned(bits)
-                        .take(4096)
-                        .map(|v| v as usize);
+        }
 
+        if let Ok(tag_block_states) = tag_section.get_compound_tag("block_states") {
+
+            let tag_palette = tag_block_states.get_compound_tag_vec("palette")?;
+
+            let mut blocks_palette = Vec::new();
+            for tag_block in tag_palette {
+                blocks_palette.push(decode_block_state(tag_block, &env)?);
+            }
+
+            if let Ok(tag_data) = tag_block_states.get_i64_vec("data") {
+
+                let bits = (tag_data.len() * 64 / 4096) as u8;
+                let unpacked_blocks = tag_data.iter()
+                    .map(|&v| v as u64)
+                    .unpack_aligned(bits)
+                    .take(4096)
+                    .map(|v| v as usize);
+
+                if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy) {
                     unsafe {
                         sub_chunk.set_blocks_raw(blocks_palette, unpacked_blocks);
                     }
-
                 }
-            }
 
-            // SAFETY: We can unwrap because we have already checked the validity of 'cy'.
-            // chunk.replace_sub_chunk(cy, sub_chunk).unwrap();
+            } else {
+
+                // Because it is unclear what is expected when data tag is absent, I suppose that we
+                // should create and fill the sub chunk is the only palette block state is not air
+                // (null block). Here, unwrap is safe because `decode_block_state` has already
+                // checked this condition and the block states is contained in global blocks.
+                if blocks_palette.len() == 1 && env.blocks.get_sid_from(blocks_palette[0]).unwrap() != 0 {
+                    if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy) {
+                        sub_chunk.fill_block(blocks_palette[0]);
+                    }
+                }
+
+            }
 
         }
 
     }
+
+    // TODO: Heightmaps
+    // TODO: Light
+    // TODO: Block entities
 
     Ok(())
 
 }
 
 /// Decode block state from a state compound tag.
-fn decode_block_state(tag_block: &CompoundTag, env: &LevelEnv) -> Result<&'static BlockState, DecodeError> {
+pub fn decode_block_state(tag_block: &CompoundTag, env: &LevelEnv) -> Result<&'static BlockState, DecodeError> {
 
     let block_name = tag_block.get_str("Name")?;
 
@@ -179,8 +219,13 @@ fn decode_block_state(tag_block: &CompoundTag, env: &LevelEnv) -> Result<&'stati
 
 }
 
+/// Decode biome from it's name and the environment.
+pub fn decode_biome(name: &str, env: &LevelEnv) -> Result<&'static Biome, DecodeError> {
+    env.biomes.get_biome_from_name(name).ok_or_else(|| DecodeError::UnknownBiome(name.to_string()))
+}
+
 /// Decode chunk entities stored in there own files.
-fn decode_entities(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<(), DecodeError> {
+pub fn decode_entities(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<(), DecodeError> {
 
     // TODO: Use data version to apply data fixers
     let _data_version = tag_root.get_i32("DataVersion")?;
@@ -212,7 +257,7 @@ fn decode_entities(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<(),
 /// Internal function to decode an entity, optionally recursively if it have passengers.
 /// The function returns the index of the entity builder in the proto chunk, this is used
 /// to set entity passengers indices.
-fn decode_entity(tag_entity: &CompoundTag, entities: &GlobalEntities, chunk: &mut ProtoChunk) -> Result<usize, DecodeError> {
+pub fn decode_entity(tag_entity: &CompoundTag, entities: &GlobalEntities, chunk: &mut ProtoChunk) -> Result<usize, DecodeError> {
 
     let entity_id = tag_entity.get_str("id")?;
 
