@@ -15,7 +15,7 @@ use crate::biome::Biome;
 use crate::util::{NbtExt, PackedIterator};
 
 
-/// The only supported data version. Current is `1.18.1`.
+/// The only supported data version for decoding. Current is `1.18.1`.
 pub const DATA_VERSION: i32 = 2865;
 
 
@@ -172,10 +172,8 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
             } else {
 
                 // Because it is unclear what is expected when data tag is absent, I suppose that we
-                // should create and fill the sub chunk is the only palette block state is not air
-                // (null block). Here, unwrap is safe because `decode_block_state` has already
-                // checked this condition and the block states is contained in global blocks.
-                if blocks_palette.len() == 1 && env.blocks.get_sid_from(blocks_palette[0]).unwrap() != 0 {
+                // should create and fill the sub chunk if the palette contains only one block state.
+                if blocks_palette.len() == 1 {
                     if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy) {
                         sub_chunk.fill_block(blocks_palette[0]);
                     }
