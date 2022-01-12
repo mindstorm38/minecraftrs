@@ -5,7 +5,6 @@ use mc_vanilla::ext::WithVanilla;
 
 use std::mem::size_of;
 use std::sync::Arc;
-use std::time::Duration;
 
 
 /// This example can be run to test which block states or properties are not properly decoded
