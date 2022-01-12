@@ -59,7 +59,7 @@ pub fn encode_chunk(tag_root: &mut CompoundTag, chunk: &Chunk) {
         let mut block_states_indices = HashMap::new();
 
         height.iter()
-            .map(|cy| {
+            .map(move |cy| {
 
                 let mut tag_section = CompoundTag::new();
                 tag_section.insert_i8("Y", cy);
@@ -96,7 +96,6 @@ pub fn encode_chunk(tag_root: &mut CompoundTag, chunk: &Chunk) {
                     }
 
                     tag_biomes.insert_str_vec("palette", biomes_palette);
-
                     tag_biomes
 
                 });
@@ -141,15 +140,14 @@ pub fn encode_chunk(tag_root: &mut CompoundTag, chunk: &Chunk) {
                         block_states_palette.push(encode_block_state(chunk.get_env().blocks.get_state_from(0).unwrap()));
                     }
 
-                    tag_biomes.insert_str_vec("palette", block_states_palette);
-
+                    tag_block_states.insert_str_vec("palette", block_states_palette);
                     tag_block_states
 
                 });
 
                 tag_section
 
-            });
+            })
 
     });
 
