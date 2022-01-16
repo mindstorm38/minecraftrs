@@ -7,8 +7,8 @@ use hecs::EntityBuilder;
 use thiserror::Error;
 
 use crate::world::level::{LevelEnv, BaseEntity};
+use crate::world::chunk::{ChunkStatus, Light};
 use crate::world::source::ProtoChunk;
-use crate::world::chunk::ChunkStatus;
 use crate::entity::GlobalEntities;
 use crate::block::BlockState;
 use crate::biome::Biome;
@@ -183,10 +183,30 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
 
         }
 
+        #[inline]
+        fn iter_light_slice(slice: &[i8]) -> impl Iterator<Item = u8> + '_ {
+            slice.iter().flat_map(|&v| [(v as u8) & 0xF, ((v as u8) & 0xF0) >> 4])
+        }
+
+        if let Ok(tag_block_light) = tag_section.get_i8_vec("BlockLight") {
+            if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy) {
+                unsafe {
+                    sub_chunk.set_lights_raw(Light::Block, iter_light_slice(&tag_block_light[..]));
+                }
+            }
+        }
+
+        if let Ok(tag_sky_light) = tag_section.get_i8_vec("SkyLight") {
+            if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy) {
+                unsafe {
+                    sub_chunk.set_lights_raw(Light::Block, iter_light_slice(&tag_sky_light[..]));
+                }
+            }
+        }
+
     }
 
     // TODO: Heightmaps
-    // TODO: Light
     // TODO: Block entities
 
     Ok(())

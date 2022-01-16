@@ -914,21 +914,6 @@ impl SubChunk {
 
     }
 
-    // Lights //
-
-    pub fn get_light(&self, x: u8, y: u8, z: u8, typ: Light) -> u8 {
-        let light_idx = calc_block_index(x, y, z) + typ as usize * BLOCKS_DATA_SIZE;
-        self.lights.get(light_idx).unwrap() as u8
-    }
-
-    pub fn set_light(&mut self, x: u8, y: u8, z: u8, typ: Light, level: u8) {
-        assert!(level < 16, "Maximum light level is 15.");
-        let light_idx = calc_block_index(x, y, z) + typ as usize * BLOCKS_DATA_SIZE;
-        self.lights.set(light_idx, level as u64);
-    }
-
-    // Raw manipulations //
-
     /// # Safety:
     /// You must ensure that the given palette contains only valid states for this
     /// chunk's level's environment.
@@ -1003,6 +988,37 @@ impl SubChunk {
         } else {
             self.non_null_blocks_count = 4096; // The is no null block.
         }
+    }
+
+    // Lights //
+
+    pub fn get_light(&self, x: u8, y: u8, z: u8, typ: Light) -> u8 {
+        let light_idx = calc_block_index(x, y, z) + typ as usize * BLOCKS_DATA_SIZE;
+        self.lights.get(light_idx).unwrap() as u8
+    }
+
+    pub fn set_light(&mut self, x: u8, y: u8, z: u8, typ: Light, level: u8) {
+        assert!(level < 16, "Maximum light level is 15.");
+        let light_idx = calc_block_index(x, y, z) + typ as usize * BLOCKS_DATA_SIZE;
+        self.lights.set(light_idx, level as u64);
+    }
+
+    /// # Safety:
+    /// The lights iterator must give 4096 individual lights, ordered from X, Z and Y. Each value
+    /// must be between 0 and 15 (included).
+    pub unsafe fn set_lights_raw<I>(&mut self, typ: Light, mut lights: I)
+    where
+        I: Iterator<Item = u8>
+    {
+        let type_start = typ as usize * BLOCKS_DATA_SIZE;
+        let type_end = type_start + BLOCKS_DATA_SIZE;
+        self.lights.replace(move |i, old| {
+            if i >= type_start && i < type_end {
+                lights.next().unwrap_or(0) as u64
+            } else {
+                old
+            }
+        });
     }
 
     // Meta info //
