@@ -33,8 +33,15 @@ impl PackedArray {
             _ => 0
         };
 
+        let cells = if default_value == 0 {
+            // If the default value is 0, we avoid allocating the internal vec.
+            Vec::new()
+        } else {
+            vec![default_value; Self::calc_cells_capacity(length, byte_size)]
+        };
+
         Self {
-            cells: vec![default_value; Self::calc_cells_capacity(length, byte_size)],
+            cells,
             length,
             byte_size,
         }
@@ -54,12 +61,27 @@ impl PackedArray {
         }
     }
 
+    /// Ensure that internal cells vec is allocated. This is required for every operation that
+    /// is mutating the vec, by default it is empty (and so, not allocated) if default value is
+    /// 0 to avoid useless memory loss for unused packed arrays.
+    fn ensure_cells(&mut self) {
+        if self.cells.is_empty() {
+            let cells_len = Self::calc_cells_capacity(self.length, self.byte_size);
+            self.cells.resize(cells_len, 0);
+        }
+    }
+
     /// Get the value at a specific index, `None` is returned if you are out of range.
     pub fn get(&self, index: usize) -> Option<u64> {
         if index < self.length {
-            let (cell_index, bit_index) = self.get_indices(index);
-            let cell = self.cells[cell_index];
-            Some((cell >> bit_index) & Self::calc_mask(self.byte_size))
+            if self.is_allocated() {
+                let (cell_index, bit_index) = self.get_indices(index);
+                let cell = self.cells[cell_index];
+                Some((cell >> bit_index) & Self::calc_mask(self.byte_size))
+            } else {
+                // In this case, cells are not yet allocated, returning default value 0.
+                return Some(0)
+            }
         } else {
             None
         }
@@ -94,6 +116,7 @@ impl PackedArray {
 
     #[inline]
     fn internal_set(&mut self, index: usize, value: u64, mask: u64) -> u64 {
+        self.ensure_cells();
         let (cell_index, bit_index) = self.get_indices(index);
         let cell = &mut self.cells[cell_index];
         let old_value = (*cell >> bit_index) & mask;
@@ -109,11 +132,19 @@ impl PackedArray {
     }
 
     #[inline]
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = u64> + 'a {
-        self.cells.iter().copied().unpack_aligned(self.byte_size).take(self.length)
+    pub fn iter(&self) -> impl Iterator<Item = u64> + '_ {
+        // The 'repeat 0' is used when internal cells is not yet allocated.
+        self.cells.iter()
+            .copied()
+            .unpack_aligned(self.byte_size)
+            .chain(std::iter::repeat(0))
+            .take(self.length)
     }
 
+    /// Replace each value in this packed array. The replacer function must accept and index of the
+    /// value and the value itself, and returns the new value to assign.
     pub fn replace(&mut self, mut replacer: impl FnMut(usize, u64) -> u64) {
+        self.ensure_cells();
         let byte_size = self.byte_size as usize;
         let vpc = Self::calc_values_per_cell(self.byte_size);
         let mask = Self::calc_mask(self.byte_size);
@@ -134,10 +165,15 @@ impl PackedArray {
         }
     }
 
+    /// Resize the bit size of each value in this packed array. **Note that this function
+    /// currently requires a size greater or equal to the previous one.**
     pub fn resize_byte(&mut self, new_byte_size: u8) {
         self.internal_resize_byte::<fn(usize, u64) -> u64>(new_byte_size, None);
     }
 
+    /// Resize the bit size of each value in this packed array and apply a function to each value
+    /// to replace it (see `replace` method for more information). **Note that this function
+    /// currently requires a size greater or equal to the previous one.**
     pub fn resize_byte_and_replace<F>(&mut self, new_byte_size: u8, replacer: F)
     where
         F: FnMut(usize, u64) -> u64
@@ -153,29 +189,37 @@ impl PackedArray {
         if new_byte_size == self.byte_size {
             if let Some(replacer) = replacer {
                 self.replace(replacer);
-                return;
             }
+            return;
         }
 
+        // Check byte size and set new.
         Self::check_byte_size(new_byte_size);
         assert!(new_byte_size > self.byte_size, "New byte size should be greater than previous.");
-
         let old_byte_size = self.byte_size;
         self.byte_size = new_byte_size;
 
+        // Resize internal cell.
+        let new_cells_cap = Self::calc_cells_capacity(self.length, new_byte_size);
+        let old_cells_cap = self.cells.len();
+        self.cells.resize(new_cells_cap, 0u64);
+
+        // If was not allocated, so we can just use replace.
+        if old_cells_cap == 0 {
+            if let Some(replacer) = replacer {
+                self.replace(replacer);
+            }
+            return;
+        }
+
         let old_mask = Self::calc_mask(old_byte_size);
         let new_mask = Self::calc_mask(new_byte_size);
-
-        let new_cells_cap = Self::calc_cells_capacity(self.length, new_byte_size);
 
         let old_vpc = Self::calc_values_per_cell(old_byte_size);
         let new_vpc = Self::calc_values_per_cell(new_byte_size);
 
         let old_byte_size = old_byte_size as usize;
         let new_byte_size = new_byte_size as usize;
-
-        let old_cells_cap = self.cells.len();
-        self.cells.resize(new_cells_cap, 0u64);
 
         for old_cell_index in (0..old_cells_cap).rev() {
             let old_cell = self.cells[old_cell_index];
@@ -224,6 +268,12 @@ impl PackedArray {
     #[inline]
     pub fn cells_len(&self) -> usize {
         self.cells.len()
+    }
+
+    /// Return `true` if this packed array is actually allocated. Equivalent to `cells_len() != 0`.
+    #[inline]
+    fn is_allocated(&self) -> bool {
+        return !self.cells.is_empty()
     }
 
     // Unsafe and cell-related methods //
@@ -479,6 +529,19 @@ mod tests {
     }
 
     #[test]
+    fn check_allocation() {
+        let mut array = PackedArray::new(32, 4, None);
+        assert!(!array.is_allocated());
+        assert_eq!(array.cells_len(), 0);
+        assert_eq!(array.get(0), Some(0));
+        assert_eq!(array.get(31), Some(0));
+        array.set(0, 1);
+        assert!(array.is_allocated());
+        assert_eq!(array.cells_len(), 2);
+        assert_eq!(array.get(0), Some(1));
+    }
+
+    #[test]
     #[should_panic]
     fn invalid_default_value() {
         PackedArray::new(1, 4, Some(16));
@@ -504,9 +567,16 @@ mod tests {
     }
 
     #[test]
+    fn valid_resizes() {
+        PackedArray::new(10, 4, None).resize_byte(4);
+        PackedArray::new(10, 4, None).resize_byte(5);
+        PackedArray::new(10, 4, None).resize_byte(8);
+    }
+
+    #[test]
     #[should_panic]
     fn invalid_resize() {
-        PackedArray::new(10, 4, None).resize_byte(4);
+        PackedArray::new(10, 4, None).resize_byte(3);
     }
 
     #[test]
