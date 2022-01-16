@@ -173,7 +173,8 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
 
                 // Because it is unclear what is expected when data tag is absent, I suppose that we
                 // should create and fill the sub chunk if the palette contains only one block state.
-                if blocks_palette.len() == 1 {
+                // We only fill the sub chunk if the only block is not the null block.
+                if blocks_palette.len() == 1 && env.blocks.get_sid_from(&blocks_palette[0]).unwrap() != 0 {
                     if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy) {
                         sub_chunk.fill_block(blocks_palette[0]);
                     }

@@ -296,6 +296,10 @@ impl ChunkStorage {
         self.chunks.len()
     }
 
+    pub fn iter_chunks(&self) -> impl Iterator<Item = &Arc<RwLock<Chunk>>> + '_ {
+        self.chunks.values()
+    }
+
     /// Insert a chunk at a specific position.
     pub fn insert_chunk(&mut self, chunk: Chunk) -> &Arc<RwLock<Chunk>> {
         let pos = chunk.get_position();

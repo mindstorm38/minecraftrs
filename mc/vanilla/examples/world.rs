@@ -16,7 +16,7 @@ use std::time::Duration;
 /// Put the path to the directory of the world into the 'MCRS_LEVEL_DIR' environment variable.
 fn main() {
 
-    println!("===== MEMORY USAGE =====");
+    println!("===== MEMORY USAGE (THEORY) =====");
     let chunk_sizeof = size_of::<Chunk>();
     let sub_chunk_sizeof = size_of::<SubChunk>();
     println!("Chunk height sizeof: {}", size_of::<ChunkHeight>());
@@ -24,7 +24,7 @@ fn main() {
     println!("Chunk sizeof: {}", chunk_sizeof);
     println!("SubChunk sizeof: {}", sub_chunk_sizeof);
     println!("For a whole loaded region: {}", 32 * 32 * (chunk_sizeof + 16 * sub_chunk_sizeof));
-    println!("========================");
+    println!("=================================");
     println!();
 
     // Sleep to have the time to analyse memory consumption.
@@ -52,9 +52,22 @@ fn main() {
 
     level.load_chunks_blocking();
 
+    println!("========================");
+    println!();
+
     // Sleep to have the time to analyse memory consumption.
     std::thread::sleep(Duration::from_secs(5));
 
-    // For 1.18.1 debug world, the program takes 56Mo of RAM to load the world.
+    // For 1.18.1 debug world, the program takes 12Mo of RAM to load the world.
+
+    let chunks_count = level.chunks.get_chunks_count();
+    let sub_chunks_count: usize = level.chunks.iter_chunks().map(|c| {
+        c.read().unwrap().iter_loaded_sub_chunks().count()
+    }).sum();
+
+    println!("===== MEMORY USAGE =====");
+    println!("Chunks count: {}", chunks_count);
+    println!("Sub chunks count: {}", sub_chunks_count);
+    println!("========================");
 
 }
