@@ -5,6 +5,7 @@ use mc_vanilla::ext::WithVanilla;
 
 use std::mem::size_of;
 use std::sync::Arc;
+use std::time::Duration;
 
 
 /// This example can be run to test which block states or properties are not properly decoded
@@ -25,6 +26,9 @@ fn main() {
     println!("For a whole loaded region: {}", 32 * 32 * (chunk_sizeof + 16 * sub_chunk_sizeof));
     println!("========================");
     println!();
+
+    // Sleep to have the time to analyse memory consumption.
+    std::thread::sleep(Duration::from_secs(5));
 
     println!("====== ANVIL TEST ======");
 
@@ -47,5 +51,10 @@ fn main() {
     }
 
     level.load_chunks_blocking();
+
+    // Sleep to have the time to analyse memory consumption.
+    std::thread::sleep(Duration::from_secs(5));
+
+    // For 1.18.1 debug world, the program takes 56Mo of RAM to load the world.
 
 }
