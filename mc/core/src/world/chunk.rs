@@ -429,6 +429,7 @@ impl Chunk {
     /// Set all biome quads in this chunk according a to a 2D biomes rectangle (16x16).
     /// The implementation currently take the lower coordinates biome in each 4x4 rectangle
     /// and set it to the whole chunk height.
+    #[deprecated]
     pub fn set_biomes_2d(&mut self, biomes: &Rect<&'static Biome>) -> ChunkResult<()> {
 
         assert!(biomes.x_size >= 16 && biomes.z_size >= 16, "Given biomes rectangle is too small.");
@@ -448,6 +449,7 @@ impl Chunk {
 
     }
 
+    #[deprecated]
     pub fn set_biomes_3d(&mut self, biomes: &[&'static Biome]) -> ChunkResult<()> {
         assert_eq!(biomes.len(), self.sub_chunks.len() * 64, "Given biomes array must be {} biomes long.", self.sub_chunks.len() * 64);
         let env_biomes = &self.env.biomes;
