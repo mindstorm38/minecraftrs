@@ -32,15 +32,18 @@ biomes!(pub VANILLA_BIOMES "minecraft" [
     FOREST "forest" 4,
     FROZEN_OCEAN "frozen_ocean" 10,
     FROZEN_RIVER "frozen_river" 11,
+    FROZEN_PEAKS "frozen_peaks" 203, // 1.18
     GIANT_SPRUCE_TAIGA "giant_spruce_taiga" 160,
     GIANT_SPRUCE_TAIGA_HILLS "giant_spruce_taiga_hills" 161,
     GIANT_TREE_TAIGA "giant_tree_taiga" 32,
     GIANT_TREE_TAIGA_HILLS "giant_tree_taiga_hills" 33,
     GRAVELLY_MOUNTAINS "gravelly_mountains" 131,
+    GROVE "grove" 200, // 1.18
     ICE_SPIKES "ice_spikes" 140,
     JUNGLE "jungle" 21,
     JUNGLE_EDGE "jungle_edge" 23,
     JUNGLE_HILLS "jungle_hills" 22,
+    JAGGED_PEAKS "jagged_peaks" 202, // 1.18
     LUKEWARM_OCEAN "lukewarm_ocean" 45,
     LUSH_CAVES "lush_caves" 175, // 1.17
     MODIFIED_BADLANDS_PLATEAU "modified_badlands_plateau" 167,
@@ -52,6 +55,7 @@ biomes!(pub VANILLA_BIOMES "minecraft" [
     MOUNTAINS "mountains" 3,
     MUSHROOM_FIELD_SHORE "mushroom_field_shore" 15,
     MUSHROOM_FIELDS "mushroom_fields" 14,
+    MEADOW "meadow" 205, // 1.18
     NETHER_WASTES "nether_wastes" 8, // < 1.16
     OCEAN "ocean" 0,
     PLAINS "plains" 1,
@@ -61,14 +65,16 @@ biomes!(pub VANILLA_BIOMES "minecraft" [
     SHATTERED_SAVANNA "shattered_savanna" 163,
     SHATTERED_SAVANNA_PLATEAU "shattered_savanna_plateau" 164,
     SMALL_END_ISLANDS "small_end_islands" 40,
-    SNOWY_BEACH "snowy_beach" 26,
+    SNOWY_SHORE "stony_shore" 26,
     SNOWY_MOUNTAINS "snowy_mountains" 13,
     SNOWY_TAIGA "snowy_taiga" 30,
     SNOWY_TAIGA_HILLS "snowy_taiga_hills" 31,
     SNOWY_TAIGA_MOUNTAINS "snowy_taiga_mountains" 158,
-    SNOWY_TUNDRA "snowy_tundra" 12,
+    SNOWY_PLAINS "snowy_plains" 12,
+    SNOWY_SLOPES "snowy_slopes" 201, // 1.18
     SOUL_SAND_VALLEY "soul_sand_valley" 170,
     STONE_SHORE "stone_shore" 25,
+    STONY_PEAKS "stony_peaks" 204, // 1.18
     SUNFLOWER_PLAINS "sunflower_plains" 129,
     SWAMP "swamp" 6,
     SWAMP_HILLS "swamp_hills" 134,

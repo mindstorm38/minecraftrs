@@ -274,6 +274,8 @@ impl Level {
             unsafe {
                 chunk.add_entity_unchecked(entity);
             }
+        } else {
+            // TODO: Add this entity to a list of future entities to add to unloaded chunks.
         }
 
         Some(entity)
@@ -377,6 +379,8 @@ impl ChunkStorage {
 }
 
 
+/// Entity component system for the level, both entities and block entities are stored in the
+/// ECS.
 pub struct EntityStorage {
     /// The ECS storing all entities in the level.
     pub ecs: EcsWorld,
@@ -387,8 +391,7 @@ pub struct EntityStorage {
 impl EntityStorage {
 
     /// Spawn an entity in the level owning this storage, you must give its type and position,
-    /// its handle is returned. If the given entity type is not supported by the level's
-    /// environment, `None` is returned.
+    /// its handle is returned.
     ///
     /// # Safety:
     /// This method is made for internal use because the entity type must be supported checked
@@ -398,15 +401,23 @@ impl EntityStorage {
     /// # See:
     /// Use `Level::spawn_entity` instead of this method if you want to avoid safety issues.
     pub unsafe fn spawn_entity_unchecked(&mut self, entity_type: &'static EntityType, pos: EntityPos) -> Entity {
-
         self.builder.add(BaseEntity::new(entity_type, Uuid::new_v4(), pos));
+        self.add_entity_internal(entity_type)
+    }
 
+    /// Spawn a block entity in the level owning this storage, you must give its type and position,
+    /// its handle is returned.
+    pub unsafe fn spawn_block_entity_unchecked(&mut self, entity_type: &'static EntityType, pos: BlockPos) -> Entity {
+        self.builder.add(BaseBlockEntity::new(entity_type, pos));
+        self.add_entity_internal(entity_type)
+    }
+
+    /// Internal function to finalize insertion of an entity type.
+    fn add_entity_internal(&mut self, entity_type: &'static EntityType) -> Entity {
         for &component in entity_type.codecs {
             component.default(&mut self.builder);
         }
-
         self.ecs.spawn(self.builder.build())
-
     }
 
     /// Add a raw entity from a builder, this method is unsafe because the caller must ensure
@@ -443,6 +454,20 @@ impl BaseEntity {
             pos,
             passengers: None
         }
+    }
+
+}
+
+/// Base block entity component, present in all block entities of a level, must not be removed.
+pub struct BaseBlockEntity {
+    pub entity_type: &'static EntityType,
+    pub pos: BlockPos
+}
+
+impl BaseBlockEntity {
+
+    pub fn new(entity_type: &'static EntityType, pos: BlockPos) -> Self {
+        Self { entity_type, pos }
     }
 
 }

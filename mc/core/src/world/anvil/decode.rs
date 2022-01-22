@@ -63,7 +63,7 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
     // let tag_level = tag_root.get_compound_tag("Level")?;
 
     let cx = tag_root.get_i32("xPos")?;
-    let lower_cy = tag_root.get_i32("yPos")?;
+    let _lower_cy = tag_root.get_i32("yPos")?;
     let cz = tag_root.get_i32("zPos")?;
     check_position(chunk, cx, cz)?;
 
@@ -176,7 +176,7 @@ pub fn decode_chunk(tag_root: &CompoundTag, chunk: &mut ProtoChunk) -> Result<()
                 // We only fill the sub chunk if the only block is not the null block.
                 if blocks_palette.len() == 1 && env.blocks.get_sid_from(&blocks_palette[0]).unwrap() != 0 {
                     if let Ok(sub_chunk) = chunk.ensure_sub_chunk(cy) {
-                        sub_chunk.fill_block(blocks_palette[0]);
+                        sub_chunk.fill_block(blocks_palette[0]).unwrap();
                     }
                 }
 

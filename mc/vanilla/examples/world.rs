@@ -9,9 +9,7 @@ use std::time::Duration;
 
 
 /// This example can be run to test which block states or properties are not properly decoded
-/// from a debug world. This example currently supports 1.17.1 and before. Debug worlds in 1.18+
-/// requires a different chunk height so you can change it in the function to debug 1.18 block
-/// states, even if they are identical to 1.17.1.
+/// from a debug world. This example currently supports 1.18.1.
 ///
 /// Put the path to the directory of the world into the 'MCRS_LEVEL_DIR' environment variable.
 fn main() {
@@ -42,10 +40,8 @@ fn main() {
 
     let mut level = Level::new("overworld".to_string(), env, height, source);
 
-    println!("Level height: {:?}", level.get_height());
-
-    for cx in 0..=17 {
-        for cz in 0..=17 {
+    for cx in 0..=31 {
+        for cz in 0..=31 {
             level.request_chunk_load(cx, cz);
         }
     }
@@ -66,6 +62,7 @@ fn main() {
     }).sum();
 
     println!("===== MEMORY USAGE =====");
+    println!("Level height: {:?}", level.get_height());
     println!("Chunks count: {}", chunks_count);
     println!("Sub chunks count: {}", sub_chunks_count);
     println!("========================");
