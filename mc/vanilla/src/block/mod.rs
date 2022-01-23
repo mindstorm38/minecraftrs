@@ -3,7 +3,6 @@ use mc_core::pos::{Axis, Direction};
 
 use crate::util::DyeColor;
 
-pub mod redstone;
 pub mod material;
 
 
